@@ -363,7 +363,7 @@ void Menu_Center( menuframework_s *menu )
 	menu->y = ( VID_HEIGHT - (int)(height * s) ) / 2;
 }
 
-void Menu_UpdateCursorFromMouse( menuframework_s *menu )
+qboolean Menu_UpdateCursorFromMouse( menuframework_s *menu )
 {
 	int i;
 	menucommon_s *item;
@@ -371,7 +371,7 @@ void Menu_UpdateCursorFromMouse( menuframework_s *menu )
 	int x0, x1;
 
 	if ( !menu || !menu_mouse_valid )
-		return;
+		return false;
 
 	/* Parent menu X span (classic 320-wide UI centered on menu->x) */
 	x0 = menu->x - (int)(160 * s);
@@ -388,9 +388,10 @@ void Menu_UpdateCursorFromMouse( menuframework_s *menu )
 			&& menu_mouse_x >= x0 && menu_mouse_x < x1 )
 		{
 			menu->cursor = i;
-			break;
+			return true;
 		}
 	}
+	return false;
 }
 
 void Menu_Draw( menuframework_s *menu )

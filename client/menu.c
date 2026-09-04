@@ -216,8 +216,10 @@ static const char *Default_MenuKey( menuframework_s *m, int key )
 	case K_MOUSE2:
 	case K_MOUSE3:
 		IN_UpdateMenuMouse();
-		if ( m )
-			Menu_UpdateCursorFromMouse( m );
+		/* Only activate if the click actually hit a menu item (avoids
+		   double-click on Main->Game immediately firing Easy/StartGame). */
+		if ( !m || !Menu_UpdateCursorFromMouse( m ) )
+			return NULL;
 		/* fallthrough */
 	case K_JOY1:
 	case K_JOY2:
@@ -2229,7 +2231,7 @@ static menuseparator_s	s_blankline;
 
 static void StartGame( void )
 {
-	if (!CM_MapWillLoad ("base1"))
+	if (!CM_MapWillLoad ("maps/base1.bsp"))
 	{
 		Com_Printf ("ERROR: Your Quake II installation is missing the single player data, you cannot start a single player game.\n", LOG_GENERAL);
 		M_PopMenu ();
@@ -2293,6 +2295,7 @@ static void Game_MenuInit( void )
 
 	s_game_menu.x = (int)(viddef.width * 0.50f);
 	s_game_menu.nitems = 0;
+	s_game_menu.cursor = 0;
 
 	s_easy_game_action.generic.type	= MTYPE_ACTION;
 	s_easy_game_action.generic.flags  = QMF_LEFT_JUSTIFY;
