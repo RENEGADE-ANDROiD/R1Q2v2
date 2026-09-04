@@ -681,7 +681,7 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
     if (!PngFileBuffer.Buffer)
 		return;
 
-	if ((png_check_sig(PngFileBuffer.Buffer, 8)) == 0)
+	if (png_sig_cmp(PngFileBuffer.Buffer, 0, 8))
 	{
 		ri.FS_FreeFile (PngFileBuffer.Buffer); 
 		ri.Con_Printf (PRINT_ALL, "Not a PNG file: %s\n", name);
@@ -721,54 +721,69 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 
 	png_read_info(png_ptr, info_ptr);
 
-	if (info_ptr->height > MAX_TEXTURE_DIMENSIONS)
 	{
-        png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
-		ri.FS_FreeFile (PngFileBuffer.Buffer);
-		ri.Con_Printf (PRINT_ALL, "Oversized PNG file: %s\n", name);
-		return;
+		png_uint_32 png_width = 0, png_height = 0;
+		int bit_depth = 0, color_type = 0, interlace_type = 0;
+		png_get_IHDR(png_ptr, info_ptr, &png_width, &png_height, &bit_depth, &color_type, &interlace_type, NULL, NULL);
+
+		if (png_height > MAX_TEXTURE_DIMENSIONS || png_width > MAX_TEXTURE_DIMENSIONS)
+		{
+			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+			ri.FS_FreeFile (PngFileBuffer.Buffer);
+			ri.Con_Printf (PRINT_ALL, "Oversized PNG file: %s\n", name);
+			return;
+		}
+
+		if (color_type == PNG_COLOR_TYPE_PALETTE)
+		{
+			png_set_palette_to_rgb (png_ptr);
+			png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+		}
+
+		if (color_type == PNG_COLOR_TYPE_RGB)
+			png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+
+		if ((color_type == PNG_COLOR_TYPE_GRAY) && bit_depth < 8)
+			png_set_expand_gray_1_2_4_to_8(png_ptr);
+
+		if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+			png_set_tRNS_to_alpha(png_ptr);
+
+		if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+			png_set_gray_to_rgb(png_ptr);
+
+		if (bit_depth == 16)
+			png_set_strip_16(png_ptr);
+
+		if (bit_depth < 8)
+			png_set_packing(png_ptr);
+
+		if (png_get_gAMA(png_ptr, info_ptr, &file_gamma))
+			png_set_gamma (png_ptr, 2.0, file_gamma);
+
+		png_read_update_info(png_ptr, info_ptr);
+
+		rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+		png_height = png_get_image_height(png_ptr, info_ptr);
+		png_width = png_get_image_width(png_ptr, info_ptr);
+
+		*pic = malloc (png_height * rowbytes);
+		if (!*pic)
+		{
+			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+			ri.FS_FreeFile (PngFileBuffer.Buffer);
+			ri.Con_Printf (PRINT_ALL, "Out of memory for PNG: %s\n", name);
+			return;
+		}
+
+		for (i = 0; i < png_height; i++)
+			row_pointers[i] = *pic + i*rowbytes;
+
+		png_read_image(png_ptr, row_pointers);
+
+		*width = (int)png_width;
+		*height = (int)png_height;
 	}
-
-	if (info_ptr->color_type == PNG_COLOR_TYPE_PALETTE)
-	{
-		png_set_palette_to_rgb (png_ptr);
-		png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
-	}
-
-	if (info_ptr->color_type == PNG_COLOR_TYPE_RGB)
-		png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
-
-	if ((info_ptr->color_type == PNG_COLOR_TYPE_GRAY) && info_ptr->bit_depth < 8)
-		png_set_gray_1_2_4_to_8(png_ptr);
-
-	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
-		png_set_tRNS_to_alpha(png_ptr);
-
-	if (info_ptr->color_type == PNG_COLOR_TYPE_GRAY || info_ptr->color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
-		png_set_gray_to_rgb(png_ptr);
-
-	if (info_ptr->bit_depth == 16)
-		png_set_strip_16(png_ptr);
-
-	if (info_ptr->bit_depth < 8)
-        png_set_packing(png_ptr);
-
-	if (png_get_gAMA(png_ptr, info_ptr, &file_gamma))
-		png_set_gamma (png_ptr, 2.0, file_gamma);
-
-	png_read_update_info(png_ptr, info_ptr);
-
-	rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-
-	*pic = malloc (info_ptr->height * rowbytes);
-
-	for (i = 0; i < info_ptr->height; i++)
-		row_pointers[i] = *pic + i*rowbytes;
-
-	png_read_image(png_ptr, row_pointers);
-
-	*width = info_ptr->width;
-	*height = info_ptr->height;
 
 	png_read_end(png_ptr, end_info);
 	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
@@ -1520,7 +1535,7 @@ void EXPORT jpg_skip_input_data(j_decompress_ptr cinfo, long num_bytes)
     cinfo->src->bytes_in_buffer -= (size_t) num_bytes;
 }
 
-void jpeg_mem_src (j_decompress_ptr cinfo, byte *mem, int len)
+static void r1_jpeg_mem_src (j_decompress_ptr cinfo, byte *mem, int len)
 {
     cinfo->src = (struct jpeg_source_mgr *)(*cinfo->mem->alloc_small)((j_common_ptr) cinfo, JPOOL_PERMANENT, sizeof(struct jpeg_source_mgr));
     cinfo->src->init_source = jpg_null;
@@ -1552,16 +1567,17 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 	if (!rawdata)
 		return;	
 
-	if (rawsize < 10 || rawdata[6] != 'J' || rawdata[7] != 'F' || rawdata[8] != 'I' || rawdata[9] != 'F')
-	{ 
-		ri.Con_Printf (PRINT_ALL, "Invalid JPEG header: %s\n", filename); 
-		ri.FS_FreeFile(rawdata); 
-		return; 
-	} 
+	/* Accept any SOI JPEG (JFIF/Exif/etc.) — classic check rejected many valid skins. */
+	if (rawsize < 2 || rawdata[0] != 0xFF || rawdata[1] != 0xD8)
+	{
+		ri.Con_Printf (PRINT_ALL, "Invalid JPEG header: %s\n", filename);
+		ri.FS_FreeFile(rawdata);
+		return;
+	}
 
 	cinfo.err = jpeg_std_error(&jerr);
 	jpeg_create_decompress(&cinfo);
-	jpeg_mem_src(&cinfo, rawdata, rawsize);
+	r1_jpeg_mem_src(&cinfo, rawdata, rawsize);
 	jpeg_read_header(&cinfo, true);
 	jpeg_start_decompress(&cinfo);
 

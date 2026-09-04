@@ -19,6 +19,8 @@ if(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif()
 
 find_package(ZLIB REQUIRED)
+find_package(PNG REQUIRED)
+find_package(JPEG REQUIRED)
 
 if(MSVC)
   add_compile_definitions(
@@ -140,8 +142,61 @@ if(R1Q2_BUILD_CLIENT)
   )
 endif()
 
+
+# ---------------------------------------------------------------------------
+# ref_gl / R1GL renderer DLL (Win32 OpenGL)
+# ---------------------------------------------------------------------------
+option(R1Q2_BUILD_REF_GL "Build R1 ref_gl renderer (ref_r1gl.dll)" ON)
+if(R1Q2_BUILD_REF_GL)
+  add_library(ref_r1gl SHARED ${R1Q2_REF_GL_SOURCES} ref_gl/ref_gl.def)
+  target_compile_definitions(ref_r1gl PRIVATE REF_GL)
+  target_include_directories(ref_r1gl PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/ref_gl
+    ${CMAKE_CURRENT_SOURCE_DIR}/client
+    ${CMAKE_CURRENT_SOURCE_DIR}/game
+    ${CMAKE_CURRENT_SOURCE_DIR}/qcommon
+    ${CMAKE_CURRENT_SOURCE_DIR}/win32
+    ${ZLIB_INCLUDE_DIRS}
+    ${PNG_INCLUDE_DIRS}
+    ${JPEG_INCLUDE_DIR}
+  )
+  target_link_libraries(ref_r1gl PRIVATE
+    ZLIB::ZLIB
+    PNG::PNG
+    JPEG::JPEG
+    opengl32
+    glu32
+    gdi32
+    user32
+    winmm
+  )
+  set_target_properties(ref_r1gl PROPERTIES
+    OUTPUT_NAME "ref_r1gl"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    PREFIX ""
+  )
+  # Optional alias copy name used when vid_ref is "gl"
+  add_custom_command(TARGET ref_r1gl POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:ref_r1gl>
+      $<TARGET_FILE_DIR:ref_r1gl>/ref_gl.dll
+    COMMENT "Also emit ref_gl.dll alongside ref_r1gl.dll"
+  )
+endif()
+
 if(R1Q2_BUILD_CLIENT)
-  message(STATUS "r1q2 targets: game, r1q2ded, r1q2 (client ON)")
+  if(R1Q2_BUILD_REF_GL)
+    message(STATUS "r1q2 targets: game, r1q2ded, r1q2, ref_r1gl (client ON)")
+  else()
+    message(STATUS "r1q2 targets: game, r1q2ded, r1q2 (client ON, ref_gl OFF)")
+  endif()
 else()
-  message(STATUS "r1q2 targets: game, r1q2ded (client OFF)")
+  if(R1Q2_BUILD_REF_GL)
+    message(STATUS "r1q2 targets: game, r1q2ded, ref_r1gl (client OFF)")
+  else()
+    message(STATUS "r1q2 targets: game, r1q2ded (client OFF)")
+  endif()
 endif()

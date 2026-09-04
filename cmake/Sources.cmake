@@ -120,3 +120,21 @@ set(R1Q2_GAME_SOURCES
   game/p_weapon.c
   game/q_shared.c
 )
+
+# ref_gl (R1GL) — from ref_gl/ref_gl.dsp
+set(R1Q2_REF_GL_SOURCES
+  ref_gl/gl_draw.c
+  ref_gl/gl_image.c
+  ref_gl/gl_light.c
+  ref_gl/gl_mesh.c
+  ref_gl/gl_model.c
+  ref_gl/gl_rmain.c
+  ref_gl/gl_rmisc.c
+  ref_gl/gl_rsurf.c
+  ref_gl/gl_warp.c
+  win32/glw_imp.c
+  win32/q_shwin.c
+  win32/qgl_win.c
+  game/q_shared.c
+)
+

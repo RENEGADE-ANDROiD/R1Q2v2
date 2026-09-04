@@ -1387,9 +1387,9 @@ void R_Register( void )
 	//r1ch: my extensions
 	//gl_ext_generate_mipmap = ri.Cvar_Get ("gl_ext_generate_mipmap", "0", 0);
 	gl_ext_point_sprite = ri.Cvar_Get ("gl_ext_point_sprite", "0", 0);
-	gl_ext_texture_filter_anisotropic = ri.Cvar_Get ("gl_ext_texture_filter_anisotropic", "0", 0);
+	gl_ext_texture_filter_anisotropic = ri.Cvar_Get ("gl_ext_texture_filter_anisotropic", "1", CVAR_ARCHIVE);
 	gl_ext_texture_non_power_of_two = ri.Cvar_Get ("gl_ext_texture_non_power_of_two", "0", 0);
-	gl_ext_max_anisotropy = ri.Cvar_Get ("gl_ext_max_anisotropy", "2", 0);
+	gl_ext_max_anisotropy = ri.Cvar_Get ("gl_ext_max_anisotropy", "8", CVAR_ARCHIVE);
 	gl_ext_occlusion_query = ri.Cvar_Get ("gl_ext_occlusion_query", "0", 0);
 	
 	gl_ext_nv_multisample_filter_hint = ri.Cvar_Get ("gl_ext_nv_multisample_filter_hint", "fastest", 0);
