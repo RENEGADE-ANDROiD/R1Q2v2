@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gl_local.h"
 #include <png.h>
 #include <jpeglib.h>
+#include <setjmp.h>
 
 image_t		gltextures[MAX_GLTEXTURES];
 int			numgltextures = 0;
@@ -654,11 +655,18 @@ abortload:
 typedef struct {
     byte *Buffer;
     size_t Pos;
+    size_t Size;
 } TPngFileBuffer;
 
 void EXPORT PngReadFunc(png_struct *Png, png_bytep buf, png_size_t size)
 {
     TPngFileBuffer *PngFileBuffer=(TPngFileBuffer*)png_get_io_ptr(Png);
+    if (!PngFileBuffer || !PngFileBuffer->Buffer ||
+        PngFileBuffer->Pos + size > PngFileBuffer->Size)
+    {
+        png_error(Png, "PNG read past end of file");
+        return;
+    }
     memcpy(buf,PngFileBuffer->Buffer+PngFileBuffer->Pos,size);
     PngFileBuffer->Pos+=size;
 }
@@ -672,14 +680,21 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 	png_bytep		row_pointers[MAX_TEXTURE_DIMENSIONS];
 	double			file_gamma;
 
-	TPngFileBuffer	PngFileBuffer = {NULL,0};
+	TPngFileBuffer	PngFileBuffer = {NULL,0,0};
+	int				filelen;
 
 	*pic = NULL;
 
-	ri.FS_LoadFile (name, (void *)&PngFileBuffer.Buffer);
+	filelen = ri.FS_LoadFile (name, (void *)&PngFileBuffer.Buffer);
 
-    if (!PngFileBuffer.Buffer)
+    if (!PngFileBuffer.Buffer || filelen < 8)
+	{
+		if (PngFileBuffer.Buffer)
+			ri.FS_FreeFile (PngFileBuffer.Buffer);
 		return;
+	}
+
+	PngFileBuffer.Size = (size_t)filelen;
 
 	if (png_sig_cmp(PngFileBuffer.Buffer, 0, 8))
 	{
@@ -719,6 +734,20 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 
 	png_set_read_fn (png_ptr,(png_voidp)&PngFileBuffer,(png_rw_ptr)PngReadFunc);
 
+	if (setjmp (png_jmpbuf (png_ptr)))
+	{
+		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		if (*pic)
+		{
+			free (*pic);
+			*pic = NULL;
+		}
+		ri.FS_FreeFile (PngFileBuffer.Buffer);
+		ri.Con_Printf (PRINT_ALL, "Bad PNG file: %s\n", name);
+		*width = *height = 0;
+		return;
+	}
+
 	png_read_info(png_ptr, info_ptr);
 
 	{
@@ -728,7 +757,7 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 
 		if (png_height > MAX_TEXTURE_DIMENSIONS || png_width > MAX_TEXTURE_DIMENSIONS)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 			ri.FS_FreeFile (PngFileBuffer.Buffer);
 			ri.Con_Printf (PRINT_ALL, "Oversized PNG file: %s\n", name);
 			return;
@@ -1547,6 +1576,21 @@ static void r1_jpeg_mem_src (j_decompress_ptr cinfo, byte *mem, int len)
     cinfo->src->next_input_byte = mem;
 }
 
+typedef struct {
+	struct jpeg_error_mgr	pub;
+	jmp_buf					setjmp_buffer;
+} r1_jpeg_error_t;
+
+static void r1_jpeg_error_exit (j_common_ptr cinfo)
+{
+	r1_jpeg_error_t	*err = (r1_jpeg_error_t *)cinfo->err;
+	char			buf[JMSG_LENGTH_MAX];
+
+	(*cinfo->err->format_message) (cinfo, buf);
+	ri.Con_Printf (PRINT_ALL, "JPEG error: %s\n", buf);
+	longjmp (err->setjmp_buffer, 1);
+}
+
 /*
 ==============
 LoadJPG
@@ -1555,11 +1599,17 @@ LoadJPG
 void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 {
 	struct jpeg_decompress_struct	cinfo;
-	struct jpeg_error_mgr			jerr;
+	r1_jpeg_error_t					jerr;
 	byte							*rawdata, *rgbadata, *scanline, *p, *q;
 	unsigned int					rawsize, i;
+	int								created;
 
 	*pic = NULL;
+	rawdata = NULL;
+	rgbadata = NULL;
+	scanline = NULL;
+	created = 0;
+	memset (&cinfo, 0, sizeof(cinfo));
 
 	// Load JPEG file into memory
 	rawsize = ri.FS_LoadFile(filename, (void **)&rawdata);
@@ -1575,8 +1625,28 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 		return;
 	}
 
-	cinfo.err = jpeg_std_error(&jerr);
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = r1_jpeg_error_exit;
+	if (setjmp (jerr.setjmp_buffer))
+	{
+		if (created)
+			jpeg_destroy_decompress (&cinfo);
+		if (scanline)
+			free (scanline);
+		if (rgbadata)
+			free (rgbadata);
+		if (rawdata)
+			ri.FS_FreeFile (rawdata);
+		*pic = NULL;
+		if (width)
+			*width = 0;
+		if (height)
+			*height = 0;
+		return;
+	}
+
 	jpeg_create_decompress(&cinfo);
+	created = 1;
 	r1_jpeg_mem_src(&cinfo, rawdata, rawsize);
 	jpeg_read_header(&cinfo, true);
 	jpeg_start_decompress(&cinfo);
@@ -1635,6 +1705,17 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 	free (scanline);
 	jpeg_finish_decompress (&cinfo);
 	jpeg_destroy_decompress (&cinfo);
+
+	ri.FS_FreeFile(rawdata);
+
+	if (*width > MAX_TEXTURE_DIMENSIONS || *height > MAX_TEXTURE_DIMENSIONS)
+	{
+		ri.Con_Printf (PRINT_ALL, "Oversized JPEG file: %s\n", filename);
+		free (rgbadata);
+		*pic = NULL;
+		*width = *height = 0;
+		return;
+	}
 
 	*pic = rgbadata;
 }
@@ -2547,7 +2628,7 @@ qboolean GL_Upload32 (unsigned *data, int width, int height, qboolean mipmap, in
 		scaled_height >>= (int)gl_picmip->value;
 	}
 
-	// don't ever bother with >256 textures
+	// cap uploads so they fit the resample scratch buffer
 	if (scaled_width > MAX_TEXTURE_DIMENSIONS)
 		scaled_width = MAX_TEXTURE_DIMENSIONS;
 
@@ -2592,22 +2673,17 @@ qboolean GL_Upload32 (unsigned *data, int width, int height, qboolean mipmap, in
 	// scan the texture for any non-255 alpha
 	samples = gl_solid_format;
 	
-	if (bpp == 8)
+	if (bpp == 8 || bpp == 32)
 	{
 		c = width*height;
-		//scan = ((byte *)data) + 3;
-		for (i=0 ; i<c ; i+= 4)
+		for (i = 0; i < c; i++)
 		{
-			if (*(byte *)&data[i] != 255)
+			if (((byte *)&data[i])[3] != 255)
 			{
 				samples = gl_alpha_format;
 				break;
 			}
 		}
-	}
-	else if (bpp == 32)
-	{
-		samples = gl_alpha_format;
 	}
 
 	if (samples == gl_solid_format)
@@ -2671,23 +2747,18 @@ qboolean GL_Upload32 (unsigned *data, int width, int height, qboolean mipmap, in
 		{
 			GL_MipMap ((byte *)scaled, scaled_width, scaled_height);
 
-			if (gl_config.r1gl_GL_ARB_texture_non_power_of_two)
-			{
-				scaled_width = (int)floor (width / pow(2, miplevel+1));
-				scaled_height = (int)floor (height / pow (2, miplevel+1));
-			}
-			else
-			{
-				scaled_width >>= 1;
-				scaled_height >>= 1;
-			}
+			/* Always shrink the in-memory buffer dimensions. Using the original
+			   upload size + pow() drifted from GL_MipMap after picmip and on
+			   NPOT textures, and called pow() once per mip level. */
+			scaled_width >>= 1;
+			scaled_height >>= 1;
 
 			if (scaled_width < 1)
 				scaled_width = 1;
 			if (scaled_height < 1)
 				scaled_height = 1;
 			miplevel++;
-			qglTexImage2D (GL_TEXTURE_2D, miplevel, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);;
+			qglTexImage2D (GL_TEXTURE_2D, miplevel, comp, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);
 			GL_CheckForError ();
 		}
 	}
@@ -2956,6 +3027,7 @@ image_t *GL_LoadWal (const char *name)
 	if (len < required)
 	{
 		ri.Con_Printf (PRINT_HIGH, "Bad texture '%s', %d bytes is less than %d required\n", name, len, required);
+		ri.FS_FreeFile ((void *)mt);
 		return NULL;
 	}
 	else if (len != required)
@@ -2975,6 +3047,49 @@ image_t *GL_LoadWal (const char *name)
 
 #define IMAGES_HASH_SIZE	64
 static image_t	*images_hash[IMAGES_HASH_SIZE];
+
+#define IMAGE_MISS_CACHE	512
+static char			image_miss_name[IMAGE_MISS_CACHE][MAX_QPATH];
+static unsigned int	image_miss_hash[IMAGE_MISS_CACHE];
+static int			image_miss_count;
+
+void GL_ClearImageMissCache (void)
+{
+	image_miss_count = 0;
+}
+
+static qboolean GL_ImageWasMissed (const char *name)
+{
+	unsigned int	h;
+	int				i;
+
+	if (!name || !name[0] || image_miss_count <= 0)
+		return false;
+	h = hashify (name);
+	for (i = 0; i < image_miss_count; i++)
+	{
+		if (image_miss_hash[i] == h && !strcmp (image_miss_name[i], name))
+			return true;
+	}
+	return false;
+}
+
+static void GL_NoteImageMiss (const char *name)
+{
+	size_t n;
+
+	if (!name || !name[0] || image_miss_count >= IMAGE_MISS_CACHE)
+		return;
+	if (GL_ImageWasMissed (name))
+		return;
+	n = strlen (name);
+	if (n >= MAX_QPATH)
+		n = MAX_QPATH - 1;
+	memcpy (image_miss_name[image_miss_count], name, n);
+	image_miss_name[image_miss_count][n] = 0;
+	image_miss_hash[image_miss_count] = hashify (name);
+	image_miss_count++;
+}
 
 unsigned int hashify (const char *S)
 {
@@ -3052,6 +3167,9 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 		}
 	}
 
+	if (GL_ImageWasMissed (name))
+		return NULL;
+
 	//hash buckets are quicker than binary tree for smaller amount of items.
 	/*image = rbfind (name, rb);	
 
@@ -3068,8 +3186,12 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 
 	len = strlen(name);
 
-	//if (len < 5)
-	//	ri.Sys_Error (ERR_DROP, "GL_FindImage: Bad image name: %s", name);
+	if (len < 4)
+	{
+		/* no extension — MD3 / Q3 shader names */
+		GL_NoteImageMiss (name);
+		return NULL;
+	}
 
 	//
 	// load the pic from disk
@@ -3126,7 +3248,10 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 					current_texture_filename = name;
 					LoadPCX (name, &pic, &palette, &width, &height);
 					if (!pic)
+					{
+						GL_NoteImageMiss (name);
 						return NULL;
+					}
 					bpp = 8;
 				}
 				else
@@ -3149,31 +3274,46 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 	{
 		LoadPNG (name, &pic, &width, &height);
 		if (!pic)
-			return NULL; // ri.Sys_Error (ERR_DROP, "GL_FindImage: can't load %s", name);
+		{
+			GL_NoteImageMiss (name);
+			return NULL;
+		}
 		image = GL_LoadPic (name, pic, width, height, type, 32);
 	}
 	else if (!strcmp(name+len-4, ".wal"))
 	{
 		image = GL_LoadWal (name);
 		if (!image)
+		{
+			GL_NoteImageMiss (name);
 			return NULL;
+		}
 	}
 	else if (!strcmp(name+len-4, ".jpg"))
 	{
 		LoadJPG (name, &pic, &width, &height);
 		if (!pic)
+		{
+			GL_NoteImageMiss (name);
 			return NULL;
+		}
 		image = GL_LoadPic (name, pic, width, height, type, 32);
 	}
 	else if (!strcmp(name+len-4, ".tga"))
 	{
 		LoadTGA (name, &pic, &width, &height);
 		if (!pic)
+		{
+			GL_NoteImageMiss (name);
 			return NULL;
+		}
 		image = GL_LoadPic (name, pic, width, height, type, 32);
 	}
 	else
+	{
+		GL_NoteImageMiss (name);
 		return NULL;	//	ri.Sys_Error (ERR_DROP, "GL_FindImage: bad extension on: %s", name);
+	}
 
 	//newitem = rbsearch (name, rb);
 	//*newitem = image;
@@ -3192,6 +3332,180 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 	return image;
 }
 
+static image_t *GL_FindImageExt (const char *stem, imagetype_t type)
+{
+	char		path[MAX_QPATH];
+	image_t		*img;
+	const char	*exts[] = { ".tga", ".jpg", ".png", ".pcx", NULL };
+	int			i;
+
+	if (!stem || !stem[0])
+		return NULL;
+
+	for (i = 0; exts[i]; i++)
+	{
+		Com_sprintf (path, sizeof(path), "%s%s", stem, exts[i]);
+		img = GL_FindImage (path, path, type);
+		if (img)
+			return img;
+	}
+	return NULL;
+}
+
+static void GL_SkinNormalize (char *stem)
+{
+	char	*p;
+	char	*src;
+	char	*dst;
+
+	if (!stem)
+		return;
+
+	/* drop shader / skin-file junk: comma, newline, comment */
+	for (p = stem; *p; p++)
+	{
+		if (*p == ',' || *p == '\n' || *p == '\r' || *p == ';')
+		{
+			*p = 0;
+			break;
+		}
+	}
+
+	/* leading slash */
+	while (stem[0] == '/' || stem[0] == '\\')
+		memmove (stem, stem + 1, strlen(stem));
+
+	/* backslash -> slash */
+	for (p = stem; *p; p++)
+	{
+		if (*p == '\\')
+			*p = '/';
+	}
+
+	/* collapse // */
+	src = dst = stem;
+	while (*src)
+	{
+		*dst++ = *src;
+		if (src[0] == '/' && src[1] == '/')
+		{
+			while (src[1] == '/')
+				src++;
+		}
+		src++;
+	}
+	*dst = 0;
+
+	/* Q3 dummy / generated */
+	if (stem[0] == '$' || stem[0] == '*')
+		stem[0] = 0;
+}
+
+image_t *GL_FindSkin (const char *name, const char *modelpath)
+{
+	char		stem[MAX_QPATH];
+	char		dir[MAX_QPATH];
+	char		base[MAX_QPATH];
+	char		tryname[MAX_QPATH];
+	char		*slash;
+	char		*dot;
+	image_t		*img;
+	size_t		n;
+
+	if (!name || !name[0])
+		return NULL;
+
+	Q_strncpy (stem, name, sizeof(stem)-1);
+	GL_SkinNormalize (stem);
+	if (!stem[0])
+		return NULL;
+
+	n = strlen (stem);
+	if (n >= 4 && stem[n-4] == '.')
+	{
+		img = GL_FindImage (stem, stem, it_skin);
+		if (img)
+			return img;
+		stem[n-4] = 0;
+	}
+
+	img = GL_FindImageExt (stem, it_skin);
+	if (img)
+		return img;
+
+	slash = strrchr (stem, '/');
+	if (slash && slash[1])
+	{
+		img = GL_FindImageExt (slash + 1, it_skin);
+		if (img)
+			return img;
+	}
+
+	if (modelpath && modelpath[0])
+	{
+		Q_strncpy (dir, modelpath, sizeof(dir)-1);
+		slash = strrchr (dir, '/');
+		if (!slash)
+			slash = strrchr (dir, '\\');
+		if (slash)
+			slash[1] = 0;
+		else
+			dir[0] = 0;
+
+		slash = strrchr (stem, '/');
+		Q_strncpy (base, slash ? slash + 1 : stem, sizeof(base)-1);
+
+		if (dir[0] && base[0])
+		{
+			Com_sprintf (tryname, sizeof(tryname), "%s%s", dir, base);
+			img = GL_FindImageExt (tryname, it_skin);
+			if (img)
+				return img;
+		}
+
+		if (dir[0])
+		{
+			const char *guess[] = { "skin", "weapon", "tris", NULL };
+			int i;
+			for (i = 0; guess[i]; i++)
+			{
+				Com_sprintf (tryname, sizeof(tryname), "%s%s", dir, guess[i]);
+				img = GL_FindImageExt (tryname, it_skin);
+				if (img)
+					return img;
+			}
+		}
+
+		/* players/male/w_blaster.md2 -> players/male/weapon */
+		if (!Q_strncasecmp (modelpath, "players/", 8))
+		{
+			char pdir[MAX_QPATH];
+			char *slash2;
+
+			Q_strncpy (pdir, modelpath, sizeof(pdir)-1);
+			slash2 = strchr (pdir + 8, '/');
+			if (slash2)
+			{
+				slash2[1] = 0;
+				Com_sprintf (tryname, sizeof(tryname), "%sweapon", pdir);
+				img = GL_FindImageExt (tryname, it_skin);
+				if (img)
+					return img;
+			}
+		}
+
+		Q_strncpy (base, modelpath, sizeof(base)-1);
+		dot = strrchr (base, '.');
+		if (dot)
+			*dot = 0;
+		img = GL_FindImageExt (base, it_skin);
+		if (img)
+			return img;
+	}
+
+	return NULL;
+}
+
 
 
 /*
@@ -3201,6 +3515,13 @@ R_RegisterSkin
 */
 struct image_s * EXPORT R_RegisterSkin (char *name)
 {
+	image_t *img;
+
+	if (!name || !name[0])
+		return NULL;
+	img = GL_FindSkin (name, NULL);
+	if (img)
+		return img;
 	return GL_FindImage (name, name, it_skin);
 }
 
@@ -3413,6 +3734,7 @@ void	GL_InitImages (void)
 	float	g = vid_gamma->value;
 
 	registration_sequence = 1;
+	GL_ClearImageMissCache ();
 
 #ifdef RB_IMAGE_CACHE
 	rb = rbinit (strcmp);
@@ -3508,5 +3830,6 @@ void	GL_ShutdownImages (void)
 		qglDeleteTextures (1, &image->texnum);
 		memset (image, 0, sizeof(*image));
 	}
+	GL_ClearImageMissCache ();
 }
 

@@ -263,6 +263,11 @@ void GL_DrawAliasFrameLerp (dmdl_t *paliashdr, float backlerp)
 			qglUnlockArraysEXT();
 			GL_CheckForError ();
 		}
+
+		if ( !( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM) ) )
+			qglDisableClientState( GL_COLOR_ARRAY );
+		qglDisableClientState( GL_VERTEX_ARRAY );
+		qglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 	}
 	else
 	{
@@ -314,6 +319,8 @@ void GL_DrawAliasFrameLerp (dmdl_t *paliashdr, float backlerp)
 			qglEnd ();
 			GL_CheckForError ();
 		}
+
+		qglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 	}
 
 //	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
@@ -543,15 +550,17 @@ extern void MYgluPerspective( GLdouble fovy, GLdouble aspect, GLdouble zNear, GL
 extern void MYgluPerspective( GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar );
 
 static vec4_t	s_md3_lerped[MD3_MAX_VERTS];
+static float	s_md3_color[MD3_MAX_VERTS * 4];
 
 static void MD3_LatLongNormal (byte lat, byte lng, vec3_t out)
 {
-	float	ilat = (float)lat * (float)(2.0 * M_PI / 255.0);
-	float	ilng = (float)lng * (float)(2.0 * M_PI / 255.0);
+	/* Q2PRO / anorm-style decode: lat polar, lng azimuth, 256-step table. */
+	float	ilat = (float)lat * (float)(2.0 * M_PI / 256.0);
+	float	ilng = (float)lng * (float)(2.0 * M_PI / 256.0);
 
-	out[0] = (float)(cos(ilat) * sin(ilng));
+	out[0] = (float)(sin(ilat) * cos(ilng));
 	out[1] = (float)(sin(ilat) * sin(ilng));
-	out[2] = (float)cos(ilng);
+	out[2] = (float)cos(ilat);
 }
 
 /*
@@ -566,7 +575,7 @@ static void GL_DrawMD3MeshLerp (md3model_t *md3, md3mesh_mem_t *mesh, float back
 	float			frontlerp = 1.0f - backlerp;
 	float			alpha;
 	vec3_t			move, delta, vectors[3];
-	int				i, j;
+	int				i;
 	int				shell;
 	float			*lerp;
 
@@ -604,6 +613,7 @@ static void GL_DrawMD3MeshLerp (md3model_t *md3, md3mesh_mem_t *mesh, float back
 	{
 		vec3_t	n;
 		float	fx, fy, fz, bx, by, bz;
+		float	l;
 
 		fx = v->xyz[0] * MD3_XYZ_SCALE;
 		fy = v->xyz[1] * MD3_XYZ_SCALE;
@@ -616,51 +626,50 @@ static void GL_DrawMD3MeshLerp (md3model_t *md3, md3mesh_mem_t *mesh, float back
 		lerp[1] = move[1] + by * backlerp + fy * frontlerp;
 		lerp[2] = move[2] + bz * backlerp + fz * frontlerp;
 
+		MD3_LatLongNormal (v->norm[0], v->norm[1], n);
 		if (shell)
 		{
-			MD3_LatLongNormal (v->norm[0], v->norm[1], n);
 			lerp[0] += n[0] * POWERSUIT_SCALE;
 			lerp[1] += n[1] * POWERSUIT_SCALE;
 			lerp[2] += n[2] * POWERSUIT_SCALE;
 		}
+		else
+		{
+			l = DotProduct (n, shadevector);
+			if (l < 0.0f)
+				l *= 0.3f;
+			l += 1.0f;
+			s_md3_color[i*4+0] = l * shadelight[0];
+			s_md3_color[i*4+1] = l * shadelight[1];
+			s_md3_color[i*4+2] = l * shadelight[2];
+			s_md3_color[i*4+3] = alpha;
+		}
 	}
 
-	qglBegin (GL_TRIANGLES);
+	qglEnableClientState (GL_VERTEX_ARRAY);
+	qglVertexPointer (3, GL_FLOAT, 16, s_md3_lerped);
+
 	if (shell)
 	{
 		qglColor4f (shadelight[0], shadelight[1], shadelight[2], alpha);
-		for (i = 0; i < mesh->num_tris; i++)
-		{
-			for (j = 0; j < 3; j++)
-			{
-				unsigned idx = mesh->indexes[i*3+j];
-				qglVertex3fv (s_md3_lerped[idx]);
-			}
-		}
 	}
 	else
 	{
-		for (i = 0; i < mesh->num_tris; i++)
-		{
-			for (j = 0; j < 3; j++)
-			{
-				unsigned	idx = mesh->indexes[i*3+j];
-				md3vert_t	*cv = mesh->verts + currententity->frame * mesh->num_verts + idx;
-				vec3_t		n;
-				float		l;
-
-				MD3_LatLongNormal (cv->norm[0], cv->norm[1], n);
-				l = DotProduct (n, shadevector);
-				if (l < 0.0f)
-					l = 0.0f;
-
-				qglColor4f (l * shadelight[0], l * shadelight[1], l * shadelight[2], alpha);
-				qglTexCoord2f (mesh->st[idx*2+0], mesh->st[idx*2+1]);
-				qglVertex3fv (s_md3_lerped[idx]);
-			}
-		}
+		qglEnableClientState (GL_TEXTURE_COORD_ARRAY);
+		qglTexCoordPointer (2, GL_FLOAT, 0, mesh->st);
+		qglEnableClientState (GL_COLOR_ARRAY);
+		qglColorPointer (4, GL_FLOAT, 0, s_md3_color);
 	}
-	qglEnd ();
+
+	qglDrawElements (GL_TRIANGLES, mesh->num_tris * 3, GL_UNSIGNED_INT, mesh->indexes);
+
+	if (!shell)
+	{
+		qglDisableClientState (GL_COLOR_ARRAY);
+		qglDisableClientState (GL_TEXTURE_COORD_ARRAY);
+	}
+	qglDisableClientState (GL_VERTEX_ARRAY);
+	qglColor4f (1.0f, 1.0f, 1.0f, 1.0f);
 
 	if (shell)
 		qglEnable (GL_TEXTURE_2D);
@@ -806,7 +815,7 @@ void R_DrawAliasMD3Model (entity_t *e)
 	}
 	else
 	{
-		R_LightPoint (currententity->origin, shadelight);
+		R_LightPoint ((currententity->flags & RF_WEAPONMODEL) ? r_newrefdef.vieworg : currententity->origin, shadelight);
 		if (currententity->flags & RF_WEAPONMODEL)
 		{
 			if (shadelight[0] > shadelight[1])
@@ -1078,7 +1087,7 @@ void R_DrawAliasModel (entity_t *e)
 	}
 	else
 	{
-		R_LightPoint (currententity->origin, shadelight);
+		R_LightPoint ((currententity->flags & RF_WEAPONMODEL) ? r_newrefdef.vieworg : currententity->origin, shadelight);
 
 		// player lighting hack for communication back to server
 		// big hack!

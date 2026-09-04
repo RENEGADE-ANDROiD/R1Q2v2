@@ -680,6 +680,8 @@ void CL_Disconnect (qboolean skipdisconnect);
 void CL_Disconnect_f (void);
 void CL_GetChallengePacket (void);
 void CL_PingServers_f (void);
+void CL_RunServerPings (void);
+qboolean CL_ServerPingBusy (void);
 void CL_Snd_Restart_f (void);
 void CL_RequestNextDownload (void);
 

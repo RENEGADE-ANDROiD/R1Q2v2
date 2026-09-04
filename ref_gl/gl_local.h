@@ -47,7 +47,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define REF_VERSION "R1GL015-modified"
 #endif
 
-#define	MAX_TEXTURE_DIMENSIONS	1024
+#define	MAX_TEXTURE_DIMENSIONS	2048
 
 // up / down
 #define	PITCH	0
@@ -239,6 +239,7 @@ extern cvar_t	*gl_zfar;
 extern cvar_t	*gl_overbrights;
 extern cvar_t	*gl_linear_mipmaps;
 extern cvar_t	*gl_hudscale;
+float			R_EffectiveHudScale (void);
 
 extern cvar_t	*vid_gamma_pics;
 
@@ -323,6 +324,8 @@ extern	float	r_world_matrix[16];
 
 void R_TranslatePlayerSkin (int playernum);
 void GL_Bind (unsigned int texnum);
+image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type);
+image_t	*GL_FindSkin (const char *name, const char *modelpath);
 void GL_MBind( GLenum target, unsigned int texnum );
 void GL_TexEnv( GLenum value );
 void GL_EnableMultitexture( qboolean enable );
@@ -404,6 +407,7 @@ void LoadPCX (const char *filename, byte **pic, byte **palette, int *width, int 
 image_t *GL_LoadPic (const char *name, byte *pic, int width, int height, imagetype_t type, int bits);
 image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type);
 image_t	*GL_FindImageBase (const char *basename, imagetype_t type);
+void	GL_ClearImageMissCache (void);
 void	GL_TextureMode( char *string );
 void	GL_ImageList_f (void);
 void	GL_Version_f (void);

@@ -46,6 +46,7 @@ vrect_t		scr_vrect;		// position of render window on screen
 
 cvar_t		*scr_viewsize;
 cvar_t		*scr_menuscale;
+cvar_t		*scr_menupicscale;
 int			menu_mouse_x, menu_mouse_y;
 qboolean	menu_mouse_valid;
 cvar_t		*scr_conspeed;
@@ -392,6 +393,16 @@ static void SCR_CalcVrect (void)
 	int		size;
 
 	size = scr_viewsize->intvalue;
+	if (size >= 100)
+	{
+		/* exact framebuffer — the classic width&=~7 / height&=~1 rounding
+		 * left a 1–8px uncleared strip that flickered along the bottom/edge */
+		scr_vrect.x = 0;
+		scr_vrect.y = 0;
+		scr_vrect.width = viddef.width;
+		scr_vrect.height = viddef.height;
+		return;
+	}
 
 	scr_vrect.width = viddef.width*size/100;
 	scr_vrect.width &= ~7;
@@ -682,6 +693,31 @@ float SCR_GetMenuScale (void)
 }
 
 /*
+================
+SCR_GetMenuPicScale
+
+Original R1Q2 / Quake II menu PCX art (banners, main items, plaque).
+A little larger than the 8x8 text scale so the old graphics read on HD.
+scr_menupicscale is a multiplier on top of scr_menuscale (default 1.2).
+================
+*/
+float SCR_GetMenuPicScale (void)
+{
+	float s;
+	float p;
+
+	s = SCR_GetMenuScale();
+	p = 1.2f;
+	if (scr_menupicscale && scr_menupicscale->value > 0.0f)
+		p = scr_menupicscale->value;
+	if (p < 1.0f)
+		p = 1.0f;
+	if (p > 2.0f)
+		p = 2.0f;
+	return s * p;
+}
+
+/*
 ==================
 SCR_Init
 ==================
@@ -690,6 +726,7 @@ void SCR_Init (void)
 {
 	scr_viewsize = Cvar_Get ("viewsize", "100", CVAR_ARCHIVE);
 	scr_menuscale = Cvar_Get ("scr_menuscale", "0", CVAR_ARCHIVE);
+	scr_menupicscale = Cvar_Get ("scr_menupicscale", "1.2", CVAR_ARCHIVE);
 	scr_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 	scr_conheight = Cvar_Get ("scr_conheight", "0.5", 0);
 	scr_showturtle = Cvar_Get ("scr_showturtle", "1", 0);

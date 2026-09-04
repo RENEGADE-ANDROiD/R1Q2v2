@@ -41,6 +41,13 @@ double		gldepthmin, gldepthmax;
 
 double		vid_scaled_width, vid_scaled_height;
 
+float R_EffectiveHudScale (void)
+{
+	if (!gl_hudscale || gl_hudscale->value < 1.0f)
+		return 1.0f;
+	return gl_hudscale->value;
+}
+
 glconfig_t gl_config;
 glstate_t  gl_state;
 
@@ -1020,6 +1027,16 @@ void R_SetupGL (void)
 	w = x2 - x;
 	h = y - y2;
 
+	/* snap near-fullscreen views to the real framebuffer to kill a 1-2px
+	 * uncleaned strip (flicker) along the bottom or right edge */
+	if (x <= 2 && y2 <= 2 && w >= (int)vid.width - 4 && h >= (int)vid.height - 4)
+	{
+		x = 0;
+		y2 = 0;
+		w = (int)vid.width;
+		h = (int)vid.height;
+	}
+
 	qglViewport (x, y2, w, h);
 
 	//
@@ -1086,6 +1103,8 @@ void R_Clear (void)
 				qglClearColor (ref_frand(), ref_frand(), ref_frand(), 1.0);
 				GL_CheckForError ();
 			}
+			else
+				qglClearColor (0, 0, 0, 1);
 			qglClear (GL_COLOR_BUFFER_BIT);
 			GL_CheckForError ();
 		}
@@ -1115,6 +1134,8 @@ void R_Clear (void)
 				qglClearColor (ref_frand(), ref_frand(), ref_frand(), 1.0);
 				GL_CheckForError ();
 			}
+			else
+				qglClearColor (0, 0, 0, 1);
 
 			qglClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			GL_CheckForError ();
@@ -1156,10 +1177,11 @@ void R_RenderView (refdef_t *fd)
 
 	if (FLOAT_NE_ZERO(gl_hudscale->value))
 	{
-		r_newrefdef.width = (int)(r_newrefdef.width * gl_hudscale->value);
-		r_newrefdef.height = (int)(r_newrefdef.height * gl_hudscale->value);
-		r_newrefdef.x = (int)(r_newrefdef.x * gl_hudscale->value);
-		r_newrefdef.y = (int)(r_newrefdef.y * gl_hudscale->value);
+		float hs = R_EffectiveHudScale ();
+		r_newrefdef.width = (int)(r_newrefdef.width * hs);
+		r_newrefdef.height = (int)(r_newrefdef.height * hs);
+		r_newrefdef.x = (int)(r_newrefdef.x * hs);
+		r_newrefdef.y = (int)(r_newrefdef.y * hs);
 	}
 
 	if (!r_worldmodel && !( r_newrefdef.rdflags & RDF_NOWORLDMODEL ) )
@@ -1227,6 +1249,8 @@ void	R_SetGL2D (void)
 	qglDisable (GL_CULL_FACE);
 	//GLPROFqglDisable (GL_BLEND);
 	qglEnable (GL_ALPHA_TEST);
+	if (qglDisableClientState)
+		qglDisableClientState (GL_COLOR_ARRAY);
 	qglColor4fv(colorWhite);
 }
 
@@ -1364,7 +1388,7 @@ void R_Register( void )
 	gl_ztrick = ri.Cvar_Get ("gl_ztrick", "0", 0);
 	gl_finish = ri.Cvar_Get ("gl_finish", "0", CVAR_ARCHIVE);
 	gl_flush = ri.Cvar_Get ("gl_flush", "0", CVAR_ARCHIVE);
-	gl_clear = ri.Cvar_Get ("gl_clear", "0", 0);
+	gl_clear = ri.Cvar_Get ("gl_clear", "1", 0);
 	gl_cull = ri.Cvar_Get ("gl_cull", "1", 0);
 	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0);
 	gl_flashblend = ri.Cvar_Get ("gl_flashblend", "0", 0);
@@ -1429,7 +1453,7 @@ void R_Register( void )
 	//r1ch end my shit
 
 	gl_drawbuffer = ri.Cvar_Get( "gl_drawbuffer", "GL_BACK", 0 );
-	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "1", CVAR_ARCHIVE );
+	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "0", CVAR_ARCHIVE );
 
 	//gl_saturatelighting = ri.Cvar_Get( "gl_saturatelighting", "0", 0 );
 
@@ -1908,8 +1932,8 @@ retryQGL:
 	GL_SetDefaultState();
 
 	//r1: setup cached screensizes
-	vid_scaled_width = vid.width / gl_hudscale->value;
-	vid_scaled_height = vid.height / gl_hudscale->value;
+	vid_scaled_width = vid.width / R_EffectiveHudScale ();
+	vid_scaled_height = vid.height / R_EffectiveHudScale ();
 
 	/*
 	** draw our stereo patterns
@@ -2158,31 +2182,24 @@ void EXPORT R_BeginFrame( float camera_separation )
 	if (gl_hudscale->modified)
 	{
 		int width, height;
-
-		gl_hudscale->modified = false;
+		float hs;
 
 		if (gl_hudscale->value < 1.0f)
-		{
 			ri.Cvar_Set ("gl_hudscale", "1.0");
-		}
-		else
-		{
-			//r1: hudscaling
-			width = (int)ceilf((float)vid.width / gl_hudscale->value);
-			height = (int)ceilf((float)vid.height / gl_hudscale->value);
 
-			//round to powers of 8/2 to avoid blackbars
-			width = (width+7)&~7;
-			height = (height+1)&~1;
+		gl_hudscale->modified = false;
+		hs = R_EffectiveHudScale ();
 
-			gl_hudscale->modified = false;
+		width = (int)ceilf((float)vid.width / hs);
+		height = (int)ceilf((float)vid.height / hs);
 
-			vid_scaled_width = vid.width / gl_hudscale->value;
-			vid_scaled_height = vid.height / gl_hudscale->value;
+		width = (width+7)&~7;
+		height = (height+1)&~1;
 
-			// let the sound and input subsystems know about the new window
-			ri.Vid_NewWindow (width, height);
-		}
+		vid_scaled_width = vid.width / hs;
+		vid_scaled_height = vid.height / hs;
+
+		ri.Vid_NewWindow (width, height);
 	}
 
 #if 0

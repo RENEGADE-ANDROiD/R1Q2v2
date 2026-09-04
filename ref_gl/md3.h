@@ -98,6 +98,7 @@ typedef struct {
 } md3vert_t;
 
 typedef struct {
+	char		name[MD3_MAX_PATH];
 	int			num_verts;
 	int			num_tris;
 	int			num_skins;

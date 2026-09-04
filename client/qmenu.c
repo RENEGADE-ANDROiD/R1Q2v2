@@ -28,7 +28,7 @@ static void	 MenuList_Draw( menulist_s *l );
 static void	 Separator_Draw( menuseparator_s *s );
 static void	 Slider_DoSlide( menuslider_s *s, int dir );
 static void	 Slider_Draw( menuslider_s *s );
-//static void	 SpinControl_DoEnter( menulist_s *s );
+static void	 SpinControl_DoEnter( menulist_s *s );
 static void	 SpinControl_Draw( menulist_s *s );
 static void	 SpinControl_DoSlide( menulist_s *s, int dir );
 
@@ -68,7 +68,8 @@ void Action_Draw( menuaction_s *a )
 	float s = Menu_Scale();
 	Menu_ScaledXY( &a->generic, &x, &y );
 
-	if ( a->generic.name )
+	/* Keys ownerdraw paints both the label and the bind. */
+	if ( a->generic.name && !a->generic.ownerdraw )
 	{
 		if ( a->generic.flags & QMF_LEFT_JUSTIFY )
 		{
@@ -307,6 +308,12 @@ void Menu_AddItem( menuframework_s *menu, void *item )
 void Menu_AdjustCursor( menuframework_s *m, int dir )
 {
 	menucommon_s *citem;
+
+	/* dir is a step, not a skip count (legacy callers passed 2) */
+	if ( dir >= 0 )
+		dir = 1;
+	else
+		dir = -1;
 
 	/*
 	** see if it's in a valid spot
@@ -577,8 +584,8 @@ qboolean Menu_SelectItem( menuframework_s *s )
 //			Menulist_DoEnter( ( menulist_s * ) item );
 			return false;
 		case MTYPE_SPINCONTROL:
-//			SpinControl_DoEnter( ( menulist_s * ) item );
-			return false;
+			SpinControl_DoEnter( ( menulist_s * ) item );
+			return true;
 		}
 	}
 	return false;
@@ -672,6 +679,11 @@ void MenuList_Draw( menulist_s *l )
 void Separator_Draw( menuseparator_s *s )
 {
 	int x, y;
+	if ( s->generic.ownerdraw )
+	{
+		s->generic.ownerdraw( s );
+		return;
+	}
 	if ( !s->generic.name )
 		return;
 	Menu_ScaledXY( &s->generic, &x, &y );
@@ -716,7 +728,7 @@ void Slider_Draw( menuslider_s *s )
 	Draw_Char( x + (int)(RCOLUMN_OFFSET * sc) + step + (int)((SLIDER_RANGE-1) * step * s->range), y, 131);
 }
 
-/*void SpinControl_DoEnter( menulist_s *s )
+static void SpinControl_DoEnter( menulist_s *s )
 {
 	s->curvalue++;
 	if ( s->itemnames[s->curvalue] == 0 )
@@ -724,7 +736,7 @@ void Slider_Draw( menuslider_s *s )
 
 	if ( s->generic.callback )
 		s->generic.callback( s );
-}*/
+}
 
 void SpinControl_DoSlide( menulist_s *s, int dir )
 {

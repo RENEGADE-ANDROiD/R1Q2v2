@@ -135,6 +135,7 @@ if(R1Q2_BUILD_CLIENT)
     ole32
     dxguid
     dinput8
+    wininet
   )
   set_target_properties(r1q2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

@@ -1436,7 +1436,7 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	{
 		skin_name = (char *)pheader + pheader->ofs_skins + i*MAX_SKINNAME;
 		fast_strlwr (skin_name);
-		mod->skins[i] = GL_FindImage (skin_name, skin_name, it_skin);
+		mod->skins[i] = GL_FindSkin (skin_name, mod->name);
 	}
 
 	mod->mins[0] = -32;
@@ -1448,6 +1448,101 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	mod->maxs[2] = 32;
 }
 
+
+static void MD3_ApplySkinFile (model_t *mod, md3model_t *md3, const char *skinpath)
+{
+	byte	*buf;
+	int		len;
+	char	*p;
+	char	line[MAX_QPATH * 2];
+	int		i, li;
+
+	len = ri.FS_LoadFile (skinpath, (void **)&buf);
+	if (len <= 0 || !buf)
+		return;
+
+	p = (char *)buf;
+	while (p < (char *)buf + len)
+	{
+		li = 0;
+		while (p < (char *)buf + len && *p != '\n' && *p != '\r' && li < (int)sizeof(line) - 1)
+			line[li++] = *p++;
+		line[li] = 0;
+		while (p < (char *)buf + len && (*p == '\n' || *p == '\r'))
+			p++;
+
+		{
+			char *meshname;
+			char *shader;
+			char *comma;
+
+			meshname = line;
+			while (*meshname == ' ' || *meshname == '\t')
+				meshname++;
+			if (!*meshname || *meshname == '#' || *meshname == '/')
+				continue;
+			comma = strchr (meshname, ',');
+			if (!comma)
+				continue;
+			*comma = 0;
+			shader = comma + 1;
+			while (*shader == ' ' || *shader == '\t')
+				shader++;
+			if (!*shader)
+				continue;
+
+			for (i = 0; i < md3->num_meshes; i++)
+			{
+				if (!md3->meshes[i].skins[0] &&
+					(!md3->meshes[i].name[0] || !Q_strncasecmp (md3->meshes[i].name, meshname, 64)))
+				{
+					md3->meshes[i].skins[0] = GL_FindSkin (shader, mod->name);
+					if (md3->meshes[i].skins[0] && !mod->skins[0] && i == 0)
+						mod->skins[0] = md3->meshes[i].skins[0];
+					break;
+				}
+			}
+		}
+	}
+
+	ri.FS_FreeFile (buf);
+}
+
+static void MD3_ResolveMissingSkins (model_t *mod, md3model_t *md3)
+{
+	char	path[MAX_QPATH];
+	char	*dot;
+	int		i;
+	size_t	n;
+
+	Q_strncpy (path, mod->name, sizeof(path)-1);
+	dot = strrchr (path, '.');
+	if (dot)
+		strcpy (dot, ".skin");
+	else
+	{
+		n = strlen (path);
+		if (n + 5 < sizeof(path))
+			memcpy (path + n, ".skin", 6);
+	}
+	MD3_ApplySkinFile (mod, md3, path);
+
+	for (i = 0; i < md3->num_meshes; i++)
+	{
+		if (md3->meshes[i].skins[0])
+			continue;
+		if (md3->meshes[i].skinnames[0][0])
+			md3->meshes[i].skins[0] = GL_FindSkin (md3->meshes[i].skinnames[0], mod->name);
+		if (!md3->meshes[i].skins[0] && md3->meshes[i].name[0])
+			md3->meshes[i].skins[0] = GL_FindSkin (md3->meshes[i].name, mod->name);
+		if (!md3->meshes[i].skins[0])
+			md3->meshes[i].skins[0] = GL_FindSkin ("skin", mod->name);
+		if (!md3->meshes[i].skins[0] && i > 0)
+			md3->meshes[i].skins[0] = md3->meshes[0].skins[0];
+		if (i == 0 && md3->meshes[i].skins[0] && !mod->skins[0])
+			mod->skins[0] = md3->meshes[i].skins[0];
+	}
+}
 
 /*
 =================
@@ -1567,6 +1662,9 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 			ri.Sys_Error (ERR_DROP, "%s mesh %i bad offsets", mod->name, m);
 
 		mesh = &md3->meshes[m];
+		memset (mesh->name, 0, sizeof(mesh->name));
+		memcpy (mesh->name, meshhdr.name, sizeof(mesh->name)-1);
+		fast_strlwr (mesh->name);
 		mesh->num_verts = meshhdr.num_verts;
 		mesh->num_tris = meshhdr.num_tris;
 		nskins = meshhdr.num_skins;
@@ -1585,7 +1683,7 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 			mesh->skinnames[s][MAX_SKINNAME-1] = 0;
 			fast_strlwr (mesh->skinnames[s]);
 			if (mesh->skinnames[s][0])
-				mesh->skins[s] = GL_FindImage (mesh->skinnames[s], mesh->skinnames[s], it_skin);
+				mesh->skins[s] = GL_FindSkin (mesh->skinnames[s], mod->name);
 			else
 				mesh->skins[s] = NULL;
 			/* also expose first mesh skins on model for entity skinnum */
@@ -1641,6 +1739,8 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 		VectorSubtract (md3->frames[i].maxs, md3->frames[i].mins, corner);
 		md3->frames[i].radius = (float)sqrt (DotProduct(corner, corner)) * 0.5f;
 	}
+
+	MD3_ResolveMissingSkins (mod, md3);
 
 	mod->type = mod_alias;
 	mod->numframes = hdr.num_frames;
@@ -1719,6 +1819,7 @@ void EXPORT R_BeginRegistration (char *model)
 	cvar_t	*flushmap;
 
 	r_registering = true;
+	GL_ClearImageMissCache ();
 
 #ifdef RB_IMAGE_CACHE
 	EmptyImageCache();

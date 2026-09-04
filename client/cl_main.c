@@ -21,6 +21,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "client.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <wininet.h>
+#endif
+
 #ifndef __TIMESTAMP__
 #define __TIMESTAMP__ __DATE__ " " __TIME__
 #endif
@@ -1463,6 +1468,14 @@ Default master matches the dedicated server's sv_global_master host.
 */
 static cvar_t *cl_master;
 static cvar_t *cl_master2;
+static cvar_t *cl_masterhttp;
+
+#define MAX_PING_QUEUE		512
+#define PINGS_PER_BURST		12
+
+static netadr_t	cl_ping_queue[MAX_PING_QUEUE];
+static int		cl_ping_head;
+static int		cl_ping_count;
 
 static void CL_PingOneServer (netadr_t *adr)
 {
@@ -1470,6 +1483,214 @@ static void CL_PingOneServer (netadr_t *adr)
 		adr->port = ShortSwap (PORT_SERVER);
 	Netchan_OutOfBandPrint (NS_CLIENT, adr, "info %i\n", PROTOCOL_ORIGINAL);
 }
+
+void CL_EnqueueServerPing (netadr_t *adr)
+{
+	int	i;
+	int	slot;
+
+	if (!adr)
+		return;
+	if (cl_ping_count >= MAX_PING_QUEUE)
+		return;
+
+	for (i = 0; i < cl_ping_count; i++)
+	{
+		slot = (cl_ping_head + i) % MAX_PING_QUEUE;
+		if (NET_CompareAdr (&cl_ping_queue[slot], adr))
+			return;
+	}
+
+	slot = (cl_ping_head + cl_ping_count) % MAX_PING_QUEUE;
+	cl_ping_queue[slot] = *adr;
+	if (!cl_ping_queue[slot].port)
+		cl_ping_queue[slot].port = ShortSwap (PORT_SERVER);
+	cl_ping_count++;
+}
+
+qboolean CL_ServerPingBusy (void)
+{
+	return (qboolean)(cl_ping_count > 0);
+}
+
+void CL_RunServerPings (void)
+{
+	int	n;
+
+	n = 0;
+	while (cl_ping_count > 0 && n < PINGS_PER_BURST)
+	{
+		netadr_t	adr;
+
+		adr = cl_ping_queue[cl_ping_head];
+		cl_ping_head = (cl_ping_head + 1) % MAX_PING_QUEUE;
+		cl_ping_count--;
+		CL_PingOneServer (&adr);
+		n++;
+	}
+}
+
+static void CL_ResetPingQueue (void)
+{
+	cl_ping_head = 0;
+	cl_ping_count = 0;
+}
+
+static void CL_ParseMasterText (char *data)
+{
+	char		*line;
+	char		*next;
+	char		*end;
+	netadr_t	adr;
+	int			count;
+
+	count = 0;
+	for (line = data; line && *line; line = next)
+	{
+		next = strchr (line, '\n');
+		if (next)
+		{
+			*next = 0;
+			next++;
+		}
+		end = line + strlen (line);
+		while (end > line && (end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
+		{
+			end--;
+			*end = 0;
+		}
+		while (*line == ' ' || *line == '\t')
+			line++;
+		if (!*line || *line == '#' || *line == '<')
+			continue;
+		if (!NET_StringToAdr (line, &adr))
+			continue;
+		CL_EnqueueServerPing (&adr);
+		count++;
+	}
+	Com_Printf ("HTTP master list: %d server(s)\n", LOG_CLIENT|LOG_NOTICE, count);
+}
+
+#define CL_MASTERHTTP_DEFAULT	"http://q2servers.com/?raw=1"
+
+#ifdef _WIN32
+static qboolean CL_HttpBodyLooksLikeHtml (const char *buf)
+{
+	const char	*p;
+
+	if (!buf)
+		return false;
+	for (p = buf; *p == ' ' || *p == '\t' || *p == '\r' || *p == '\n'; p++)
+		;
+	return (qboolean)(*p == '<');
+}
+
+static qboolean CL_HttpFetchUrl (HINTERNET hNet, const char *url, char *buf, DWORD bufmax, DWORD *out_total)
+{
+	HINTERNET	hUrl;
+	DWORD		nread;
+	DWORD		total;
+	DWORD		status;
+	DWORD		statusSize;
+	DWORD		index;
+
+	if (out_total)
+		*out_total = 0;
+
+	Com_Printf ("fetching %s...\n", LOG_CLIENT|LOG_NOTICE, url);
+
+	hUrl = InternetOpenUrlA (hNet, url, NULL, 0,
+		INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_NO_UI | INTERNET_FLAG_NO_COOKIES,
+		0);
+	if (!hUrl)
+	{
+		Com_Printf ("HTTP master fetch failed (open)\n", LOG_CLIENT);
+		return false;
+	}
+
+	status = 0;
+	statusSize = sizeof(status);
+	index = 0;
+	if (!HttpQueryInfoA (hUrl, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
+			&status, &statusSize, &index))
+		status = 0;
+
+	total = 0;
+	while (total < bufmax)
+	{
+		if (!InternetReadFile (hUrl, buf + total, bufmax - total, &nread) || nread == 0)
+			break;
+		total += nread;
+	}
+	buf[total] = 0;
+	InternetCloseHandle (hUrl);
+
+	if (out_total)
+		*out_total = total;
+
+	if (status < 200 || status > 299)
+	{
+		Com_Printf ("HTTP master fetch failed (status %u, %u bytes)\n",
+			LOG_CLIENT, status, total);
+		return false;
+	}
+	if (CL_HttpBodyLooksLikeHtml (buf))
+	{
+		Com_Printf ("HTTP master fetch failed (HTML body, status %u, %u bytes)\n",
+			LOG_CLIENT, status, total);
+		return false;
+	}
+
+	return true;
+}
+
+static void CL_FetchQ2ServersHTTP (void)
+{
+	HINTERNET	hNet;
+	char		*buf;
+	DWORD		total;
+	const char	*url;
+	qboolean	ok;
+
+	if (!cl_masterhttp)
+		cl_masterhttp = Cvar_Get ("cl_masterhttp", CL_MASTERHTTP_DEFAULT, 0);
+
+	url = cl_masterhttp->string;
+	if (!url || !url[0])
+		return;
+
+	hNet = InternetOpenA ("R1Q2v2", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+	if (!hNet)
+	{
+		Com_Printf ("WinINet open failed\n", LOG_CLIENT);
+		return;
+	}
+
+	buf = malloc (256 * 1024 + 1);
+	if (!buf)
+	{
+		InternetCloseHandle (hNet);
+		return;
+	}
+
+	ok = CL_HttpFetchUrl (hNet, url, buf, 256 * 1024, &total);
+	if (!ok && strstr (url, "www.q2servers.com"))
+	{
+		Com_Printf ("retrying %s...\n", LOG_CLIENT|LOG_NOTICE, CL_MASTERHTTP_DEFAULT);
+		ok = CL_HttpFetchUrl (hNet, CL_MASTERHTTP_DEFAULT, buf, 256 * 1024, &total);
+	}
+
+	if (ok)
+		CL_ParseMasterText (buf);
+
+	free (buf);
+	InternetCloseHandle (hNet);
+}
+#else
+static void CL_FetchQ2ServersHTTP (void)
+{
+}
+#endif
 
 static void CL_QueryMasterAddress (const char *master)
 {
@@ -1554,9 +1775,9 @@ static void CL_ParseMasterServers (byte *data, int len)
 		data += 6;
 		len -= 6;
 
-		CL_PingOneServer (&adr);
+		CL_EnqueueServerPing (&adr);
 		count++;
-		if (count >= 256)
+		if (count >= 512)
 			break;
 	}
 
@@ -1570,12 +1791,11 @@ CL_PingServers_f
 */
 void CL_PingServers_f (void)
 {
-	int				i;
-	netadr_t		adr;
-	char			name[16];
-	const char		*adrstring;
+	netadr_t	adr;
 
 	NET_Config (NET_CLIENT);		/* allow remote */
+
+	CL_ResetPingQueue ();
 
 	Com_Printf ("pinging broadcast...\n", LOG_CLIENT|LOG_NOTICE);
 
@@ -1591,24 +1811,7 @@ void CL_PingServers_f (void)
 	adr.port = ShortSwap(PORT_SERVER);
 	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info 34\n");
 
-	/* address book */
-	for (i=0 ; i < 32; i++)
-	{
-		Com_sprintf (name, sizeof(name), "adr%i", i);
-		adrstring = Cvar_VariableString (name);
-		if (!adrstring || !adrstring[0])
-			continue;
-
-		Com_Printf ("pinging %s...\n", LOG_CLIENT|LOG_NOTICE, adrstring);
-		if (!NET_StringToAdr (adrstring, &adr))
-		{
-			Com_Printf ("Bad address: %s\n", LOG_CLIENT, adrstring);
-			continue;
-		}
-		CL_PingOneServer (&adr);
-	}
-
-	/* internet masters (responses populate list via info replies) */
+	CL_FetchQ2ServersHTTP ();
 	CL_QueryMasters_f ();
 }
 
@@ -3634,7 +3837,7 @@ void CL_InitLocal (void)
 	cl_backlerp = Cvar_Get ("cl_backlerp", "1", 0);
 //	cl_minfps = Cvar_Get ("cl_minfps", "5", 0);
 
-	r_maxfps = Cvar_Get ("r_maxfps", "1000", 0);
+	r_maxfps = Cvar_Get ("r_maxfps", "250", CVAR_ARCHIVE);
 	r_maxfps->changed = _maxfps_changed;
 
 	cl_maxfps = Cvar_Get ("cl_maxfps", "60", CVAR_ARCHIVE);
@@ -4135,6 +4338,8 @@ void CL_Synchronous_Frame (int msec)
 	CL_RunHTTPDownloads ();
 #endif
 
+	CL_RunServerPings ();
+
 	// fetch results from server
 	CL_ReadPackets ();
 
@@ -4304,6 +4509,8 @@ void CL_Frame (int msec)
 	}
 
 	send_packet_now = false;
+
+	CL_RunServerPings ();
 
 	//jec- send commands to the server
 	//if (++inputCount >= cl_snaps->value && packet_frame)
