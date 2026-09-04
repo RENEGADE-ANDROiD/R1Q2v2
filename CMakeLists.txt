@@ -13,6 +13,11 @@ set(CMAKE_C_STANDARD_REQUIRED OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(Sources)
 
+# R1Q2 still relies on MSVC 32-bit inline asm (Q_ftol, FPU control, etc.).
+if(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(WARNING "x64 MSVC is not supported yet (inline __asm). Prefer Win32 / x86-windows triplet.")
+endif()
+
 find_package(ZLIB REQUIRED)
 
 if(MSVC)

@@ -6,3 +6,5 @@ build-*/
 *.suo
 CMakeUserPresets.json
 _*.bat
+
+/build-vs64/
