@@ -68,19 +68,22 @@ void Action_Draw( menuaction_s *a )
 	float s = Menu_Scale();
 	Menu_ScaledXY( &a->generic, &x, &y );
 
-	if ( a->generic.flags & QMF_LEFT_JUSTIFY )
+	if ( a->generic.name )
 	{
-		if ( a->generic.flags & QMF_GRAYED )
-			Menu_DrawStringDark( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
+		if ( a->generic.flags & QMF_LEFT_JUSTIFY )
+		{
+			if ( a->generic.flags & QMF_GRAYED )
+				Menu_DrawStringDark( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
+			else
+				Menu_DrawString( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
+		}
 		else
-			Menu_DrawString( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
-	}
-	else
-	{
-		if ( a->generic.flags & QMF_GRAYED )
-			Menu_DrawStringR2LDark( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
-		else
-			Menu_DrawStringR2L( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
+		{
+			if ( a->generic.flags & QMF_GRAYED )
+				Menu_DrawStringR2LDark( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
+			else
+				Menu_DrawStringR2L( x + (int)(LCOLUMN_OFFSET * s), y, a->generic.name );
+		}
 	}
 	if ( a->generic.ownerdraw )
 		a->generic.ownerdraw( a );
@@ -490,6 +493,9 @@ void Menu_DrawStatusBar( const char *string )
 
 void Menu_DrawString( int x, int y, const char *string )
 {
+	if ( !string )
+		return;
+
 	uint32 i;
 	float s = Menu_Scale();
 	int step = (int)(8 * s);
@@ -502,6 +508,9 @@ void Menu_DrawString( int x, int y, const char *string )
 
 void Menu_DrawStringDark( int x, int y, const char *string )
 {
+	if ( !string )
+		return;
+
 	uint32 i;
 	float s = Menu_Scale();
 	int step = (int)(8 * s);
@@ -514,6 +523,9 @@ void Menu_DrawStringDark( int x, int y, const char *string )
 
 void Menu_DrawStringR2L( int x, int y, const char *string )
 {
+	if ( !string )
+		return;
+
 	uint32 i;
 	float s = Menu_Scale();
 	int step = (int)(8 * s);
@@ -526,6 +538,9 @@ void Menu_DrawStringR2L( int x, int y, const char *string )
 
 void Menu_DrawStringR2LDark( int x, int y, const char *string )
 {
+	if ( !string )
+		return;
+
 	uint32 i;
 	float s = Menu_Scale();
 	int step = (int)(8 * s);
@@ -656,6 +671,8 @@ void MenuList_Draw( menulist_s *l )
 void Separator_Draw( menuseparator_s *s )
 {
 	int x, y;
+	if ( !s->generic.name )
+		return;
 	Menu_ScaledXY( &s->generic, &x, &y );
 	Menu_DrawStringR2LDark( x, y, s->generic.name );
 }
