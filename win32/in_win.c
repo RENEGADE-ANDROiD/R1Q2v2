@@ -1372,16 +1372,14 @@ void IN_Frame (void)
 		return;
 	}
 
+	/* Always free the cursor in menus/console so clicks hit UI
+	   (fullscreen used to keep DInput grab, which broke menu mouse). */
 	if ( !cl.refresh_prepped
 		|| cls.key_dest == key_console
 		|| cls.key_dest == key_menu)
 	{
-		// temporarily deactivate if in fullscreen
-		if (Cvar_IntValue ("vid_fullscreen") == 0)
-		{
-			IN_DeactivateMouse ();
-			return;
-		}
+		IN_DeactivateMouse ();
+		return;
 	}
 
 	IN_ActivateMouse ();

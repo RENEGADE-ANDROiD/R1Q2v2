@@ -27,6 +27,10 @@ Build string: **8012-RENEGADE** (so you can tell this apart from stock R1Q2).
 ## What's in so far
 
 - Fixed null-call ACCESS_VIOLATION during sound init: re-enabled `dsound.dll` LoadLibrary/GetProcAddress for `DirectSoundCreate` (left commented after the CMake port switched callers to `iDirectSoundCreate`).
+- **Video modes:** expanded beyond the old 4:3 table — seeds common modern resolutions (720p/1080p/1440p/4K, etc.) and appends modes from Windows `EnumDisplaySettings`. Pick **1920x1080** under Video Options → video mode, then apply (or `gl_mode` to that index + `vid_restart`).
+- **Menu scale / mouse:** `scr_menuscale` (0 = auto from height/480) scales classic Quake menus/fonts for high-res; mouse is released in menus (including fullscreen) and clicks hit the same scaled space the UI draws in.
+- Multi-size Quake II window icon embedded in `R1Q2v2.exe`.
+- Note (later): q2pro-like server browser not done yet.
 
 - CMake build for the game DLL, dedicated server, client, and `ref_r1gl` (see `BUILD-WINDOWS.md` / `RENDERER.md` if you are compiling).
 - Official binary name **R1Q2v2.exe**, product name **R1Q2v2**.

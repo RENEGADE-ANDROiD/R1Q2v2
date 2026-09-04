@@ -80,9 +80,12 @@ int		m_menudepth;
 static void M_Banner( char *name )
 {
 	int w, h;
+	float s = SCR_GetMenuScale();
 
 	re.DrawGetPicSize (&w, &h, name );
-	re.DrawPic( viddef.width / 2 - w / 2, viddef.height / 2 - 110, name );
+	re.DrawStretchPic( (int)(viddef.width / 2 - (w * s) / 2),
+		(int)(viddef.height / 2 - 110 * s),
+		(int)(w * s), (int)(h * s), name );
 }
 
 static void M_PushMenu ( void (*draw) (void), const char *(*key) (int k) )
@@ -273,7 +276,11 @@ higher res screens.
 */
 static void M_DrawCharacter (int cx, int cy, int num)
 {
-	re.DrawChar ( cx + ((viddef.width - 320)>>1), cy + ((viddef.height - 240)>>1), num);
+	float s = SCR_GetMenuScale();
+	re.DrawChar(
+		(int)(cx * s) + ((viddef.width - (int)(320 * s)) >> 1),
+		(int)(cy * s) + ((viddef.height - (int)(240 * s)) >> 1),
+		num);
 }
 
 static void M_Print (int cx, int cy, char *str)
@@ -282,7 +289,7 @@ static void M_Print (int cx, int cy, char *str)
 	{
 		M_DrawCharacter (cx, cy, (*str)+128);
 		str++;
-		cx += 8;
+		cx += 8; /* virtual 320-space; M_DrawCharacter applies scale */
 	}
 }
 
@@ -330,7 +337,12 @@ static void M_DrawCursor( int x, int y, int f )
 	}
 
 	Com_sprintf( cursorname, sizeof(cursorname), "m_cursor%d", f );
-	re.DrawPic( x, y, cursorname );
+	{
+		int cw, ch;
+		float s = SCR_GetMenuScale();
+		re.DrawGetPicSize( &cw, &ch, cursorname );
+		re.DrawStretchPic( x, y, (int)(cw * s), (int)(ch * s), cursorname );
+	}
 }
 
 static void M_DrawTextBox (int x, int y, int width, int lines)
@@ -396,6 +408,7 @@ static void M_Main_Draw (void)
 	int widest = -1;
 	int totalheight = 0;
 	char litname[80];
+	float s = SCR_GetMenuScale();
 	char *names[] =
 	{
 		"m_main_game",
@@ -415,24 +428,48 @@ static void M_Main_Draw (void)
 		totalheight += ( h + 12 );
 	}
 
-	ystart = ( viddef.height / 2 - 110 );
-	xoffset = ( viddef.width - widest + 70 ) / 2;
+	ystart = (int)( viddef.height / 2 - 110 * s );
+	xoffset = (int)( ( viddef.width - widest * s + 70 * s ) / 2 );
+
+	/* Mouse hover on main menu bitmaps */
+	if ( menu_mouse_valid )
+	{
+		for ( i = 0; names[i] != 0; i++ )
+		{
+			int iy = (int)( ystart + i * 40 * s + 13 * s );
+			re.DrawGetPicSize( &w, &h, names[i] );
+			if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(h * s)
+				&& menu_mouse_x >= xoffset && menu_mouse_x < xoffset + (int)(w * s) )
+			{
+				m_main_cursor = i;
+				break;
+			}
+		}
+	}
 
 	for ( i = 0; names[i] != 0; i++ )
 	{
+		re.DrawGetPicSize( &w, &h, names[i] );
 		if ( i != m_main_cursor )
-			re.DrawPic( xoffset, ystart + i * 40 + 13, names[i] );
+			re.DrawStretchPic( xoffset, (int)(ystart + i * 40 * s + 13 * s),
+				(int)(w * s), (int)(h * s), names[i] );
 	}
 	strcpy( litname, names[m_main_cursor] );
 	strcat( litname, "_sel" );
-	re.DrawPic( xoffset, ystart + m_main_cursor * 40 + 13, litname );
+	re.DrawGetPicSize( &w, &h, litname );
+	re.DrawStretchPic( xoffset, (int)(ystart + m_main_cursor * 40 * s + 13 * s),
+		(int)(w * s), (int)(h * s), litname );
 
-	M_DrawCursor( xoffset - 25, ystart + m_main_cursor * 40 + 11, (int)(cls.realtime / 100)%NUM_CURSOR_FRAMES );
+	M_DrawCursor( (int)(xoffset - 25 * s), (int)(ystart + m_main_cursor * 40 * s + 11 * s),
+		(int)(cls.realtime / 100)%NUM_CURSOR_FRAMES );
 
 	re.DrawGetPicSize( &w, &h, "m_main_plaque" );
-	re.DrawPic( xoffset - 30 - w, ystart, "m_main_plaque" );
+	re.DrawStretchPic( (int)(xoffset - 30 * s - w * s), ystart,
+		(int)(w * s), (int)(h * s), "m_main_plaque" );
 
-	re.DrawPic( xoffset - 30 - w, ystart + h + 5, "m_main_logo" );
+	re.DrawGetPicSize( &w, &h, "m_main_logo" );
+	re.DrawStretchPic( (int)(xoffset - 30 * s - w * s), (int)(ystart + h * s + 5 * s),
+		(int)(w * s), (int)(h * s), "m_main_logo" );
 }
 
 
@@ -458,6 +495,7 @@ static const char *M_Main_Key (int key)
 			m_main_cursor = MAIN_ITEMS - 1;
 		return sound;
 
+	case K_MOUSE1:
 	case K_KP_ENTER:
 	case K_ENTER:
 		m_entersound = true;
@@ -4228,6 +4266,8 @@ M_Draw
 */
 void M_Draw (void)
 {
+	float scale;
+
 	if (cls.key_dest != key_menu)
 		return;
 
@@ -4242,7 +4282,12 @@ void M_Draw (void)
 #endif
 		re.DrawFadeScreen ();
 
+	scale = SCR_GetMenuScale();
+	Cvar_SetValue( "gl_fontscale", scale );
+
 	m_drawfunc ();
+
+	Cvar_SetValue( "gl_fontscale", 1 );
 
 	// delay playing the enter sound until after the
 	// menu has been drawn, to avoid delay while

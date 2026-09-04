@@ -217,25 +217,9 @@ static void CancelChanges( void *unused )
 */
 void EXPORT VID_MenuInit( void )
 {
-	static const char *resolutions[] = 
-	{
-		"[320 240  ]",
-		"[400 300  ]",
-		"[512 384  ]",
-		"[640 480  ]",
-		"[800 600  ]",
-		"[960 720  ]",
-		"[1024 768 ]",
-		"[1152 864 ]",
-		"[1280 960 ]",
-		"[1600 1200]",
-		"[2048 1536]",
-		"[1280 1024]",
-		"[1440 900 ]",
-		"[1680 1050]",
-		"[2560 1920]",
-		0
-	};
+	const char **resolutions;
+	int maxmode;
+
 
 	static const char *refs[] =
 	{
@@ -277,15 +261,26 @@ void EXPORT VID_MenuInit( void )
 	if ( !sw_stipplealpha )
 		sw_stipplealpha = Cvar_Get( "sw_stipplealpha", "0", CVAR_ARCHIVE );
 
+	resolutions = VID_GetModeNames();
+	maxmode = VID_GetNumModes() - 1;
+	if (maxmode < 0)
+	{
+		VID_InitModeList();
+		resolutions = VID_GetModeNames();
+		maxmode = VID_GetNumModes() - 1;
+	}
+	if (maxmode < 0)
+		maxmode = 0;
+
 	s_mode_list[SOFTWARE_MENU].curvalue = sw_mode->intvalue;
-	if (s_mode_list[SOFTWARE_MENU].curvalue > 14)
-		s_mode_list[SOFTWARE_MENU].curvalue = 14;
+	if (s_mode_list[SOFTWARE_MENU].curvalue > maxmode)
+		s_mode_list[SOFTWARE_MENU].curvalue = maxmode;
 	else if (s_mode_list[SOFTWARE_MENU].curvalue < 0)
 		s_mode_list[SOFTWARE_MENU].curvalue = 0;
 
 	s_mode_list[OPENGL_MENU].curvalue = gl_mode->intvalue;
-	if (s_mode_list[OPENGL_MENU].curvalue > 14)
-		s_mode_list[OPENGL_MENU].curvalue = 14;
+	if (s_mode_list[OPENGL_MENU].curvalue > maxmode)
+		s_mode_list[OPENGL_MENU].curvalue = maxmode;
 	else if (s_mode_list[OPENGL_MENU].curvalue < 0)
 		s_mode_list[OPENGL_MENU].curvalue = 0;
 
@@ -454,8 +449,13 @@ void VID_MenuDraw (void)
 	/*
 	** draw the banner
 	*/
-	re.DrawGetPicSize( &w, &h, "m_banner_video" );
-	re.DrawPic( viddef.width / 2 - w / 2, viddef.height /2 - 110, "m_banner_video" );
+	{
+		float s = SCR_GetMenuScale();
+		re.DrawGetPicSize( &w, &h, "m_banner_video" );
+		re.DrawStretchPic( (int)(viddef.width / 2 - (w * s) / 2),
+			(int)(viddef.height / 2 - 110 * s),
+			(int)(w * s), (int)(h * s), "m_banner_video" );
+	}
 
 	/*
 	** move cursor to a reasonable starting position

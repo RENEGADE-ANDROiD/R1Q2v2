@@ -45,6 +45,9 @@ vrect_t		scr_vrect;		// position of render window on screen
 
 
 cvar_t		*scr_viewsize;
+cvar_t		*scr_menuscale;
+int			menu_mouse_x, menu_mouse_y;
+qboolean	menu_mouse_valid;
 cvar_t		*scr_conspeed;
 cvar_t		*scr_conheight;
 cvar_t		*scr_centertime;
@@ -652,6 +655,33 @@ static void _viewsize_changed (cvar_t *self, char *oldValue, char *newValue)
 }
 
 /*
+================
+SCR_GetMenuScale
+
+0 = auto from resolution (classic 480p baseline).
+Keep classic Quake fonts; scale them for high-res.
+================
+*/
+float SCR_GetMenuScale (void)
+{
+	float s;
+
+	if (!scr_menuscale)
+		return 1.0f;
+
+	if (scr_menuscale->value > 0.0f)
+		s = scr_menuscale->value;
+	else
+		s = (float)viddef.height / 480.0f;
+
+	if (s < 1.0f)
+		s = 1.0f;
+	if (s > 6.0f)
+		s = 6.0f;
+	return s;
+}
+
+/*
 ==================
 SCR_Init
 ==================
@@ -659,6 +689,7 @@ SCR_Init
 void SCR_Init (void)
 {
 	scr_viewsize = Cvar_Get ("viewsize", "100", CVAR_ARCHIVE);
+	scr_menuscale = Cvar_Get ("scr_menuscale", "0", CVAR_ARCHIVE);
 	scr_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 	scr_conheight = Cvar_Get ("scr_conheight", "0.5", 0);
 	scr_showturtle = Cvar_Get ("scr_showturtle", "1", 0);

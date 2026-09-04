@@ -36,6 +36,13 @@ void	SCR_TouchPics (void);
 
 void	SCR_RunConsole (void);
 
+float	SCR_GetMenuScale (void);
+extern	cvar_t	*scr_menuscale;
+
+/* Absolute mouse in client coords while menu/console has the cursor */
+extern	int		menu_mouse_x, menu_mouse_y;
+extern	qboolean menu_mouse_valid;
+
 extern	float		scr_con_current;
 extern	float		scr_conlines;		// lines of console to display
 
