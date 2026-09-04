@@ -1,8 +1,8 @@
 # R1Q2 (RENEGADE fork)
 
-A work-in-progress update of r1ch's R1Q2 Quake II client, based on the public source archive.
+A work-in-progress update of r1ch's R1Q2 Quake II client, based on the public source archive. Updated by **h0s3r**.
 
-The goal is a client that still feels like R1Q2, builds on modern Windows, and picks up a few solid ideas from Q2PRO — without turning into a cheat client or a heavy effects pack.
+The goal is a client that still feels like R1Q2, builds on modern Windows, and picks up a few solid ideas from Q2PRO - without turning into a cheat client or a heavy effects pack.
 
 ## Play
 
@@ -17,12 +17,12 @@ Build string: **8012-RENEGADE** (so you can tell this apart from stock R1Q2).
 
 ## What we're aiming for
 
-- **Classic look** — Quake-style fonts, console, and menus stay.
-- **R1Q2 movement by default** — optional Q2PRO-style movement later, as a setting.
-- **Modern Windows build** — CMake / VS2022 instead of old VS6 projects.
-- **Better renderer over time** — cleaner OpenGL inspired by Q2PRO, still looking like Quake II.
-- **Server browser with favorites** — planned, using the old multiplayer menus as a base.
-- **Fair play** — no wallhacks, player wireframes, or bloom tricks that reveal enemies. Heavy weather-style FX are out of scope.
+- **Classic look** - Quake-style fonts, console, and menus stay.
+- **R1Q2 movement by default** - optional Q2PRO-style movement later, as a setting.
+- **Modern Windows build** - CMake / VS2022 instead of old VS6 projects.
+- **Better renderer over time** - cleaner OpenGL inspired by Q2PRO, still looking like Quake II.
+- **Server browser with favorites** - planned, using the old multiplayer menus as a base.
+- **Fair play** - no wallhacks, player wireframes, or bloom tricks that reveal enemies. Heavy weather-style FX are out of scope.
 
 ## What's in so far
 
@@ -34,7 +34,8 @@ Expect rough edges while the renderer and menus catch up.
 
 ## Credits
 
-- **r1ch** — original R1Q2 (http://www.r1ch.net/stuff/r1q2/).
+- **r1ch** - original R1Q2 (http://www.r1ch.net/stuff/r1q2/).
+- **h0s3r** - this RENEGADE update.
 - Public archive: https://github.com/tastyspleen/r1q2-archive
 - Ideas (not a full port): https://github.com/q2pro/q2pro
 
