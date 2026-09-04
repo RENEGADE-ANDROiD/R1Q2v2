@@ -246,11 +246,17 @@ void EXPORT VID_MenuInit( void )
 	if ( !gl_picmip )
 		gl_picmip = Cvar_Get( "gl_picmip", "0", 0 );
 
-	if ( !gl_mode )
-		gl_mode = Cvar_Get( "gl_mode", "3", 0 );
-
-	if ( !sw_mode )
-		sw_mode = Cvar_Get( "sw_mode", "0", 0 );
+	{
+		int desk = VID_GetDesktopModeIndex();
+		char mode_def[16];
+		if ( desk < 0 )
+			desk = 3;
+		Com_sprintf( mode_def, sizeof(mode_def), "%d", desk );
+		if ( !gl_mode )
+			gl_mode = Cvar_Get( "gl_mode", mode_def, 0 );
+		if ( !sw_mode )
+			sw_mode = Cvar_Get( "sw_mode", mode_def, 0 );
+	}
 
 	if ( !gl_ext_palettedtexture )
 		gl_ext_palettedtexture = Cvar_Get( "gl_ext_palettedtexture", "0", CVAR_ARCHIVE );

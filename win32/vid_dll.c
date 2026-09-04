@@ -700,26 +700,6 @@ static void VID_RebuildModeNames( void )
 	vid_mode_names[vid_num_modes] = 0;
 }
 
-/* Index of ENUM_CURRENT_SETTINGS width/height in vid_modes[], or -1. */
-static int VID_FindDesktopModeIndex( void )
-{
-	DEVMODE	dm;
-	int		i;
-
-	memset( &dm, 0, sizeof(dm) );
-	dm.dmSize = sizeof(dm);
-	if ( !EnumDisplaySettings( NULL, ENUM_CURRENT_SETTINGS, &dm ) )
-		return -1;
-
-	for ( i = 0; i < vid_num_modes; i++ )
-	{
-		if ( vid_modes[i].width == (int)dm.dmPelsWidth
-			&& vid_modes[i].height == (int)dm.dmPelsHeight )
-			return i;
-	}
-	return -1;
-}
-
 static void VID_AddMode( int width, int height )
 {
 	int i;
@@ -771,6 +751,50 @@ void VID_InitModeList( void )
 	VID_RebuildModeNames();
 
 	Com_Printf( "VID: %d video modes available\n", LOG_CLIENT, vid_num_modes );
+}
+
+/*
+============
+VID_GetDesktopModeIndex
+
+Return index of ENUM_CURRENT_SETTINGS width/height in vid_modes[].
+Adds the desktop resolution if it was missing from presets/enum.
+Returns -1 if EnumDisplaySettings fails.
+============
+*/
+int VID_GetDesktopModeIndex( void )
+{
+	DEVMODE	dm;
+	int		i;
+
+	if ( vid_num_modes <= 0 )
+		VID_InitModeList();
+
+	memset( &dm, 0, sizeof(dm) );
+	dm.dmSize = sizeof(dm);
+	if ( !EnumDisplaySettings( NULL, ENUM_CURRENT_SETTINGS, &dm ) )
+		return -1;
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		if ( vid_modes[i].width == (int)dm.dmPelsWidth
+			&& vid_modes[i].height == (int)dm.dmPelsHeight )
+			return i;
+	}
+
+	/* Desktop res not in list (unusual) - append, re-sort, rebuild names. */
+	VID_AddMode( (int)dm.dmPelsWidth, (int)dm.dmPelsHeight );
+	if ( vid_num_modes > 1 )
+		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );
+	VID_RebuildModeNames();
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		if ( vid_modes[i].width == (int)dm.dmPelsWidth
+			&& vid_modes[i].height == (int)dm.dmPelsHeight )
+			return i;
+	}
+	return -1;
 }
 
 int VID_GetNumModes( void )
@@ -1267,7 +1291,7 @@ void VID_Init (void)
 
 	/* Default gl_mode/sw_mode to the desktop resolution index for first-run /
 	   unset installs. If config.cfg already set the cvar, Cvar_Get keeps it. */
-	desktop_mode = VID_FindDesktopModeIndex();
+	desktop_mode = VID_GetDesktopModeIndex();
 	if ( desktop_mode < 0 )
 		desktop_mode = 3; /* legacy 640x480-ish fallback if enum failed */
 	Com_sprintf( mode_default, sizeof(mode_default), "%d", desktop_mode );

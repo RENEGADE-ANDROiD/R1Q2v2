@@ -43,4 +43,5 @@ const char *VID_MenuKey( int );
 
 void		VID_InitModeList( void );
 int			VID_GetNumModes( void );
+int			VID_GetDesktopModeIndex( void );
 const char	**VID_GetModeNames( void );
