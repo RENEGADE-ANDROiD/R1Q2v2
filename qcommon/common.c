@@ -2401,12 +2401,14 @@ void Qcommon_Init (int argc, char **argv)
 #endif
 
 #ifndef DEDICATED_ONLY
-			Cbuf_AddText ("toggleconsole\n");
+			/* Menu-first default (RENEGADE): open main menu instead of console.
+			 * Power users can still toggleconsole; +commands skip this branch. */
+			Cbuf_AddText ("menu_main\n");
 
 			Com_Printf (
 				"Welcome to R1Q2.\n"
 				"\n"
-				"  Press <ESC> to open the menu.\n"
+				"  Main menu is open. Press <ESC> to toggle the menu.\n"
 				"  Type connect <host> to connect to a server.\n"
 				"  View the readme at http://www.r1ch.net/forum/index.php?board=8.0\n"
 				"\n", LOG_GENERAL);
