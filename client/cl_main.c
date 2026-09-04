@@ -3823,7 +3823,7 @@ void CL_InitLocal (void)
 	cl_stereo = Cvar_Get( "cl_stereo", "0", 0 );
 #endif
 
-	cl_add_blend = Cvar_Get ("cl_blend", "1", 0);
+	cl_add_blend = Cvar_Get ("cl_blend", "0", 0);
 	cl_add_lights = Cvar_Get ("cl_lights", "1", 0);
 	cl_add_particles = Cvar_Get ("cl_particles", "1", 0);
 	cl_add_entities = Cvar_Get ("cl_entities", "1", 0);

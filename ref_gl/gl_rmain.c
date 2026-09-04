@@ -1390,7 +1390,7 @@ void R_Register( void )
 	gl_flush = ri.Cvar_Get ("gl_flush", "0", CVAR_ARCHIVE);
 	gl_clear = ri.Cvar_Get ("gl_clear", "1", 0);
 	gl_cull = ri.Cvar_Get ("gl_cull", "1", 0);
-	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0);
+	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "0", 0);
 	gl_flashblend = ri.Cvar_Get ("gl_flashblend", "0", 0);
 	//gl_playermip = ri.Cvar_Get ("gl_playermip", "0", 0);
 	//gl_monolightmap = ri.Cvar_Get( "gl_monolightmap", "0", 0 );
