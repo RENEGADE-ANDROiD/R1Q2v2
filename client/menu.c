@@ -2553,59 +2553,356 @@ static void M_Menu_SaveGame_f (void)
 /*
 =============================================================================
 
-JOIN SERVER MENU
+JOIN SERVER MENU (LAN / address book / favorites / optional master)
 
 =============================================================================
 */
-#define MAX_LOCAL_SERVERS 8
+#define MAX_LOCAL_SERVERS		32
+#define MAX_FAVORITES			64
+#define FAVORITES_FILENAME		"favorites.lst"
+#define SERVER_SLOTS_VISIBLE	12
 
 static menuframework_s	s_joinserver_menu;
 static menuseparator_s	s_joinserver_server_title;
 static menuaction_s		s_joinserver_search_action;
 static menuaction_s		s_joinserver_address_book_action;
-static menuaction_s		s_joinserver_server_actions[MAX_LOCAL_SERVERS];
+static menuaction_s		s_joinserver_favfilter_action;
+static menuaction_s		s_joinserver_server_actions[SERVER_SLOTS_VISIBLE];
 
 int		m_num_servers;
 #define	NO_SERVER_STRING	"<no server>"
 
-// user readable information
 static char local_server_names[MAX_LOCAL_SERVERS][80];
+static char local_server_empty[SERVER_SLOTS_VISIBLE][80];
 
-// network address
 static netadr_t local_server_netadr[MAX_LOCAL_SERVERS];
+static int		local_server_ping[MAX_LOCAL_SERVERS];
+static qboolean	local_server_isfav[MAX_LOCAL_SERVERS];
+static int		m_serverlist_start_time;
+static int		m_server_page;
+static qboolean	m_favorites_only;
+
+static char		favorite_addrs[MAX_FAVORITES][64];
+static int		m_num_favorites;
+
+/* visible list maps slot -> local_servers index */
+static int		m_visible_index[SERVER_SLOTS_VISIBLE];
+
+static void JoinServer_RebuildVisible (void);
+static qboolean JoinServer_AdrIsFavorite (netadr_t *adr);
+static void JoinServer_LoadFavorites (void);
+static void JoinServer_SaveFavorites (void);
+static qboolean JoinServer_AddFavoriteAdr (const char *addr);
+static qboolean JoinServer_RemoveFavoriteAdr (const char *addr);
+
+static void JoinServer_LoadFavorites (void)
+{
+	FILE	*f;
+	char	path[MAX_OSPATH];
+	char	line[128];
+	char	*p;
+	char	*end;
+
+	m_num_favorites = 0;
+	Com_sprintf (path, sizeof(path), "%s/%s", FS_Gamedir(), FAVORITES_FILENAME);
+	f = fopen (path, "r");
+	if (!f)
+		return;
+
+	while (fgets (line, sizeof(line), f) && m_num_favorites < MAX_FAVORITES)
+	{
+		p = line;
+		while (*p == ' ' || *p == '\t')
+			p++;
+		if (!*p || *p == '#' || *p == '\n' || *p == '\r')
+			continue;
+		if (p[0] == '/' && p[1] == '/')
+			continue;
+
+		end = p + strlen(p);
+		while (end > p && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
+		{
+			end--;
+			*end = 0;
+		}
+		if (!p[0])
+			continue;
+
+		Q_strncpy (favorite_addrs[m_num_favorites], p, sizeof(favorite_addrs[0])-1);
+		m_num_favorites++;
+	}
+	fclose (f);
+}
+
+static void JoinServer_SaveFavorites (void)
+{
+	FILE	*f;
+	char	path[MAX_OSPATH];
+	int		i;
+
+	Com_sprintf (path, sizeof(path), "%s/%s", FS_Gamedir(), FAVORITES_FILENAME);
+	f = fopen (path, "w");
+	if (!f)
+	{
+		Com_Printf ("Couldn't write %s\n", LOG_CLIENT, FAVORITES_FILENAME);
+		return;
+	}
+
+	fprintf (f, "# R1Q2v2 server favorites (one host[:port] per line)\n");
+	for (i = 0; i < m_num_favorites; i++)
+		fprintf (f, "%s\n", favorite_addrs[i]);
+	fclose (f);
+}
+
+static qboolean JoinServer_AdrIsFavorite (netadr_t *adr)
+{
+	int			i;
+	netadr_t	tmp;
+
+	for (i = 0; i < m_num_favorites; i++)
+	{
+		if (!NET_StringToAdr (favorite_addrs[i], &tmp))
+			continue;
+		if (!tmp.port)
+			tmp.port = ShortSwap (PORT_SERVER);
+		if (NET_CompareAdr (&tmp, adr))
+			return true;
+	}
+	return false;
+}
+
+static qboolean JoinServer_AddFavoriteAdr (const char *addr)
+{
+	int			i;
+	netadr_t	adr;
+	char		*canon;
+
+	if (!addr || !addr[0])
+		return false;
+	if (!NET_StringToAdr (addr, &adr))
+	{
+		Com_Printf ("Bad favorite address: %s\n", LOG_CLIENT, addr);
+		return false;
+	}
+	if (!adr.port)
+		adr.port = ShortSwap (PORT_SERVER);
+
+	canon = NET_AdrToString (&adr);
+	for (i = 0; i < m_num_favorites; i++)
+	{
+		if (!Q_stricmp (favorite_addrs[i], canon))
+			return false;
+	}
+	if (m_num_favorites >= MAX_FAVORITES)
+	{
+		Com_Printf ("Favorites list full (%d).\n", LOG_CLIENT, MAX_FAVORITES);
+		return false;
+	}
+	Q_strncpy (favorite_addrs[m_num_favorites], canon, sizeof(favorite_addrs[0])-1);
+	m_num_favorites++;
+	JoinServer_SaveFavorites ();
+	return true;
+}
+
+static qboolean JoinServer_RemoveFavoriteAdr (const char *addr)
+{
+	int			i, j;
+	netadr_t	want, have;
+
+	if (!addr || !addr[0])
+		return false;
+	if (!NET_StringToAdr (addr, &want))
+		return false;
+	if (!want.port)
+		want.port = ShortSwap (PORT_SERVER);
+
+	for (i = 0; i < m_num_favorites; i++)
+	{
+		if (!NET_StringToAdr (favorite_addrs[i], &have))
+			continue;
+		if (!have.port)
+			have.port = ShortSwap (PORT_SERVER);
+		if (!NET_CompareAdr (&want, &have))
+			continue;
+
+		for (j = i; j < m_num_favorites - 1; j++)
+			Q_strncpy (favorite_addrs[j], favorite_addrs[j+1], sizeof(favorite_addrs[0])-1);
+		m_num_favorites--;
+		JoinServer_SaveFavorites ();
+		return true;
+	}
+	return false;
+}
+
+static void JoinServer_RefreshName (int i)
+{
+	char	*src;
+
+	if (i < 0 || i >= m_num_servers)
+		return;
+
+	src = local_server_names[i];
+	/* formatted as "%2d.%c ..." - flip favorite marker */
+	if (src[0] && src[2] == '.' && (src[3] == ' ' || src[3] == '*'))
+		src[3] = local_server_isfav[i] ? '*' : ' ';
+}
 
 void M_AddToServerList (netadr_t adr, char *info)
 {
 	int		i;
+	char	hostname[32];
+	char	mapname[16];
+	char	players[16];
+	char	*p;
+	int		ping;
+	int		nmap;
+	int		npl;
 
 	if (m_num_servers == MAX_LOCAL_SERVERS)
 		return;
-	while ( *info == ' ' )
-		info++;
 
-	// ignore if duplicated
-	for (i=0 ; i<m_num_servers ; i++)
-		//if (!strcmp(info, local_server_names[i]))
+	while (info && *info == ' ')
+		info++;
+	if (!info || !info[0])
+		return;
+
+	for (i = 0; i < m_num_servers; i++)
+	{
 		if (NET_CompareAdr (&adr, &local_server_netadr[i]))
 			return;
+	}
+
+	hostname[0] = mapname[0] = players[0] = 0;
+
+	/* Classic SVC_Info: "%20s %8s %2i/%2i\n" */
+	if (strlen(info) >= 20)
+	{
+		memcpy (hostname, info, 20);
+		hostname[20] = 0;
+		p = hostname;
+		while (*p == ' ')
+			p++;
+		memmove (hostname, p, strlen(p) + 1);
+		p = hostname + strlen(hostname);
+		while (p > hostname && (p[-1] == ' ' || p[-1] == '\n' || p[-1] == '\r'))
+		{
+			p--;
+			*p = 0;
+		}
+
+		p = info + 20;
+		while (*p == ' ')
+			p++;
+		nmap = 0;
+		while (*p && *p != ' ' && nmap < (int)sizeof(mapname) - 1)
+			mapname[nmap++] = *p++;
+		mapname[nmap] = 0;
+
+		while (*p == ' ')
+			p++;
+		npl = 0;
+		while (*p && *p != '\n' && *p != '\r' && npl < (int)sizeof(players) - 1)
+			players[npl++] = *p++;
+		players[npl] = 0;
+	}
+
+	if (!hostname[0])
+	{
+		Q_strncpy (hostname, info, sizeof(hostname)-1);
+		p = strchr (hostname, '\n');
+		if (p)
+			*p = 0;
+	}
+	if (!mapname[0])
+		strcpy (mapname, "???");
+	if (!players[0])
+		strcpy (players, "?/?");
+
+	ping = cls.realtime - m_serverlist_start_time;
+	if (ping < 0)
+		ping = 0;
+	if (ping > 999)
+		ping = 999;
 
 	local_server_netadr[m_num_servers] = adr;
-	snprintf (local_server_names[m_num_servers], sizeof(local_server_names[m_num_servers])-1, "%d. %s", m_num_servers+1, info);
+	local_server_ping[m_num_servers] = ping;
+	local_server_isfav[m_num_servers] = JoinServer_AdrIsFavorite (&adr);
+
+	Com_sprintf (local_server_names[m_num_servers], sizeof(local_server_names[0]),
+		"%2d.%c %-18.18s %-8.8s %5s %4d",
+		m_num_servers + 1,
+		local_server_isfav[m_num_servers] ? '*' : ' ',
+		hostname,
+		mapname,
+		players,
+		ping);
+
 	m_num_servers++;
+	JoinServer_RebuildVisible ();
 }
 
+static void JoinServer_RebuildVisible (void)
+{
+	int		i;
+	int		idx;
+	int		matched;
+	int		skip;
+	int		start;
+
+	/* count matching servers for paging */
+	matched = 0;
+	for (i = 0; i < m_num_servers; i++)
+	{
+		if (m_favorites_only && !local_server_isfav[i])
+			continue;
+		matched++;
+	}
+
+	start = m_server_page * SERVER_SLOTS_VISIBLE;
+	if (start >= matched && m_server_page > 0)
+	{
+		m_server_page = (matched > 0) ? (matched - 1) / SERVER_SLOTS_VISIBLE : 0;
+		start = m_server_page * SERVER_SLOTS_VISIBLE;
+	}
+
+	skip = 0;
+	idx = 0;
+	for (i = 0; i < SERVER_SLOTS_VISIBLE; i++)
+		m_visible_index[i] = -1;
+
+	for (i = 0; i < m_num_servers && idx < SERVER_SLOTS_VISIBLE; i++)
+	{
+		if (m_favorites_only && !local_server_isfav[i])
+			continue;
+		if (skip < start)
+		{
+			skip++;
+			continue;
+		}
+		m_visible_index[idx] = i;
+		s_joinserver_server_actions[idx].generic.name = local_server_names[i];
+		s_joinserver_server_actions[idx].generic.localdata[0] = i;
+		idx++;
+	}
+
+	for (; idx < SERVER_SLOTS_VISIBLE; idx++)
+	{
+		Com_sprintf (local_server_empty[idx], sizeof(local_server_empty[idx]),
+			"%2d. %s", idx + 1, NO_SERVER_STRING);
+		s_joinserver_server_actions[idx].generic.name = local_server_empty[idx];
+		s_joinserver_server_actions[idx].generic.localdata[0] = -1;
+		m_visible_index[idx] = -1;
+	}
+}
 
 static void JoinServerFunc( void *self )
 {
-	char	buffer[128];
-	int		index;
+	char			buffer[128];
+	int				index;
+	menuaction_s	*a = (menuaction_s *)self;
 
-	index = (int)(( menuaction_s * ) self - s_joinserver_server_actions);
-
-	if ( Q_stricmp( local_server_names[index], NO_SERVER_STRING ) == 0 )
-		return;
-
-	if (index >= m_num_servers)
+	index = a->generic.localdata[0];
+	if (index < 0 || index >= m_num_servers)
 		return;
 
 	Com_sprintf (buffer, sizeof(buffer), "connect %s\n", NET_AdrToString (&local_server_netadr[index]));
@@ -2618,29 +2915,52 @@ static void AddressBookFunc( void *self )
 	M_Menu_AddressBook_f();
 }
 
-/*static void NullCursorDraw( void *self )
+static void FavFilterFunc( void *self )
 {
-}*/
+	m_favorites_only = (qboolean)(!m_favorites_only);
+	s_joinserver_favfilter_action.generic.name = m_favorites_only ?
+		"filter: favorites only" : "filter: show all";
+	m_server_page = 0;
+	JoinServer_RebuildVisible ();
+}
 
 static void SearchLocalGames( void )
 {
-	int		i;
+	int			i;
+	netadr_t	adr;
+
+	JoinServer_LoadFavorites ();
 
 	m_num_servers = 0;
-	for (i=0 ; i<MAX_LOCAL_SERVERS ; i++)
-		//strcpy (local_server_names[i], NO_SERVER_STRING);
-		sprintf (local_server_names[i], "%d. %s", i+1, NO_SERVER_STRING);
+	m_server_page = 0;
+	m_serverlist_start_time = cls.realtime;
+	for (i = 0; i < MAX_LOCAL_SERVERS; i++)
+	{
+		local_server_ping[i] = 0;
+		local_server_isfav[i] = false;
+		Com_sprintf (local_server_names[i], sizeof(local_server_names[i]),
+			"%2d. %s", i + 1, NO_SERVER_STRING);
+	}
 
 	M_DrawTextBox( 8, 120 - 48, 36, 3 );
-	M_Print( 16 + 16, 120 - 48 + 8,  "Searching for local servers, this" );
-	M_Print( 16 + 16, 120 - 48 + 16, "could take up to a minute, so" );
+	M_Print( 16 + 16, 120 - 48 + 8,  "Searching for servers, this" );
+	M_Print( 16 + 16, 120 - 48 + 16, "could take a few seconds, so" );
 	M_Print( 16 + 16, 120 - 48 + 24, "please be patient." );
 
-	// the text box won't show up unless we do a buffer swap
 	re.EndFrame();
 
-	// send out info packets
 	CL_PingServers_f();
+
+	for (i = 0; i < m_num_favorites; i++)
+	{
+		if (!NET_StringToAdr (favorite_addrs[i], &adr))
+			continue;
+		if (!adr.port)
+			adr.port = ShortSwap (PORT_SERVER);
+		Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info %i\n", PROTOCOL_ORIGINAL);
+	}
+
+	JoinServer_RebuildVisible ();
 }
 
 static void SearchLocalGamesFunc( void *self )
@@ -2652,7 +2972,9 @@ static void JoinServer_MenuInit( void )
 {
 	int i;
 
-	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - 120;
+	JoinServer_LoadFavorites ();
+
+	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - 160;
 	s_joinserver_menu.nitems = 0;
 
 	s_joinserver_address_book_action.generic.type	= MTYPE_ACTION;
@@ -2661,6 +2983,7 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_address_book_action.generic.x		= 0;
 	s_joinserver_address_book_action.generic.y		= 0;
 	s_joinserver_address_book_action.generic.callback = AddressBookFunc;
+	s_joinserver_address_book_action.generic.statusbar = "manual IP entries (adr0-adr8)";
 
 	s_joinserver_search_action.generic.type = MTYPE_ACTION;
 	s_joinserver_search_action.generic.name	= "refresh server list";
@@ -2668,31 +2991,43 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_search_action.generic.x	= 0;
 	s_joinserver_search_action.generic.y	= 10;
 	s_joinserver_search_action.generic.callback = SearchLocalGamesFunc;
-	s_joinserver_search_action.generic.statusbar = "search for servers";
+	s_joinserver_search_action.generic.statusbar = "LAN + favorites + master query";
+
+	s_joinserver_favfilter_action.generic.type = MTYPE_ACTION;
+	s_joinserver_favfilter_action.generic.name = m_favorites_only ?
+		"filter: favorites only" : "filter: show all";
+	s_joinserver_favfilter_action.generic.flags = QMF_LEFT_JUSTIFY;
+	s_joinserver_favfilter_action.generic.x = 0;
+	s_joinserver_favfilter_action.generic.y = 20;
+	s_joinserver_favfilter_action.generic.callback = FavFilterFunc;
+	s_joinserver_favfilter_action.generic.statusbar = "toggle favorites-only filter";
 
 	s_joinserver_server_title.generic.type = MTYPE_SEPARATOR;
-	s_joinserver_server_title.generic.name = "connect to...";
-	s_joinserver_server_title.generic.x    = 80;
-	s_joinserver_server_title.generic.y	   = 30;
+	s_joinserver_server_title.generic.name = " #  hostname           map      pl   ms";
+	s_joinserver_server_title.generic.x    = 0;
+	s_joinserver_server_title.generic.y	   = 40;
 
-	for ( i = 0; i < MAX_LOCAL_SERVERS; i++ )
+	for ( i = 0; i < SERVER_SLOTS_VISIBLE; i++ )
 	{
+		Com_sprintf (local_server_empty[i], sizeof(local_server_empty[i]),
+			"%2d. %s", i + 1, NO_SERVER_STRING);
 		s_joinserver_server_actions[i].generic.type	= MTYPE_ACTION;
-		//strcpy (local_server_names[i], NO_SERVER_STRING);
-		sprintf (local_server_names[i], "%d. %s", i+1, NO_SERVER_STRING);
-		s_joinserver_server_actions[i].generic.name	= local_server_names[i];
+		s_joinserver_server_actions[i].generic.name	= local_server_empty[i];
 		s_joinserver_server_actions[i].generic.flags	= QMF_LEFT_JUSTIFY;
 		s_joinserver_server_actions[i].generic.x		= 0;
-		s_joinserver_server_actions[i].generic.y		= 40 + i*10;
+		s_joinserver_server_actions[i].generic.y		= 50 + i * 10;
 		s_joinserver_server_actions[i].generic.callback = JoinServerFunc;
-		s_joinserver_server_actions[i].generic.statusbar = "press ENTER to connect";
+		s_joinserver_server_actions[i].generic.statusbar = "ENTER connect  F fav  [/] page  SPACE refresh";
+		s_joinserver_server_actions[i].generic.localdata[0] = -1;
+		m_visible_index[i] = -1;
 	}
 
 	Menu_AddItem( &s_joinserver_menu, &s_joinserver_address_book_action );
-	Menu_AddItem( &s_joinserver_menu, &s_joinserver_server_title );
 	Menu_AddItem( &s_joinserver_menu, &s_joinserver_search_action );
+	Menu_AddItem( &s_joinserver_menu, &s_joinserver_favfilter_action );
+	Menu_AddItem( &s_joinserver_menu, &s_joinserver_server_title );
 
-	for ( i = 0; i < MAX_LOCAL_SERVERS; i++ )
+	for ( i = 0; i < SERVER_SLOTS_VISIBLE; i++ )
 		Menu_AddItem( &s_joinserver_menu, &s_joinserver_server_actions[i] );
 
 	Menu_Center( &s_joinserver_menu );
@@ -2706,16 +3041,101 @@ static void JoinServer_MenuDraw(void)
 	Menu_Draw( &s_joinserver_menu );
 }
 
+static void JoinServer_ToggleFavoriteSelected (void)
+{
+	int		cursor;
+	int		index;
+	char	*addr;
+
+	cursor = s_joinserver_menu.cursor;
+	/* 0 book, 1 refresh, 2 filter, 3 title, 4+ servers */
+	if (cursor < 4)
+		return;
+	index = s_joinserver_server_actions[cursor - 4].generic.localdata[0];
+	if (index < 0 || index >= m_num_servers)
+		return;
+
+	addr = NET_AdrToString (&local_server_netadr[index]);
+	if (local_server_isfav[index])
+	{
+		JoinServer_RemoveFavoriteAdr (addr);
+		local_server_isfav[index] = false;
+		Com_Printf ("Removed favorite %s\n", LOG_CLIENT, addr);
+	}
+	else
+	{
+		if (JoinServer_AddFavoriteAdr (addr))
+		{
+			local_server_isfav[index] = true;
+			Com_Printf ("Added favorite %s\n", LOG_CLIENT, addr);
+		}
+	}
+
+	JoinServer_RefreshName (index);
+	JoinServer_RebuildVisible ();
+}
 
 static const char *JoinServer_MenuKey( int key )
 {
-	//r1: join server shortcut keys
-	if (key >= '0' && key <= '9')
+	int maxpage;
+	int matched;
+	int i;
+
+	if (key >= '1' && key <= '9')
 	{
-		s_joinserver_menu.cursor = 2 + key - '0';
-		Menu_AdjustCursor (&s_joinserver_menu, 1);
-		Menu_SelectItem (&s_joinserver_menu);
+		int slot = key - '1';
+		if (slot < SERVER_SLOTS_VISIBLE)
+		{
+			s_joinserver_menu.cursor = 4 + slot;
+			Menu_AdjustCursor (&s_joinserver_menu, 1);
+			Menu_SelectItem (&s_joinserver_menu);
+		}
+		return NULL;
 	}
+
+	if (key == 'f' || key == 'F' || key == K_INS)
+	{
+		JoinServer_ToggleFavoriteSelected ();
+		return menu_move_sound;
+	}
+
+	if (key == K_SPACE)
+	{
+		SearchLocalGames ();
+		return menu_move_sound;
+	}
+
+	matched = 0;
+	for (i = 0; i < m_num_servers; i++)
+	{
+		if (m_favorites_only && !local_server_isfav[i])
+			continue;
+		matched++;
+	}
+	maxpage = (matched + SERVER_SLOTS_VISIBLE - 1) / SERVER_SLOTS_VISIBLE;
+	if (maxpage < 1)
+		maxpage = 1;
+
+	if (key == ']' || key == K_PGDN)
+	{
+		if (m_server_page + 1 < maxpage)
+		{
+			m_server_page++;
+			JoinServer_RebuildVisible ();
+		}
+		return menu_move_sound;
+	}
+
+	if (key == '[' || key == K_PGUP)
+	{
+		if (m_server_page > 0)
+		{
+			m_server_page--;
+			JoinServer_RebuildVisible ();
+		}
+		return menu_move_sound;
+	}
+
 	return Default_MenuKey( &s_joinserver_menu, key );
 }
 
@@ -2724,8 +3144,6 @@ static void M_Menu_JoinServer_f (void)
 	JoinServer_MenuInit();
 	M_PushMenu( JoinServer_MenuDraw, JoinServer_MenuKey );
 }
-
-
 /*
 =============================================================================
 

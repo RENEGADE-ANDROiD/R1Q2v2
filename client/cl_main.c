@@ -1453,27 +1453,115 @@ void CL_ParseStatusMessage (void)
 	M_AddToServerList (net_from, s);
 }
 
-//FIXME: add this someday
-/*void CL_GetServers_f (void)
-{
-	netadr_t		adr;
+/*
+=================
+CL_QueryMaster
 
-	if (Cmd_Argc() < 2)
+Ask a Quake II master for its server list (classic "query" / "servers" binary).
+Default master matches the dedicated server's sv_global_master host.
+=================
+*/
+static cvar_t *cl_master;
+static cvar_t *cl_master2;
+
+static void CL_PingOneServer (netadr_t *adr)
+{
+	if (!adr->port)
+		adr->port = ShortSwap (PORT_SERVER);
+	Netchan_OutOfBandPrint (NS_CLIENT, adr, "info %i\n", PROTOCOL_ORIGINAL);
+}
+
+static void CL_QueryMasterAddress (const char *master)
+{
+	netadr_t	adr;
+
+	if (!master || !master[0])
+		return;
+
+	if (!NET_StringToAdr (master, &adr))
 	{
-		Com_Printf ("Usage: getservers <master>\n", LOG_GENERAL);
+		Com_Printf ("Bad master address: %s\n", LOG_CLIENT, master);
+		return;
+	}
+	if (!adr.port)
+		adr.port = ShortSwap (PORT_MASTER);
+
+	Com_Printf ("querying master %s...\n", LOG_CLIENT|LOG_NOTICE, NET_AdrToString (&adr));
+
+	/* classic Q2 master query */
+	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "query");
+
+	incoming_allowed[incoming_allowed_index & 15].remote = adr;
+	incoming_allowed[incoming_allowed_index & 15].type = CL_MASTER_QUERY;
+	incoming_allowed[incoming_allowed_index & 15].time = cls.realtime + 5000;
+	incoming_allowed_index++;
+}
+
+void CL_QueryMasters_f (void)
+{
+	NET_Config (NET_CLIENT);
+
+	if (Cmd_Argc() >= 2)
+	{
+		CL_QueryMasterAddress (Cmd_Argv(1));
 		return;
 	}
 
-	NET_StringToAdr (Cmd_Argv(1), &adr);
+	if (!cl_master)
+		cl_master = Cvar_Get ("cl_master", "master.q2servers.com:27900", 0);
+	if (!cl_master2)
+		cl_master2 = Cvar_Get ("cl_master2", "", 0);
 
-	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "getservers");
+	CL_QueryMasterAddress (cl_master->string);
+	if (cl_master2->string[0])
+		CL_QueryMasterAddress (cl_master2->string);
+}
 
-	//allow remote response
-	incoming_allowed[incoming_allowed_index & 15].remote = to;
-	incoming_allowed[incoming_allowed_index & 15].type = CL_MASTER_QUERY;
-	incoming_allowed[incoming_allowed_index & 15].time = cls.realtime + 2500;
-	incoming_allowed_index++;
-}*/
+/*
+=================
+CL_ParseMasterServers
+
+Parse classic master reply: "servers" + packed IPv4:port (6 bytes each).
+=================
+*/
+static void CL_ParseMasterServers (byte *data, int len)
+{
+	netadr_t	adr;
+	int			count;
+
+	if (len < 7 || memcmp (data, "servers", 7))
+		return;
+
+	data += 7;
+	len -= 7;
+	while (len > 0 && (*data == '\n' || *data == '\r' || *data == ' '))
+	{
+		data++;
+		len--;
+	}
+
+	memset (&adr, 0, sizeof(adr));
+	adr.type = NA_IP;
+	count = 0;
+
+	while (len >= 6)
+	{
+		if (!data[0] && !data[1] && !data[2] && !data[3] && !data[4] && !data[5])
+			break;
+
+		memcpy (adr.ip, data, 4);
+		memcpy (&adr.port, data + 4, 2);
+		data += 6;
+		len -= 6;
+
+		CL_PingOneServer (&adr);
+		count++;
+		if (count >= 256)
+			break;
+	}
+
+	Com_Printf ("master returned %d server(s)\n", LOG_CLIENT|LOG_NOTICE, count);
+}
 
 /*
 =================
@@ -1486,28 +1574,24 @@ void CL_PingServers_f (void)
 	netadr_t		adr;
 	char			name[16];
 	const char		*adrstring;
-	//cvar_t		*noudp;
-	//cvar_t		*noipx;
 
-	NET_Config (NET_CLIENT);		// allow remote
+	NET_Config (NET_CLIENT);		/* allow remote */
 
-	// send a broadcast packet
 	Com_Printf ("pinging broadcast...\n", LOG_CLIENT|LOG_NOTICE);
 
 	adr.type = NA_BROADCAST;
 	adr.port = ShortSwap(PORT_SERVER);
 
-	//r1: only ping original, r1q2 servers respond to either, but 3.20 server would
-	//reply with errors on receiving enhanced info
+	/* r1: only ping original; 3.20 servers error on enhanced info */
 	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info 34\n");
 
-	//also ping local server
-	adr.type = NA_IP;;
+	/* also ping local server */
+	adr.type = NA_IP;
 	*(int *)&adr.ip = 0x100007F;
 	adr.port = ShortSwap(PORT_SERVER);
 	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info 34\n");
 
-	// send a packet to each address book entry
+	/* address book */
 	for (i=0 ; i < 32; i++)
 	{
 		Com_sprintf (name, sizeof(name), "adr%i", i);
@@ -1521,13 +1605,12 @@ void CL_PingServers_f (void)
 			Com_Printf ("Bad address: %s\n", LOG_CLIENT, adrstring);
 			continue;
 		}
-		if (!adr.port)
-			adr.port = ShortSwap(PORT_SERVER);
-		//Netchan_OutOfBandPrint (NS_CLIENT, adr, va("info %i", PROTOCOL_R1Q2));
-		Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info %i\n", PROTOCOL_ORIGINAL);
+		CL_PingOneServer (&adr);
 	}
-}
 
+	/* internet masters (responses populate list via info replies) */
+	CL_QueryMasters_f ();
+}
 
 /*
 =================
@@ -1620,6 +1703,16 @@ void CL_ConnectionlessPacket (void)
 
 	MSG_BeginReading (&net_message);
 	MSG_ReadLong (&net_message);	// skip the -1
+
+	/* classic master reply is binary after "servers" - peek before string parse */
+	if (net_message.cursize - net_message.readcount >= 7 &&
+		!memcmp (net_message.data + net_message.readcount, "servers", 7))
+	{
+		CL_ParseMasterServers (net_message.data + net_message.readcount,
+			net_message.cursize - net_message.readcount);
+		return;
+	}
+
 
 	s = MSG_ReadStringLine (&net_message);
 
@@ -3710,6 +3803,7 @@ void CL_InitLocal (void)
 	Cmd_AddCommand ("cmd", CL_ForwardToServer_f);
 	Cmd_AddCommand ("pause", CL_Pause_f);
 	Cmd_AddCommand ("pingservers", CL_PingServers_f);
+	Cmd_AddCommand ("querymasters", CL_QueryMasters_f);
 	Cmd_AddCommand ("skins", CL_Skins_f);
 
 	Cmd_AddCommand ("userinfo", CL_Userinfo_f);
