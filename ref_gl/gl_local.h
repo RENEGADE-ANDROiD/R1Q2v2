@@ -47,7 +47,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define REF_VERSION "R1GL015-modified"
 #endif
 
-#define	MAX_TEXTURE_DIMENSIONS	2048
+#define	MAX_TEXTURE_DIMENSIONS	4096
 
 // up / down
 #define	PITCH	0
@@ -221,6 +221,8 @@ extern cvar_t	*gl_ext_point_sprite;
 extern cvar_t	*gl_ext_texture_filter_anisotropic;
 extern cvar_t	*gl_ext_texture_non_power_of_two;
 extern cvar_t	*gl_ext_max_anisotropy;
+extern cvar_t	*gl_anisotropy;
+extern cvar_t	*gl_texture_lodbias;
 extern cvar_t	*gl_ext_nv_multisample_filter_hint;
 extern cvar_t	*gl_ext_occlusion_query;
 

@@ -1127,7 +1127,7 @@ static menulist_s		s_r1q2_winxp;
 #endif
 
 static menulist_s		s_r1q2_defer;
-static menulist_s		s_r1q2_async;
+static menulist_s		s_r1q2_q2promove;
 static menulist_s		s_r1q2_autorecord;
 static menulist_s		s_r1q2_xaniarail;
 
@@ -1188,9 +1188,11 @@ static void DeferFunc (void *unused)
 	Cvar_SetValue ("cl_defermodels", (float)s_r1q2_defer.curvalue);
 }
 
-static void AsyncFunc (void *unused)
+static void Q2ProMoveFunc (void *unused)
 {
-	Cvar_SetValue ("cl_async", (float)s_r1q2_async.curvalue);
+	/* Enabled = sync physics (classic / Q2Pro-style jump feel).
+	   Disabled = stock R1Q2 async net/render split (cl_async 1). */
+	Cvar_SetValue ("cl_async", s_r1q2_q2promove.curvalue ? 0.0f : 1.0f);
 }
 
 static void AutoFunc (void *unused)
@@ -1278,13 +1280,15 @@ static void R1Q2_MenuInit (void)
 	s_r1q2_defer.itemnames = yesno_names;
 	s_r1q2_defer.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_defermodels"));
 
-	s_r1q2_async.generic.type = MTYPE_SPINCONTROL;
-	s_r1q2_async.generic.x	= 0;
-	s_r1q2_async.generic.y	= 70;
-	s_r1q2_async.generic.name	= "asynchronous net/fps";
-	s_r1q2_async.generic.callback = AsyncFunc;
-	s_r1q2_async.itemnames = yesno_names;
-	s_r1q2_async.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_async"));
+	s_r1q2_q2promove.generic.type = MTYPE_SPINCONTROL;
+	s_r1q2_q2promove.generic.x	= 0;
+	s_r1q2_q2promove.generic.y	= 70;
+	s_r1q2_q2promove.generic.name	= "Q2Pro movement";
+	s_r1q2_q2promove.generic.callback = Q2ProMoveFunc;
+	s_r1q2_q2promove.generic.statusbar = "sync physics for classic jumps (cl_async 0); off = R1Q2 async";
+	s_r1q2_q2promove.itemnames = yesno_names;
+	/* cl_async 1 (default) = R1Q2 async; show Q2Pro movement as disabled */
+	s_r1q2_q2promove.curvalue = Cvar_VariableValue ("cl_async") ? 0 : 1;
 
 	s_r1q2_autorecord.generic.type = MTYPE_SPINCONTROL;
 	s_r1q2_autorecord.generic.x	= 0;
@@ -1348,7 +1352,7 @@ static void R1Q2_MenuInit (void)
 #endif
 
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_defer );
-	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_async );
+	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_q2promove );
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_autorecord );
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_xaniarail );
 }
@@ -2957,8 +2961,9 @@ static void JoinServer_MenuInit( void )
 	re.DrawGetPicSize (&bw, &bh, "m_banner_join_server");
 
 	/* Sit the list under the banner. Do NOT Menu_Center — that was stacking
-	 * the old plaque coords on top of the new rows. */
-	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - (int)(8 * s);
+	 * the old plaque coords on top of the new rows.
+	 * Left-justify rows are ~43 chars wide; put the block on screen center. */
+	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - (int)((43 * 8 / 2) * s);
 	s_joinserver_menu.y = (int)(viddef.height * 0.50f - 110 * s) + (int)(bh * SCR_GetMenuPicScale() + 8 * s);
 	s_joinserver_menu.nitems = 0;
 	s_joinserver_menu.cursor = 0;

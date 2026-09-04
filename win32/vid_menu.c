@@ -42,6 +42,9 @@ static cvar_t *gl_finish;
 static cvar_t *gl_swapinterval;
 static cvar_t *gl_modulate;
 static cvar_t *gl_ext_max_anisotropy;
+static cvar_t *gl_texture_lodbias;
+static cvar_t *gl_hudscale;
+static cvar_t *scr_hud_top;
 static cvar_t *gl_shadows;
 static cvar_t *gl_dynamic;
 static cvar_t *r_maxfps;
@@ -78,7 +81,10 @@ static menulist_s  		s_finish_box;
 static menulist_s		s_vsync_box;
 static menuslider_s		s_maxfps_slider;
 static menuslider_s		s_modulate_slider;
+static menuslider_s		s_sharpen_slider;
+static menuslider_s		s_hudscale_slider;
 static menulist_s		s_aniso_box;
+static menulist_s		s_hudtop_box;
 static menulist_s		s_shadows_box;
 static menulist_s		s_dynamic_box;
 static menuaction_s		s_cancel_action[2];
@@ -125,6 +131,35 @@ static void BrightnessCallback( void *s )
 	}
 }
 
+static void VID_ApplyFxSettings( void )
+{
+	static const float aniso_vals[] = { 1.0f, 2.0f, 4.0f, 8.0f, 16.0f };
+	int ai;
+
+	Cvar_SetValue( "gl_swapinterval", (float)s_vsync_box.curvalue );
+	Cvar_SetValue( "r_maxfps", s_maxfps_slider.curvalue * 10.0f );
+	Cvar_SetValue( "gl_picmip", 3 - (float)s_tq_slider.curvalue );
+	Cvar_SetValue( "gl_ext_palettedtexture", (float)s_paletted_texture_box.curvalue );
+	Cvar_SetValue( "gl_finish", (float)s_finish_box.curvalue );
+	Cvar_SetValue( "gl_modulate", s_modulate_slider.curvalue );
+	ai = s_aniso_box.curvalue;
+	if (ai < 0)
+		ai = 0;
+	if (ai > 4)
+		ai = 4;
+	Cvar_SetValue( "gl_ext_max_anisotropy", aniso_vals[ai] );
+	Cvar_SetValue( "gl_texture_lodbias", -s_sharpen_slider.curvalue * 0.4f );
+	Cvar_SetValue( "gl_hudscale", s_hudscale_slider.curvalue / 10.0f );
+	Cvar_SetValue( "scr_hud_top", (float)s_hudtop_box.curvalue );
+	Cvar_SetValue( "gl_shadows", (float)s_shadows_box.curvalue );
+	Cvar_SetValue( "gl_dynamic", (float)s_dynamic_box.curvalue );
+}
+
+static void VidFxCallback( void *unused )
+{
+	VID_ApplyFxSettings();
+}
+
 static void ResetDefaults( void *unused )
 {
 	VID_MenuInit();
@@ -148,24 +183,8 @@ static void ApplyChanges( void *unused )
 
 	Cvar_SetValue( "vid_gamma", gamma );
 	Cvar_SetValue( "sw_stipplealpha", (float)s_stipple_box.curvalue );
-	Cvar_SetValue( "gl_picmip", 3 - (float)s_tq_slider.curvalue );
 	Cvar_SetValue( "vid_fullscreen", (float)s_fs_box[s_current_menu_index].curvalue );
-	Cvar_SetValue( "gl_ext_palettedtexture", (float)s_paletted_texture_box.curvalue );
-	Cvar_SetValue( "gl_finish", (float)s_finish_box.curvalue );
-	Cvar_SetValue( "gl_swapinterval", (float)s_vsync_box.curvalue );
-	Cvar_SetValue( "r_maxfps", s_maxfps_slider.curvalue * 10.0f );
-	Cvar_SetValue( "gl_modulate", s_modulate_slider.curvalue );
-	{
-		static const float aniso_vals[] = { 1.0f, 2.0f, 4.0f, 8.0f, 16.0f };
-		int ai = s_aniso_box.curvalue;
-		if (ai < 0)
-			ai = 0;
-		if (ai > 4)
-			ai = 4;
-		Cvar_SetValue( "gl_ext_max_anisotropy", aniso_vals[ai] );
-	}
-	Cvar_SetValue( "gl_shadows", (float)s_shadows_box.curvalue );
-	Cvar_SetValue( "gl_dynamic", (float)s_dynamic_box.curvalue );
+	VID_ApplyFxSettings();
 	Cvar_SetValue( "sw_mode", (float)s_mode_list[SOFTWARE_MENU].curvalue );
 	Cvar_SetValue( "gl_mode", (float)s_mode_list[OPENGL_MENU].curvalue );
 
@@ -297,7 +316,16 @@ void EXPORT VID_MenuInit( void )
 		gl_modulate = Cvar_Get( "gl_modulate", "2", CVAR_ARCHIVE );
 
 	if ( !gl_ext_max_anisotropy )
-		gl_ext_max_anisotropy = Cvar_Get( "gl_ext_max_anisotropy", "8", CVAR_ARCHIVE );
+		gl_ext_max_anisotropy = Cvar_Get( "gl_ext_max_anisotropy", "16", CVAR_ARCHIVE );
+
+	if ( !gl_texture_lodbias )
+		gl_texture_lodbias = Cvar_Get( "gl_texture_lodbias", "0", CVAR_ARCHIVE );
+
+	if ( !gl_hudscale )
+		gl_hudscale = Cvar_Get( "gl_hudscale", "1", CVAR_ARCHIVE );
+
+	if ( !scr_hud_top )
+		scr_hud_top = Cvar_Get( "scr_hud_top", "0", CVAR_ARCHIVE );
 
 	if ( !gl_shadows )
 		gl_shadows = Cvar_Get( "gl_shadows", "0", CVAR_ARCHIVE );
@@ -414,13 +442,13 @@ void EXPORT VID_MenuInit( void )
 		s_defaults_action[i].generic.type = MTYPE_ACTION;
 		s_defaults_action[i].generic.name = "reset to defaults";
 		s_defaults_action[i].generic.x    = 0;
-		s_defaults_action[i].generic.y    = 140;
+		s_defaults_action[i].generic.y    = 150;
 		s_defaults_action[i].generic.callback = ResetDefaults;
 
 		s_cancel_action[i].generic.type = MTYPE_ACTION;
 		s_cancel_action[i].generic.name = "cancel";
 		s_cancel_action[i].generic.x    = 0;
-		s_cancel_action[i].generic.y    = 150;
+		s_cancel_action[i].generic.y    = 160;
 		s_cancel_action[i].generic.callback = CancelChanges;
 	}
 
@@ -435,6 +463,7 @@ void EXPORT VID_MenuInit( void )
 	s_tq_slider.generic.x		= 0;
 	s_tq_slider.generic.y		= 70;
 	s_tq_slider.generic.name	= "texture quality";
+	s_tq_slider.generic.callback = VidFxCallback;
 	s_tq_slider.minvalue = 0;
 	s_tq_slider.maxvalue = 3;
 	s_tq_slider.curvalue = 3-gl_picmip->value;
@@ -445,6 +474,7 @@ void EXPORT VID_MenuInit( void )
 	s_vsync_box.generic.x	= 0;
 	s_vsync_box.generic.y	= 50;
 	s_vsync_box.generic.name	= "vsync";
+	s_vsync_box.generic.callback = VidFxCallback;
 	s_vsync_box.itemnames = yesno_names;
 	s_vsync_box.curvalue = gl_swapinterval->intvalue ? 1 : 0;
 
@@ -452,6 +482,7 @@ void EXPORT VID_MenuInit( void )
 	s_maxfps_slider.generic.x = 0;
 	s_maxfps_slider.generic.y = 60;
 	s_maxfps_slider.generic.name = "max fps";
+	s_maxfps_slider.generic.callback = VidFxCallback;
 	s_maxfps_slider.minvalue = 6;
 	s_maxfps_slider.maxvalue = 30;
 	s_maxfps_slider.curvalue = r_maxfps->value / 10.0f;
@@ -464,6 +495,7 @@ void EXPORT VID_MenuInit( void )
 	s_paletted_texture_box.generic.x	= 0;
 	s_paletted_texture_box.generic.y	= 80;
 	s_paletted_texture_box.generic.name	= "8-bit textures";
+	s_paletted_texture_box.generic.callback = VidFxCallback;
 	s_paletted_texture_box.itemnames = yesno_names;
 	s_paletted_texture_box.curvalue = gl_ext_palettedtexture->intvalue ? 1 : 0;
 
@@ -471,6 +503,7 @@ void EXPORT VID_MenuInit( void )
 	s_finish_box.generic.x	= 0;
 	s_finish_box.generic.y	= 90;
 	s_finish_box.generic.name	= "sync every frame";
+	s_finish_box.generic.callback = VidFxCallback;
 	s_finish_box.curvalue = gl_finish->intvalue ? 1 : 0;
 	s_finish_box.itemnames = yesno_names;
 
@@ -478,6 +511,7 @@ void EXPORT VID_MenuInit( void )
 	s_modulate_slider.generic.x = 0;
 	s_modulate_slider.generic.y = 100;
 	s_modulate_slider.generic.name = "lightmap";
+	s_modulate_slider.generic.callback = VidFxCallback;
 	s_modulate_slider.minvalue = 1;
 	s_modulate_slider.maxvalue = 5;
 	s_modulate_slider.curvalue = gl_modulate->value;
@@ -493,6 +527,7 @@ void EXPORT VID_MenuInit( void )
 		s_aniso_box.generic.x = 0;
 		s_aniso_box.generic.y = 110;
 		s_aniso_box.generic.name = "anisotropy";
+		s_aniso_box.generic.callback = VidFxCallback;
 		s_aniso_box.itemnames = aniso_names;
 		if (av >= 16)
 			s_aniso_box.curvalue = 4;
@@ -506,17 +541,53 @@ void EXPORT VID_MenuInit( void )
 			s_aniso_box.curvalue = 0;
 	}
 
+	s_sharpen_slider.generic.type = MTYPE_SLIDER;
+	s_sharpen_slider.generic.x = 0;
+	s_sharpen_slider.generic.y = 120;
+	s_sharpen_slider.generic.name = "texture sharpen";
+	s_sharpen_slider.generic.callback = VidFxCallback;
+	s_sharpen_slider.minvalue = 0;
+	s_sharpen_slider.maxvalue = 10;
+	s_sharpen_slider.curvalue = -gl_texture_lodbias->value / 0.4f;
+	if (s_sharpen_slider.curvalue < 0)
+		s_sharpen_slider.curvalue = 0;
+	if (s_sharpen_slider.curvalue > 10)
+		s_sharpen_slider.curvalue = 10;
+
+	s_hudscale_slider.generic.type = MTYPE_SLIDER;
+	s_hudscale_slider.generic.x = 0;
+	s_hudscale_slider.generic.y = 130;
+	s_hudscale_slider.generic.name = "hud scale";
+	s_hudscale_slider.generic.callback = VidFxCallback;
+	s_hudscale_slider.minvalue = 5;
+	s_hudscale_slider.maxvalue = 25;
+	s_hudscale_slider.curvalue = gl_hudscale->value * 10.0f;
+	if (s_hudscale_slider.curvalue < 5)
+		s_hudscale_slider.curvalue = 5;
+	if (s_hudscale_slider.curvalue > 25)
+		s_hudscale_slider.curvalue = 25;
+
+	s_hudtop_box.generic.type = MTYPE_SPINCONTROL;
+	s_hudtop_box.generic.x = 0;
+	s_hudtop_box.generic.y = 140;
+	s_hudtop_box.generic.name = "hud at top";
+	s_hudtop_box.generic.callback = VidFxCallback;
+	s_hudtop_box.itemnames = yesno_names;
+	s_hudtop_box.curvalue = scr_hud_top->intvalue ? 1 : 0;
+
 	s_shadows_box.generic.type = MTYPE_SPINCONTROL;
 	s_shadows_box.generic.x = 0;
-	s_shadows_box.generic.y = 120;
+	s_shadows_box.generic.y = 150;
 	s_shadows_box.generic.name = "shadows";
+	s_shadows_box.generic.callback = VidFxCallback;
 	s_shadows_box.itemnames = yesno_names;
 	s_shadows_box.curvalue = gl_shadows->intvalue ? 1 : 0;
 
 	s_dynamic_box.generic.type = MTYPE_SPINCONTROL;
 	s_dynamic_box.generic.x = 0;
-	s_dynamic_box.generic.y = 130;
+	s_dynamic_box.generic.y = 160;
 	s_dynamic_box.generic.name = "dynamic lights";
+	s_dynamic_box.generic.callback = VidFxCallback;
 	s_dynamic_box.itemnames = yesno_names;
 	s_dynamic_box.curvalue = gl_dynamic->intvalue ? 1 : 0;
 
@@ -539,6 +610,9 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_finish_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_modulate_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_aniso_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_sharpen_slider );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudscale_slider );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudtop_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_shadows_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_dynamic_box );
 
@@ -625,6 +699,21 @@ const char *VID_MenuKey( int key )
 	case K_RIGHTARROW:
 		Menu_SlideItem( m, 1 );
 		break;
+	case K_MOUSE1:
+	case K_MOUSE2:
+	case K_MOUSE3:
+		IN_UpdateMenuMouse();
+		if ( !Menu_UpdateCursorFromMouse( m ) )
+			return NULL;
+		{
+			menucommon_s *item = (menucommon_s *)Menu_ItemAtCursor( m );
+			if ( item && ( item->type == MTYPE_SPINCONTROL || item->type == MTYPE_SLIDER ) )
+			{
+				Menu_SlideItem( m, ( key == K_MOUSE2 ) ? -1 : 1 );
+				break;
+			}
+		}
+		/* fallthrough */
 	case K_KP_ENTER:
 	case K_ENTER:
 		if ( !Menu_SelectItem( m ) )

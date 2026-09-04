@@ -2767,11 +2767,21 @@ done: ;
 
 	if (mipmap)
 	{
+		float lodbias;
+
 		if (gl_config.r1gl_GL_EXT_texture_filter_anisotropic)
 		{
 			qglTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, (int)gl_ext_max_anisotropy->value);
 			GL_CheckForError ();
 		}
+
+		lodbias = gl_texture_lodbias->value;
+		if (lodbias > 0)
+			lodbias = 0;
+		if (lodbias < -4.0f)
+			lodbias = -4.0f;
+		qglTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodbias);
+		GL_CheckForError ();
 
 		qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
 		GL_CheckForError ();

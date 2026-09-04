@@ -43,9 +43,16 @@ double		vid_scaled_width, vid_scaled_height;
 
 float R_EffectiveHudScale (void)
 {
-	if (!gl_hudscale || gl_hudscale->value < 1.0f)
+	float hs;
+
+	if (!gl_hudscale)
 		return 1.0f;
-	return gl_hudscale->value;
+	hs = gl_hudscale->value;
+	if (hs < 0.5f)
+		hs = 0.5f;
+	if (hs > 3.0f)
+		hs = 3.0f;
+	return hs;
 }
 
 glconfig_t gl_config;
@@ -67,6 +74,7 @@ int			c_brush_polys, c_alias_polys;
 float		v_blend[4];			// final blending color
 
 void GL_Strings_f( void );
+void GL_ApplyLodBiasState (void);
 
 //
 // view origin
@@ -122,6 +130,8 @@ cvar_t	*gl_ext_point_sprite;
 cvar_t	*gl_ext_texture_filter_anisotropic;
 cvar_t	*gl_ext_texture_non_power_of_two;
 cvar_t	*gl_ext_max_anisotropy;
+cvar_t	*gl_anisotropy;
+cvar_t	*gl_texture_lodbias;
 cvar_t	*gl_ext_nv_multisample_filter_hint;
 cvar_t	*gl_ext_occlusion_query;
 
@@ -1077,6 +1087,8 @@ void R_SetupGL (void)
 	qglDisable(GL_ALPHA_TEST);
 	//qglEnable(GL_ALPHA_TEST);
 	qglEnable(GL_DEPTH_TEST);
+
+	GL_ApplyLodBiasState ();
 }
 
 /*
@@ -1413,8 +1425,10 @@ void R_Register( void )
 	//gl_ext_generate_mipmap = ri.Cvar_Get ("gl_ext_generate_mipmap", "0", 0);
 	gl_ext_point_sprite = ri.Cvar_Get ("gl_ext_point_sprite", "0", 0);
 	gl_ext_texture_filter_anisotropic = ri.Cvar_Get ("gl_ext_texture_filter_anisotropic", "1", CVAR_ARCHIVE);
-	gl_ext_texture_non_power_of_two = ri.Cvar_Get ("gl_ext_texture_non_power_of_two", "0", 0);
-	gl_ext_max_anisotropy = ri.Cvar_Get ("gl_ext_max_anisotropy", "8", CVAR_ARCHIVE);
+	gl_ext_texture_non_power_of_two = ri.Cvar_Get ("gl_ext_texture_non_power_of_two", "1", 0);
+	gl_ext_max_anisotropy = ri.Cvar_Get ("gl_ext_max_anisotropy", "16", CVAR_ARCHIVE);
+	gl_anisotropy = ri.Cvar_Get ("gl_anisotropy", "16", 0);
+	gl_texture_lodbias = ri.Cvar_Get ("gl_texture_lodbias", "0", CVAR_ARCHIVE);
 	gl_ext_occlusion_query = ri.Cvar_Get ("gl_ext_occlusion_query", "0", 0);
 	
 	gl_ext_nv_multisample_filter_hint = ri.Cvar_Get ("gl_ext_nv_multisample_filter_hint", "fastest", 0);
@@ -1428,7 +1442,7 @@ void R_Register( void )
 	gl_ext_samples = ri.Cvar_Get ("gl_ext_samples", "2", 0);
 	
 	gl_zfar = ri.Cvar_Get ("gl_zfar", "8192", 0);
-	gl_hudscale = ri.Cvar_Get ("gl_hudscale", "1", 0);
+	gl_hudscale = ri.Cvar_Get ("gl_hudscale", "1", CVAR_ARCHIVE);
 
 	cl_version = ri.Cvar_Get ("cl_version", REF_VERSION, CVAR_NOSET); 
 	
@@ -1436,7 +1450,7 @@ void R_Register( void )
 	gl_doublelight_entities = ri.Cvar_Get ("gl_doublelight_entities", "1", 0);
 	gl_noscrap = ri.Cvar_Get ("gl_noscrap", "1", 0);
 	gl_overbrights = ri.Cvar_Get ("gl_overbrights", "0", 0);
-	gl_linear_mipmaps = ri.Cvar_Get ("gl_linear_mipmaps", "0", 0);
+	gl_linear_mipmaps = ri.Cvar_Get ("gl_linear_mipmaps", "1", 0);
 
 	vid_forcedrefresh = ri.Cvar_Get ("vid_forcedrefresh", "0", 0);
 	vid_optimalrefresh = ri.Cvar_Get ("vid_optimalrefresh", "0", 0);
@@ -2015,6 +2029,64 @@ void GL_UpdateAnisotropy (void)
 	}
 }
 
+static float GL_EffectiveLodBias (void)
+{
+	float	bias;
+
+	bias = gl_texture_lodbias->value;
+	if (bias > 0)
+		bias = 0;
+	if (bias < -4.0f)
+		bias = -4.0f;
+
+	return bias;
+}
+
+/* Per-unit LOD bias — TexParameter alone is unreliable with multitextured walls. */
+void GL_ApplyLodBiasState (void)
+{
+	float	bias;
+
+	bias = GL_EffectiveLodBias ();
+
+	if (qglActiveTextureARB || qglSelectTextureSGIS)
+	{
+		GL_SelectTexture (GL_TEXTURE0);
+		qglTexEnvf (GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, bias);
+		GL_SelectTexture (GL_TEXTURE1);
+		qglTexEnvf (GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, bias);
+		GL_SelectTexture (GL_TEXTURE0);
+	}
+	else
+	{
+		qglTexEnvf (GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, bias);
+	}
+}
+
+void GL_UpdateLodBias (void)
+{
+	int		i;
+	image_t	*glt;
+	float	bias;
+
+	bias = GL_EffectiveLodBias ();
+
+	/* Always touch TMU0 so TexParameter hits the diffuse texture objects. */
+	if (qglActiveTextureARB || qglSelectTextureSGIS)
+		GL_SelectTexture (GL_TEXTURE0);
+
+	for (i=0, glt=gltextures ; i<numgltextures ; i++, glt++)
+	{
+		if (glt->type == it_pic)
+			continue;
+
+		GL_Bind (glt->texnum);
+		qglTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, bias);
+	}
+
+	GL_ApplyLodBiasState ();
+}
+
 
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -2148,10 +2220,23 @@ void EXPORT R_BeginFrame( float camera_separation )
 		gl_texturemode->modified = false;
 	}
 
+	if (gl_anisotropy->modified)
+	{
+		ri.Cvar_SetValue ("gl_ext_max_anisotropy", gl_anisotropy->value);
+		gl_anisotropy->modified = false;
+		gl_ext_max_anisotropy->modified = true;
+	}
+
 	if (gl_ext_max_anisotropy->modified && gl_config.r1gl_GL_EXT_texture_filter_anisotropic)
 	{
 		GL_UpdateAnisotropy ();
 		gl_ext_max_anisotropy->modified = false;
+	}
+
+	if (gl_texture_lodbias->modified)
+	{
+		GL_UpdateLodBias ();
+		gl_texture_lodbias->modified = false;
 	}
 
 	if (gl_ext_texture_filter_anisotropic->modified)
@@ -2184,8 +2269,10 @@ void EXPORT R_BeginFrame( float camera_separation )
 		int width, height;
 		float hs;
 
-		if (gl_hudscale->value < 1.0f)
-			ri.Cvar_Set ("gl_hudscale", "1.0");
+		if (gl_hudscale->value < 0.5f)
+			ri.Cvar_Set ("gl_hudscale", "0.5");
+		else if (gl_hudscale->value > 3.0f)
+			ri.Cvar_Set ("gl_hudscale", "3.0");
 
 		gl_hudscale->modified = false;
 		hs = R_EffectiveHudScale ();

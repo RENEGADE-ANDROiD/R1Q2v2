@@ -658,9 +658,23 @@ void EXPORT R_SetSky (char *name, float rotate, vec3_t axis)
 		if (FLOAT_NE_ZERO(gl_skymip->value) || skyrotate)
 			gl_picmip->value++;
 
-		Com_sprintf (pathname, sizeof(pathname), "env/%s%s.tga", skyname, suf[i]);
+		sky_images[i] = NULL;
 
-		sky_images[i] = GL_FindImage (pathname, skyname, it_sky);
+		if (load_png_wals)
+		{
+			Com_sprintf (pathname, sizeof(pathname), "env/%s%s.png", skyname, suf[i]);
+			sky_images[i] = GL_FindImage (pathname, skyname, it_sky);
+		}
+		if (!sky_images[i] && load_jpg_wals)
+		{
+			Com_sprintf (pathname, sizeof(pathname), "env/%s%s.jpg", skyname, suf[i]);
+			sky_images[i] = GL_FindImage (pathname, skyname, it_sky);
+		}
+		if (!sky_images[i] && load_tga_wals)
+		{
+			Com_sprintf (pathname, sizeof(pathname), "env/%s%s.tga", skyname, suf[i]);
+			sky_images[i] = GL_FindImage (pathname, skyname, it_sky);
+		}
 		if (!sky_images[i])
 			sky_images[i] = r_notexture;
 

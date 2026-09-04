@@ -678,61 +678,45 @@ void Mod_LoadTexinfo (lump_t *l)
 			continue;
 
 		Com_sprintf (name, sizeof(name), "textures/%s.wal", in->texture);
-		
+
 		if (!GetWalInfo (name, &global_hax_texture_x, &global_hax_texture_y))
 		{
-			ri.Con_Printf (PRINT_ALL, "Couldn't load %s\n", name);
-			out->image = r_notexture;
-			continue;
+			/* HD / custom packs may ship only png/jpg/tga */
+			global_hax_texture_x = global_hax_texture_y = 0;
 		}
 
 		length = strlen(name);
+		out->image = NULL;
 
-		if (load_tga_wals)
+		if (load_png_wals)
 		{
-			//Com_sprintf (name, sizeof(name), "textures/%s.tga", in->texture);
-			memcpy (name + length-3, "tga", 3);
+			memcpy (name + length-3, "png", 3);
 			out->image = GL_FindImage (name, in->texture, it_wall);
 		}
-		else
+
+		if (!out->image && load_jpg_wals)
 		{
-			out->image = NULL;
+			memcpy (name + length-3, "jpg", 3);
+			out->image = GL_FindImage (name, in->texture, it_wall);
+		}
+
+		if (!out->image && load_tga_wals)
+		{
+			memcpy (name + length-3, "tga", 3);
+			out->image = GL_FindImage (name, in->texture, it_wall);
 		}
 
 		if (!out->image)
 		{
-			if (load_png_wals)
-			{
-				memcpy (name + length-3, "png", 3);
-				//Com_sprintf (name, sizeof(name), "textures/%s.png", in->texture);
-				out->image = GL_FindImage (name, in->texture, it_wall);
-			}
-
-			if (!out->image)
-			{
-				if (load_jpg_wals)
-				{
-					memcpy (name + length-3, "jpg", 3);
-					//Com_sprintf (name, sizeof(name), "textures/%s.jpg", in->texture);
-					out->image = GL_FindImage (name, in->texture, it_wall);
-				}
-
-				if (!out->image)
-				{
-					memcpy (name + length-3, "wal", 3);
-					//Com_sprintf (name, sizeof(name), "textures/%s.wal", in->texture);
-					out->image = GL_FindImage (name, in->texture, it_wall);
-					
-					if (!out->image)
-					{
-						ri.Con_Printf (PRINT_ALL, "Couldn't load %s\n", name);
-						out->image = r_notexture;
-					}
-				}
-			}
+			memcpy (name + length-3, "wal", 3);
+			out->image = GL_FindImage (name, in->texture, it_wall);
 		}
 
-		//last_image = out->image;
+		if (!out->image)
+		{
+			ri.Con_Printf (PRINT_ALL, "Couldn't load textures/%s\n", in->texture);
+			out->image = r_notexture;
+		}
 
 		global_hax_texture_x = global_hax_texture_y = 0;
 	}

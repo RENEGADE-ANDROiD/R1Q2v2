@@ -38,8 +38,10 @@ void	SCR_RunConsole (void);
 
 float	SCR_GetMenuScale (void);
 float	SCR_GetMenuPicScale (void);
+float	SCR_GetConsoleScale (void);
 extern	cvar_t	*scr_menuscale;
 extern	cvar_t	*scr_menupicscale;
+extern	cvar_t	*con_scale;
 
 /* Absolute mouse in client coords while menu/console has the cursor */
 extern	int		menu_mouse_x, menu_mouse_y;

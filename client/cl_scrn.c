@@ -47,6 +47,7 @@ vrect_t		scr_vrect;		// position of render window on screen
 cvar_t		*scr_viewsize;
 cvar_t		*scr_menuscale;
 cvar_t		*scr_menupicscale;
+cvar_t		*con_scale;
 int			menu_mouse_x, menu_mouse_y;
 qboolean	menu_mouse_valid;
 cvar_t		*scr_conspeed;
@@ -72,6 +73,7 @@ cvar_t		*scr_chathud_x;
 cvar_t		*scr_chathud_y;
 cvar_t		*scr_chathud_highlight;
 cvar_t		*scr_chathud_highlight_char;
+cvar_t		*scr_hud_top;
 
 typedef struct
 {
@@ -718,6 +720,32 @@ float SCR_GetMenuPicScale (void)
 }
 
 /*
+================
+SCR_GetConsoleScale
+
+0 = auto from resolution (classic 480p baseline), same idea as menus.
+================
+*/
+float SCR_GetConsoleScale (void)
+{
+	float s;
+
+	if (!con_scale)
+		con_scale = Cvar_Get ("con_scale", "0", CVAR_ARCHIVE);
+
+	if (con_scale->value > 0.0f)
+		s = con_scale->value;
+	else
+		s = (float)viddef.height / 480.0f;
+
+	if (s < 1.0f)
+		s = 1.0f;
+	if (s > 6.0f)
+		s = 6.0f;
+	return s;
+}
+
+/*
 ==================
 SCR_Init
 ==================
@@ -727,6 +755,7 @@ void SCR_Init (void)
 	scr_viewsize = Cvar_Get ("viewsize", "100", CVAR_ARCHIVE);
 	scr_menuscale = Cvar_Get ("scr_menuscale", "0", CVAR_ARCHIVE);
 	scr_menupicscale = Cvar_Get ("scr_menupicscale", "1.2", CVAR_ARCHIVE);
+	con_scale = Cvar_Get ("con_scale", "0", CVAR_ARCHIVE);
 	scr_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 	scr_conheight = Cvar_Get ("scr_conheight", "0.5", 0);
 	scr_showturtle = Cvar_Get ("scr_showturtle", "1", 0);
@@ -750,6 +779,7 @@ void SCR_Init (void)
 	scr_chathud_y = Cvar_Get ("scr_chathud_y", "0", 0);
 	scr_chathud_highlight = Cvar_Get ("scr_chathud_highlight", "0", 0);
 	scr_chathud_highlight_char = Cvar_Get ("scr_chathud_highlight_char", " ", 0);
+	scr_hud_top = Cvar_Get ("scr_hud_top", "0", CVAR_ARCHIVE);
 
 	scr_chathud_lines->changed = SCR_Chathud_Changed;
 	scr_chathud_lines->changed (scr_chathud_lines, scr_chathud_lines->string, scr_chathud_lines->string);
@@ -1358,13 +1388,20 @@ void SCR_ExecuteLayoutString (char *s)
 				else if (token[1] == 'b')
 				{
 					token = COM_Parse (&s);
-					y = viddef.height + atoi(token);
+					/* yb is bottom-relative (usually negative). Flip to top. */
+					if (scr_hud_top && scr_hud_top->intvalue)
+						y = -atoi(token);
+					else
+						y = viddef.height + atoi(token);
 					continue;
 				}
 				else if (token[1] == 't')
 				{
 					token = COM_Parse (&s);
-					y = atoi(token);
+					if (scr_hud_top && scr_hud_top->intvalue)
+						y = viddef.height - atoi(token);
+					else
+						y = atoi(token);
 					continue;
 				}
 				break;
