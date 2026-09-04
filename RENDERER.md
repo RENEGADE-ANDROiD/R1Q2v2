@@ -17,6 +17,8 @@ Kept classic fonts, console, and menus. No bloom wallhacks, player wireframes/ES
 
 Landed in this pass:
 
+- **MD3 / IDP3 models** — ref_gl/md3.h + load in gl_model.c + draw in gl_mesh.c. Detects magic IDP3 regardless of extension (fixes w_*.md2 vweps that are really MD3). Multi-mesh + frame lerp; tags ignored; skin names resolved as Q2 images.
+
 - **Modern libpng API** — `png_get_IHDR` / getters instead of direct `png_info` field access; `png_sig_cmp`; `png_set_expand_gray_1_2_4_to_8`; allocation failure check.
 - **JPEG robustness** — custom memory source renamed to avoid clash with libjpeg-turbo’s `jpeg_mem_src`; accept any SOI (`FF D8`) JPEG, not only JFIF APP0.
 - **Anisotropic filtering** — default `gl_ext_texture_filter_anisotropic 1` and `gl_ext_max_anisotropy 8` (archived), still using the existing extension path in R1GL.

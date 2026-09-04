@@ -537,6 +537,405 @@ R_DrawAliasModel
 =================
 */
 extern void MYgluPerspective( GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar );
+
+#include "md3.h"
+
+extern void MYgluPerspective( GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar );
+
+static vec4_t	s_md3_lerped[MD3_MAX_VERTS];
+
+static void MD3_LatLongNormal (byte lat, byte lng, vec3_t out)
+{
+	float	ilat = (float)lat * (float)(2.0 * M_PI / 255.0);
+	float	ilng = (float)lng * (float)(2.0 * M_PI / 255.0);
+
+	out[0] = (float)(cos(ilat) * sin(ilng));
+	out[1] = (float)(sin(ilat) * sin(ilng));
+	out[2] = (float)cos(ilng);
+}
+
+/*
+=============
+GL_DrawMD3MeshLerp
+=============
+*/
+static void GL_DrawMD3MeshLerp (md3model_t *md3, md3mesh_mem_t *mesh, float backlerp)
+{
+	md3frameinfo_t	*frame, *oldframe;
+	md3vert_t		*v, *ov;
+	float			frontlerp = 1.0f - backlerp;
+	float			alpha;
+	vec3_t			move, delta, vectors[3];
+	int				i, j;
+	int				shell;
+	float			*lerp;
+
+	if (mesh->num_verts > MD3_MAX_VERTS)
+		return;
+
+	frame = &md3->frames[currententity->frame];
+	oldframe = &md3->frames[currententity->oldframe];
+	v = mesh->verts + currententity->frame * mesh->num_verts;
+	ov = mesh->verts + currententity->oldframe * mesh->num_verts;
+
+	if (currententity->flags & RF_TRANSLUCENT)
+		alpha = currententity->alpha;
+	else
+		alpha = 1.0f;
+
+	shell = currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM);
+	if (shell)
+		qglDisable (GL_TEXTURE_2D);
+
+	VectorSubtract (currententity->oldorigin, currententity->origin, delta);
+	AngleVectors (currententity->angles, vectors[0], vectors[1], vectors[2]);
+
+	move[0] = DotProduct (delta, vectors[0]);
+	move[1] = -DotProduct (delta, vectors[1]);
+	move[2] = DotProduct (delta, vectors[2]);
+
+	VectorAdd (move, oldframe->translate, move);
+	move[0] = backlerp * move[0] + frontlerp * frame->translate[0];
+	move[1] = backlerp * move[1] + frontlerp * frame->translate[1];
+	move[2] = backlerp * move[2] + frontlerp * frame->translate[2];
+
+	lerp = s_md3_lerped[0];
+	for (i = 0; i < mesh->num_verts; i++, v++, ov++, lerp += 4)
+	{
+		vec3_t	n;
+		float	fx, fy, fz, bx, by, bz;
+
+		fx = v->xyz[0] * MD3_XYZ_SCALE;
+		fy = v->xyz[1] * MD3_XYZ_SCALE;
+		fz = v->xyz[2] * MD3_XYZ_SCALE;
+		bx = ov->xyz[0] * MD3_XYZ_SCALE;
+		by = ov->xyz[1] * MD3_XYZ_SCALE;
+		bz = ov->xyz[2] * MD3_XYZ_SCALE;
+
+		lerp[0] = move[0] + bx * backlerp + fx * frontlerp;
+		lerp[1] = move[1] + by * backlerp + fy * frontlerp;
+		lerp[2] = move[2] + bz * backlerp + fz * frontlerp;
+
+		if (shell)
+		{
+			MD3_LatLongNormal (v->norm[0], v->norm[1], n);
+			lerp[0] += n[0] * POWERSUIT_SCALE;
+			lerp[1] += n[1] * POWERSUIT_SCALE;
+			lerp[2] += n[2] * POWERSUIT_SCALE;
+		}
+	}
+
+	qglBegin (GL_TRIANGLES);
+	if (shell)
+	{
+		qglColor4f (shadelight[0], shadelight[1], shadelight[2], alpha);
+		for (i = 0; i < mesh->num_tris; i++)
+		{
+			for (j = 0; j < 3; j++)
+			{
+				unsigned idx = mesh->indexes[i*3+j];
+				qglVertex3fv (s_md3_lerped[idx]);
+			}
+		}
+	}
+	else
+	{
+		for (i = 0; i < mesh->num_tris; i++)
+		{
+			for (j = 0; j < 3; j++)
+			{
+				unsigned	idx = mesh->indexes[i*3+j];
+				md3vert_t	*cv = mesh->verts + currententity->frame * mesh->num_verts + idx;
+				vec3_t		n;
+				float		l;
+
+				MD3_LatLongNormal (cv->norm[0], cv->norm[1], n);
+				l = DotProduct (n, shadevector);
+				if (l < 0.0f)
+					l = 0.0f;
+
+				qglColor4f (l * shadelight[0], l * shadelight[1], l * shadelight[2], alpha);
+				qglTexCoord2f (mesh->st[idx*2+0], mesh->st[idx*2+1]);
+				qglVertex3fv (s_md3_lerped[idx]);
+			}
+		}
+	}
+	qglEnd ();
+
+	if (shell)
+		qglEnable (GL_TEXTURE_2D);
+}
+
+/*
+=============
+R_CullAliasMD3Model
+=============
+*/
+qboolean R_CullAliasMD3Model (vec3_t bbox[8], entity_t *e)
+{
+	int				i;
+	vec3_t			mins, maxs;
+	md3model_t		*md3;
+	md3frameinfo_t	*pframe, *poldframe;
+	vec3_t			vectors[3];
+	vec3_t			angles;
+
+	md3 = (md3model_t *)currentmodel->extradata;
+	pframe = &md3->frames[e->frame];
+	poldframe = &md3->frames[e->oldframe];
+
+	if (pframe == poldframe)
+	{
+		VectorCopy (pframe->mins, mins);
+		VectorCopy (pframe->maxs, maxs);
+	}
+	else
+	{
+		for (i = 0; i < 3; i++)
+		{
+			mins[i] = (pframe->mins[i] < poldframe->mins[i]) ? pframe->mins[i] : poldframe->mins[i];
+			maxs[i] = (pframe->maxs[i] > poldframe->maxs[i]) ? pframe->maxs[i] : poldframe->maxs[i];
+		}
+	}
+
+	for (i = 0; i < 8; i++)
+	{
+		vec3_t	tmp;
+		tmp[0] = (i & 1) ? mins[0] : maxs[0];
+		tmp[1] = (i & 2) ? mins[1] : maxs[1];
+		tmp[2] = (i & 4) ? mins[2] : maxs[2];
+		VectorCopy (tmp, bbox[i]);
+	}
+
+	VectorCopy (e->angles, angles);
+	angles[YAW] = -angles[YAW];
+	AngleVectors (angles, vectors[0], vectors[1], vectors[2]);
+
+	for (i = 0; i < 8; i++)
+	{
+		vec3_t tmp;
+		VectorCopy (bbox[i], tmp);
+		bbox[i][0] = DotProduct (vectors[0], tmp);
+		bbox[i][1] = -DotProduct (vectors[1], tmp);
+		bbox[i][2] = DotProduct (vectors[2], tmp);
+		VectorAdd (e->origin, bbox[i], bbox[i]);
+	}
+
+	{
+		int p, f, aggregatemask = ~0;
+		for (p = 0; p < 8; p++)
+		{
+			int mask = 0;
+			for (f = 0; f < 4; f++)
+			{
+				float dp = DotProduct (frustum[f].normal, bbox[p]) - frustum[f].dist;
+				if (FLOAT_LT_ZERO (dp))
+					mask |= (1 << f);
+			}
+			aggregatemask &= mask;
+		}
+		return aggregatemask ? true : false;
+	}
+}
+
+/*
+=================
+R_DrawAliasMD3Model
+=================
+*/
+void R_DrawAliasMD3Model (entity_t *e)
+{
+	int			i, m;
+	md3model_t	*md3;
+	float		an;
+	vec3_t		bbox[8];
+	image_t		*skin;
+
+	md3 = (md3model_t *)currentmodel->extradata;
+
+	if ((e->frame >= md3->num_frames) || (e->frame < 0))
+	{
+		ri.Con_Printf (PRINT_DEVELOPER, "R_DrawAliasMD3Model %s: no such frame %d\n",
+			currentmodel->name, e->frame);
+		e->frame = 0;
+	}
+	if ((e->oldframe >= md3->num_frames) || (e->oldframe < 0))
+	{
+		ri.Con_Printf (PRINT_DEVELOPER, "R_DrawAliasMD3Model %s: no such oldframe %d\n",
+			currentmodel->name, e->oldframe);
+		e->oldframe = 0;
+	}
+
+	if (!(e->flags & RF_WEAPONMODEL))
+	{
+		if (R_CullAliasMD3Model (bbox, e))
+			return;
+	}
+
+	if (e->flags & RF_WEAPONMODEL)
+	{
+		if (r_lefthand->value == 2)
+			return;
+	}
+
+	/* lighting — mirror MD2 path */
+	if (currententity->flags & (RF_SHELL_HALF_DAM | RF_SHELL_GREEN | RF_SHELL_RED | RF_SHELL_BLUE | RF_SHELL_DOUBLE))
+	{
+		VectorClear (shadelight);
+		if (currententity->flags & RF_SHELL_HALF_DAM)
+		{
+			shadelight[0] = 0.56f;
+			shadelight[1] = 0.59f;
+			shadelight[2] = 0.45f;
+		}
+		if (currententity->flags & RF_SHELL_DOUBLE)
+		{
+			shadelight[0] = 0.9f;
+			shadelight[1] = 0.7f;
+		}
+		if (currententity->flags & RF_SHELL_RED)
+			shadelight[0] = 1.0f;
+		if (currententity->flags & RF_SHELL_GREEN)
+			shadelight[1] = 1.0f;
+		if (currententity->flags & RF_SHELL_BLUE)
+			shadelight[2] = 1.0f;
+	}
+	else if (currententity->flags & RF_FULLBRIGHT)
+	{
+		shadelight[0] = shadelight[1] = shadelight[2] = 1.0f;
+	}
+	else
+	{
+		R_LightPoint (currententity->origin, shadelight);
+		if (currententity->flags & RF_WEAPONMODEL)
+		{
+			if (shadelight[0] > shadelight[1])
+			{
+				if (shadelight[0] > shadelight[2])
+					r_lightlevel->value = 150.0f * shadelight[0];
+				else
+					r_lightlevel->value = 150.0f * shadelight[2];
+			}
+			else
+			{
+				if (shadelight[1] > shadelight[2])
+					r_lightlevel->value = 150.0f * shadelight[1];
+				else
+					r_lightlevel->value = 150.0f * shadelight[2];
+			}
+		}
+	}
+
+	if (currententity->flags & RF_MINLIGHT)
+	{
+		for (i = 0; i < 3; i++)
+			if (shadelight[i] > 0.1f)
+				break;
+		if (i == 3)
+		{
+			shadelight[0] = shadelight[1] = shadelight[2] = 0.1f;
+		}
+	}
+
+	if (currententity->flags & RF_GLOW)
+	{
+		float	scale = 0.1f * (float)sin(r_newrefdef.time * 7);
+		float	min;
+		for (i = 0; i < 3; i++)
+		{
+			min = shadelight[i] * 0.8f;
+			shadelight[i] += scale;
+			if (shadelight[i] < min)
+				shadelight[i] = min;
+		}
+	}
+
+	if (r_newrefdef.rdflags & RDF_IRGOGGLES && currententity->flags & RF_IR_VISIBLE)
+	{
+		shadelight[0] = 1.0f;
+		shadelight[1] = 0.0f;
+		shadelight[2] = 0.0f;
+	}
+
+	an = currententity->angles[1] / 180 * M_PI;
+	shadevector[0] = (float)cos(-an);
+	shadevector[1] = (float)sin(-an);
+	shadevector[2] = 1;
+	VectorNormalize (shadevector);
+
+	c_alias_polys += md3->num_tris;
+
+	if (currententity->flags & RF_DEPTHHACK)
+		qglDepthRange (gldepthmin, gldepthmin + 0.3 * (gldepthmax - gldepthmin));
+
+	if ((currententity->flags & RF_WEAPONMODEL) && (r_lefthand->value == 1.0F))
+	{
+		qglMatrixMode (GL_PROJECTION);
+		qglPushMatrix ();
+		qglLoadIdentity ();
+		qglScalef (-1, 1, 1);
+		MYgluPerspective (r_newrefdef.fov_y, (float)r_newrefdef.width / r_newrefdef.height, 4, gl_zfar->value);
+		qglMatrixMode (GL_MODELVIEW);
+		qglCullFace (GL_BACK);
+	}
+
+	qglPushMatrix ();
+	e->angles[PITCH] = -e->angles[PITCH];
+	R_RotateForEntity (e);
+	e->angles[PITCH] = -e->angles[PITCH];
+
+	qglShadeModel (GL_SMOOTH);
+	GL_TexEnv (GL_MODULATE);
+
+	if (FLOAT_EQ_ZERO (r_lerpmodels->value))
+		currententity->backlerp = 0;
+
+	for (m = 0; m < md3->num_meshes; m++)
+	{
+		md3mesh_mem_t *mesh = &md3->meshes[m];
+
+		if (currententity->skin)
+			skin = currententity->skin;
+		else if (mesh->num_skins > 0 && mesh->skins[0])
+			skin = mesh->skins[0];
+		else if (currentmodel->skins[0])
+			skin = currentmodel->skins[0];
+		else
+			skin = r_notexture;
+
+		if (!skin)
+			skin = r_notexture;
+
+		GL_Bind (skin->texnum);
+
+		if (currententity->flags & RF_TRANSLUCENT || (skin->has_alpha && FLOAT_NE_ZERO(gl_alphaskins->value)))
+			qglEnable (GL_BLEND);
+
+		GL_DrawMD3MeshLerp (md3, mesh, currententity->backlerp);
+
+		if (currententity->flags & RF_TRANSLUCENT || (skin->has_alpha && FLOAT_NE_ZERO(gl_alphaskins->value)))
+			qglDisable (GL_BLEND);
+	}
+
+	GL_TexEnv (GL_REPLACE);
+	qglShadeModel (GL_FLAT);
+	qglPopMatrix ();
+
+	if ((currententity->flags & RF_WEAPONMODEL) && (r_lefthand->value == 1.0F))
+	{
+		qglMatrixMode (GL_PROJECTION);
+		qglPopMatrix ();
+		qglMatrixMode (GL_MODELVIEW);
+		qglCullFace (GL_FRONT);
+	}
+
+	if (currententity->flags & RF_DEPTHHACK)
+		qglDepthRange (gldepthmin, gldepthmax);
+
+	qglColor4fv (colorWhite);
+}
+
+
 void R_DrawAliasModel (entity_t *e)
 {
 	int			i;
@@ -544,6 +943,12 @@ void R_DrawAliasModel (entity_t *e)
 	float		an;
 	vec3_t		bbox[8];
 	image_t		*skin;
+
+	if (currentmodel->extradata && *(int *)currentmodel->extradata == IDMD3HEADER)
+	{
+		R_DrawAliasMD3Model (e);
+		return;
+	}
 
 	paliashdr = (dmdl_t *)currentmodel->extradata;
 

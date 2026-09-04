@@ -30,7 +30,10 @@ int		modfilelen;
 void Mod_LoadSpriteModel (model_t *mod, void *buffer);
 void Mod_LoadBrushModel (model_t *mod, void *buffer);
 void Mod_LoadAliasModel (model_t *mod, void *buffer);
+void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize);
 model_t *Mod_LoadModel (model_t *mod, qboolean crash);
+
+#include "md3.h"
 
 byte	mod_novis[MAX_MAP_LEAFS/8];
 
@@ -311,6 +314,14 @@ model_t *Mod_ForName (char *name, qboolean crash)
 			else
 				loadmodel->extradata = Hunk_Begin (0x200000, 0);
 			Mod_LoadAliasModel (mod, buf);
+			break;
+
+		case IDMD3HEADER:
+			if (model_size)
+				loadmodel->extradata = Hunk_Begin (model_size->size, model_size->size);
+			else
+				loadmodel->extradata = Hunk_Begin (0x400000, 0);
+			Mod_LoadMD3Model (mod, buf, modfilelen);
 			break;
 			
 		case IDSPRITEHEADER:
@@ -1437,6 +1448,207 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	mod->maxs[2] = 32;
 }
 
+
+/*
+=================
+Mod_LoadMD3Model
+
+Load Quake III MD3 (IDP3). Works for .md3 and MD3 bytes in a .md2-named file.
+Tags are ignored. Multi-mesh supported; Q3 shaders are treated as skin paths.
+=================
+*/
+void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
+{
+	dmd3header_t	hdr;
+	md3model_t		*md3;
+	byte			*buf = (byte *)buffer;
+	int				i, m, v, t, s;
+	const byte		*meshptr;
+	int				remaining;
+
+	if (filesize < (int)sizeof(dmd3header_t))
+		ri.Sys_Error (ERR_DROP, "Mod_LoadMD3Model: %s is too small", mod->name);
+
+	memcpy (&hdr, buffer, sizeof(hdr));
+	hdr.ident = LittleLong (hdr.ident);
+	hdr.version = LittleLong (hdr.version);
+	hdr.flags = LittleLong (hdr.flags);
+	hdr.num_frames = LittleLong (hdr.num_frames);
+	hdr.num_tags = LittleLong (hdr.num_tags);
+	hdr.num_meshes = LittleLong (hdr.num_meshes);
+	hdr.num_skins = LittleLong (hdr.num_skins);
+	hdr.ofs_frames = LittleLong (hdr.ofs_frames);
+	hdr.ofs_tags = LittleLong (hdr.ofs_tags);
+	hdr.ofs_meshes = LittleLong (hdr.ofs_meshes);
+	hdr.ofs_end = LittleLong (hdr.ofs_end);
+
+	if (hdr.ident != IDMD3HEADER)
+		ri.Sys_Error (ERR_DROP, "Mod_LoadMD3Model: %s is not IDP3", mod->name);
+	if (hdr.version != MD3_VERSION)
+		ri.Sys_Error (ERR_DROP, "%s has wrong MD3 version (%i should be %i)",
+			mod->name, hdr.version, MD3_VERSION);
+	if (hdr.num_frames < 1 || hdr.num_frames > MD3_MAX_FRAMES)
+		ri.Sys_Error (ERR_DROP, "%s has bad MD3 frame count %i", mod->name, hdr.num_frames);
+	if (hdr.num_meshes < 1 || hdr.num_meshes > MD3_MAX_MESHES)
+		ri.Sys_Error (ERR_DROP, "%s has bad MD3 mesh count %i", mod->name, hdr.num_meshes);
+	if (hdr.ofs_frames < 0 || hdr.ofs_meshes < 0 ||
+		hdr.ofs_frames + hdr.num_frames * (int)sizeof(dmd3frame_t) > filesize ||
+		hdr.ofs_meshes > filesize)
+		ri.Sys_Error (ERR_DROP, "%s has bad MD3 offsets", mod->name);
+
+	md3 = Hunk_Alloc (sizeof(*md3));
+	memset (md3, 0, sizeof(*md3));
+	md3->ident = IDMD3HEADER;
+	md3->version = hdr.version;
+	md3->num_frames = hdr.num_frames;
+	md3->num_meshes = hdr.num_meshes;
+	md3->frames = Hunk_Alloc (hdr.num_frames * sizeof(md3frameinfo_t));
+	md3->meshes = Hunk_Alloc (hdr.num_meshes * sizeof(md3mesh_mem_t));
+	memset (md3->frames, 0, hdr.num_frames * sizeof(md3frameinfo_t));
+	memset (md3->meshes, 0, hdr.num_meshes * sizeof(md3mesh_mem_t));
+
+	/* frames (bounds filled while loading verts) */
+	{
+		dmd3frame_t *src = (dmd3frame_t *)(buf + hdr.ofs_frames);
+		for (i = 0; i < hdr.num_frames; i++, src++)
+		{
+			md3->frames[i].translate[0] = LittleFloat (src->translate[0]);
+			md3->frames[i].translate[1] = LittleFloat (src->translate[1]);
+			md3->frames[i].translate[2] = LittleFloat (src->translate[2]);
+			md3->frames[i].radius = LittleFloat (src->radius);
+			ClearBounds (md3->frames[i].mins, md3->frames[i].maxs);
+		}
+	}
+
+	meshptr = buf + hdr.ofs_meshes;
+	remaining = filesize - hdr.ofs_meshes;
+
+	for (m = 0; m < hdr.num_meshes; m++)
+	{
+		dmd3mesh_t		meshhdr;
+		md3mesh_mem_t	*mesh;
+		dmd3skin_t		*skinsrc;
+		dmd3coord_t		*stsrc;
+		int				*idxsrc;
+		dmd3vertex_t	*vertsrc;
+		int				nskins;
+
+		if (remaining < (int)sizeof(dmd3mesh_t))
+			ri.Sys_Error (ERR_DROP, "%s truncated MD3 mesh %i", mod->name, m);
+
+		memcpy (&meshhdr, meshptr, sizeof(meshhdr));
+		meshhdr.ident = LittleLong (meshhdr.ident);
+		meshhdr.flags = LittleLong (meshhdr.flags);
+		meshhdr.num_frames = LittleLong (meshhdr.num_frames);
+		meshhdr.num_skins = LittleLong (meshhdr.num_skins);
+		meshhdr.num_verts = LittleLong (meshhdr.num_verts);
+		meshhdr.num_tris = LittleLong (meshhdr.num_tris);
+		meshhdr.ofs_indexes = LittleLong (meshhdr.ofs_indexes);
+		meshhdr.ofs_skins = LittleLong (meshhdr.ofs_skins);
+		meshhdr.ofs_tcs = LittleLong (meshhdr.ofs_tcs);
+		meshhdr.ofs_verts = LittleLong (meshhdr.ofs_verts);
+		meshhdr.meshsize = LittleLong (meshhdr.meshsize);
+
+		if (meshhdr.ident != IDMD3HEADER)
+			ri.Sys_Error (ERR_DROP, "%s mesh %i bad ident", mod->name, m);
+		if (meshhdr.meshsize < (int)sizeof(dmd3mesh_t) || meshhdr.meshsize > remaining)
+			ri.Sys_Error (ERR_DROP, "%s mesh %i bad size", mod->name, m);
+		if (meshhdr.num_frames != hdr.num_frames)
+			ri.Sys_Error (ERR_DROP, "%s mesh %i frame mismatch", mod->name, m);
+		if (meshhdr.num_verts < 3 || meshhdr.num_verts > MD3_MAX_VERTS)
+			ri.Sys_Error (ERR_DROP, "%s mesh %i bad verts %i", mod->name, m, meshhdr.num_verts);
+		if (meshhdr.num_tris < 1 || meshhdr.num_tris > MD3_MAX_TRIANGLES)
+			ri.Sys_Error (ERR_DROP, "%s mesh %i bad tris %i", mod->name, m, meshhdr.num_tris);
+		if (meshhdr.ofs_skins < 0 || meshhdr.ofs_tcs < 0 || meshhdr.ofs_indexes < 0 || meshhdr.ofs_verts < 0 ||
+			meshhdr.ofs_skins + meshhdr.num_skins * (int)sizeof(dmd3skin_t) > meshhdr.meshsize ||
+			meshhdr.ofs_tcs + meshhdr.num_verts * (int)sizeof(dmd3coord_t) > meshhdr.meshsize ||
+			meshhdr.ofs_indexes + meshhdr.num_tris * 3 * (int)sizeof(int) > meshhdr.meshsize ||
+			meshhdr.ofs_verts + meshhdr.num_verts * hdr.num_frames * (int)sizeof(dmd3vertex_t) > meshhdr.meshsize)
+			ri.Sys_Error (ERR_DROP, "%s mesh %i bad offsets", mod->name, m);
+
+		mesh = &md3->meshes[m];
+		mesh->num_verts = meshhdr.num_verts;
+		mesh->num_tris = meshhdr.num_tris;
+		nskins = meshhdr.num_skins;
+		if (nskins > 32)
+			nskins = 32;
+		mesh->num_skins = nskins;
+
+		mesh->st = Hunk_Alloc (mesh->num_verts * 2 * sizeof(float));
+		mesh->indexes = Hunk_Alloc (mesh->num_tris * 3 * sizeof(unsigned));
+		mesh->verts = Hunk_Alloc (mesh->num_verts * hdr.num_frames * sizeof(md3vert_t));
+
+		skinsrc = (dmd3skin_t *)(meshptr + meshhdr.ofs_skins);
+		for (s = 0; s < nskins; s++)
+		{
+			memcpy (mesh->skinnames[s], skinsrc[s].name, MAX_SKINNAME-1);
+			mesh->skinnames[s][MAX_SKINNAME-1] = 0;
+			fast_strlwr (mesh->skinnames[s]);
+			if (mesh->skinnames[s][0])
+				mesh->skins[s] = GL_FindImage (mesh->skinnames[s], mesh->skinnames[s], it_skin);
+			else
+				mesh->skins[s] = NULL;
+			/* also expose first mesh skins on model for entity skinnum */
+			if (m == 0 && s < MAX_MD2SKINS)
+				mod->skins[s] = mesh->skins[s];
+		}
+
+		stsrc = (dmd3coord_t *)(meshptr + meshhdr.ofs_tcs);
+		for (v = 0; v < mesh->num_verts; v++)
+		{
+			mesh->st[v*2+0] = LittleFloat (stsrc[v].st[0]);
+			mesh->st[v*2+1] = LittleFloat (stsrc[v].st[1]);
+		}
+
+		idxsrc = (int *)(meshptr + meshhdr.ofs_indexes);
+		for (t = 0; t < mesh->num_tris * 3; t++)
+		{
+			unsigned idx = (unsigned)LittleLong (idxsrc[t]);
+			if (idx >= (unsigned)mesh->num_verts)
+				ri.Sys_Error (ERR_DROP, "%s mesh %i bad index", mod->name, m);
+			mesh->indexes[t] = idx;
+		}
+
+		vertsrc = (dmd3vertex_t *)(meshptr + meshhdr.ofs_verts);
+		for (i = 0; i < hdr.num_frames; i++)
+		{
+			md3vert_t *dst = mesh->verts + i * mesh->num_verts;
+			for (v = 0; v < mesh->num_verts; v++, vertsrc++, dst++)
+			{
+				vec3_t	xyz;
+				dst->xyz[0] = LittleShort (vertsrc->point[0]);
+				dst->xyz[1] = LittleShort (vertsrc->point[1]);
+				dst->xyz[2] = LittleShort (vertsrc->point[2]);
+				dst->norm[0] = vertsrc->norm[0];
+				dst->norm[1] = vertsrc->norm[1];
+
+				xyz[0] = dst->xyz[0] * MD3_XYZ_SCALE + md3->frames[i].translate[0];
+				xyz[1] = dst->xyz[1] * MD3_XYZ_SCALE + md3->frames[i].translate[1];
+				xyz[2] = dst->xyz[2] * MD3_XYZ_SCALE + md3->frames[i].translate[2];
+				AddPointToBounds (xyz, md3->frames[i].mins, md3->frames[i].maxs);
+			}
+		}
+
+		md3->num_tris += mesh->num_tris;
+		meshptr += meshhdr.meshsize;
+		remaining -= meshhdr.meshsize;
+	}
+
+	/* finalize frame radius from accumulated bounds */
+	for (i = 0; i < hdr.num_frames; i++)
+	{
+		vec3_t	corner;
+		VectorSubtract (md3->frames[i].maxs, md3->frames[i].mins, corner);
+		md3->frames[i].radius = (float)sqrt (DotProduct(corner, corner)) * 0.5f;
+	}
+
+	mod->type = mod_alias;
+	mod->numframes = hdr.num_frames;
+	mod->mins[0] = mod->mins[1] = mod->mins[2] = -32;
+	mod->maxs[0] = mod->maxs[1] = mod->maxs[2] = 32;
+}
+
+
 /*
 ==============================================================================
 
@@ -1569,13 +1781,35 @@ struct model_s * EXPORT R_RegisterModel (char *name)
 
 		case mod_alias:
 			{
-				pheader = (dmdl_t *)mod->extradata;
-				for (i=0 ; i<pheader->num_skins ; i++)
+				if (*(int *)mod->extradata == IDMD3HEADER)
 				{
-					if (mod->skins[i])
-						mod->skins[i]->registration_sequence  = registration_sequence;
+					md3model_t *md3 = (md3model_t *)mod->extradata;
+					int m, s;
+					for (i=0 ; i<MAX_MD2SKINS ; i++)
+					{
+						if (mod->skins[i])
+							mod->skins[i]->registration_sequence = registration_sequence;
+					}
+					for (m=0 ; m<md3->num_meshes ; m++)
+					{
+						for (s=0 ; s<md3->meshes[m].num_skins && s<32 ; s++)
+						{
+							if (md3->meshes[m].skins[s])
+								md3->meshes[m].skins[s]->registration_sequence = registration_sequence;
+						}
+					}
+					mod->numframes = md3->num_frames;
 				}
-				mod->numframes = pheader->num_frames;
+				else
+				{
+					pheader = (dmdl_t *)mod->extradata;
+					for (i=0 ; i<pheader->num_skins ; i++)
+					{
+						if (mod->skins[i])
+							mod->skins[i]->registration_sequence  = registration_sequence;
+					}
+					mod->numframes = pheader->num_frames;
+				}
 			}
 			break;
 		default:

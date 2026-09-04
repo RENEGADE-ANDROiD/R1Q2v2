@@ -35,6 +35,7 @@ Build string: **8012-RENEGADE** (so you can tell this apart from stock R1Q2).
 - **Server browser:** Multiplayer -> Join Network Server. Refresh queries LAN broadcast, adr0-adr31, favorites.lst, and cl_master (default master.q2servers.com:27900). Favorites file: <gamedir>/favorites.lst (usually baseq2/favorites.lst). Keys: ENTER connect, F toggle favorite, SPACE refresh, [/] page.
 
 - CMake build for the game DLL, dedicated server, client, and `ref_r1gl` (see `BUILD-WINDOWS.md` / `RENDERER.md` if you are compiling).
+- **MD3 (IDP3) alias models in ref_r1gl:** loads Quake III MD3 (including MD3 bytes in .md2-named files such as player vweps) and draws them with the fixed-function path. Tags/Q3 shaders not used.
 - Official binary name **R1Q2v2.exe**, product name **R1Q2v2**.
 - Fork marked in `build.h` as `8012-RENEGADE`.
 
