@@ -700,6 +700,26 @@ static void VID_RebuildModeNames( void )
 	vid_mode_names[vid_num_modes] = 0;
 }
 
+/* Index of ENUM_CURRENT_SETTINGS width/height in vid_modes[], or -1. */
+static int VID_FindDesktopModeIndex( void )
+{
+	DEVMODE	dm;
+	int		i;
+
+	memset( &dm, 0, sizeof(dm) );
+	dm.dmSize = sizeof(dm);
+	if ( !EnumDisplaySettings( NULL, ENUM_CURRENT_SETTINGS, &dm ) )
+		return -1;
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		if ( vid_modes[i].width == (int)dm.dmPelsWidth
+			&& vid_modes[i].height == (int)dm.dmPelsHeight )
+			return i;
+	}
+	return -1;
+}
+
 static void VID_AddMode( int width, int height )
 {
 	int i;
@@ -1240,7 +1260,21 @@ VID_Init
 */
 void VID_Init (void)
 {
+	int		desktop_mode;
+	char	mode_default[16];
+
 	VID_InitModeList();
+
+	/* Default gl_mode/sw_mode to the desktop resolution index for first-run /
+	   unset installs. If config.cfg already set the cvar, Cvar_Get keeps it. */
+	desktop_mode = VID_FindDesktopModeIndex();
+	if ( desktop_mode < 0 )
+		desktop_mode = 3; /* legacy 640x480-ish fallback if enum failed */
+	Com_sprintf( mode_default, sizeof(mode_default), "%d", desktop_mode );
+	Cvar_Get( "gl_mode", mode_default, CVAR_ARCHIVE );
+	Cvar_Get( "sw_mode", mode_default, CVAR_ARCHIVE );
+	Com_Printf( "VID: default video mode index %d (desktop match)\n", LOG_CLIENT, desktop_mode );
+
 	/* Create the video variables so we know how to start the graphics drivers */
 	vid_ref = Cvar_Get ("vid_ref", "gl", CVAR_ARCHIVE);
 	vid_xpos = Cvar_Get ("vid_xpos", "3", CVAR_ARCHIVE);

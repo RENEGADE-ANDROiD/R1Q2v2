@@ -1140,7 +1140,10 @@ void IN_MouseEvent (int mstate)
 {
 	int		i;
 
-	if (!mouseinitialized)
+	/* Menu/console still need button edges even if startup mouse init failed */
+	if (!mouseinitialized
+		&& cls.key_dest != key_menu
+		&& cls.key_dest != key_console)
 		return;
 
 // perform button actions

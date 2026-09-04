@@ -1351,6 +1351,7 @@ void R_Register( void )
 	gl_modulate = ri.Cvar_Get ("gl_modulate", "2", CVAR_ARCHIVE );
 	//gl_log = ri.Cvar_Get( "gl_log", "0", 0 );
 	gl_bitdepth = ri.Cvar_Get( "gl_bitdepth", "0", 0 );
+	/* Default string unused if VID_Init already registered desktop match */
 	gl_mode = ri.Cvar_Get( "gl_mode", "3", CVAR_ARCHIVE );
 	//gl_lightmap = ri.Cvar_Get ("gl_lightmap", "0", 0);
 	gl_shadows = ri.Cvar_Get ("gl_shadows", "0", CVAR_ARCHIVE );
