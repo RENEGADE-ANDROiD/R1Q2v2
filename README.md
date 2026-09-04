@@ -1,41 +1,41 @@
-# R1Q2 (RENEGADE fork)
+# R1Q2v2 (RENEGADE fork)
 
 A work-in-progress update of r1ch's R1Q2 Quake II client, based on the public source archive. Updated by **h0s3r**.
 
-The goal is a client that still feels like R1Q2, builds on modern Windows, and picks up a few solid ideas from Q2PRO — without turning into a cheat client or a heavy effects pack.
+The goal is a client that still feels like R1Q2, builds on modern Windows, and picks up a few solid ideas from Q2PRO - without turning into a cheat client or a heavy effects pack.
 
 ## Play
 
 1. You need a normal Quake II install (Steam is fine).
 2. Put the build next to your Quake II exe. On this machine that is:
    `D:\SteamLibrary\steamapps\common\Quake 2`
-3. Run **R1Q2** from the desktop shortcut, or launch `r1q2.exe` from that folder.
+3. Launch `R1Q2v2.exe` from that folder (make your own shortcut when you want).
 
-Useful files in that folder: `r1q2.exe`, `gamex86.dll`, `z.dll`, and `ref_r1gl.dll` (also installed as `ref_gl.dll` so the default renderer name works). You still need the usual game data (`baseq2` and so on). This project does not ship the retail or Steam content.
+Useful files: `R1Q2v2.exe`, `gamex86.dll`, `z.dll`, `ref_r1gl.dll` (also as `ref_gl.dll`), plus `libpng16.dll` / `jpeg62.dll` if present. You still need the usual game data (`baseq2` and so on). This project does not ship the retail or Steam content.
 
 Build string: **8012-RENEGADE** (so you can tell this apart from stock R1Q2).
 
 ## What we're aiming for
 
-- **Classic look** — Quake-style fonts, console, and menus stay.
-- **R1Q2 movement by default** — optional Q2PRO-style movement later, as a setting.
-- **Modern Windows build** — CMake / VS2022 instead of old VS6 projects.
-- **Better renderer over time** — cleaner OpenGL inspired by Q2PRO, still looking like Quake II.
-- **Server browser with favorites** — planned, using the old multiplayer menus as a base.
-- **Fair play** — no wallhacks, player wireframes, or bloom tricks that reveal enemies. Heavy weather-style FX are out of scope.
+- **Classic look** - Quake-style fonts, console, and menus stay.
+- **R1Q2 movement by default** - optional Q2PRO-style movement later, as a setting.
+- **Modern Windows build** - CMake / VS2022 instead of old VS6 projects.
+- **Better renderer over time** - cleaner OpenGL inspired by Q2PRO, still looking like Quake II.
+- **Server browser with favorites** - planned, using the old multiplayer menus as a base.
+- **Fair play** - no wallhacks, player wireframes, or bloom tricks that reveal enemies. Heavy weather-style FX are out of scope. The client should work with modern anticheats or at least not trip them.
 
 ## What's in so far
 
-- CMake build for the game DLL, dedicated server, client, and **ref_r1gl** OpenGL renderer.
+- CMake build for the game DLL, dedicated server, client, and `ref_r1gl` (see `BUILD-WINDOWS.md` / `RENDERER.md` if you are compiling).
+- Official binary name **R1Q2v2.exe**, product name **R1Q2v2**.
 - Fork marked in `build.h` as `8012-RENEGADE`.
-- Small renderer modernizations (PNG/JPEG load robustness, anisotropic filtering on by default). Details: `RENDERER.md`.
 
-Builders: see `BUILD-WINDOWS.md`.
+Expect rough edges while crashes and menus get ironed out.
 
 ## Credits
 
-- **r1ch** — original R1Q2 (http://www.r1ch.net/stuff/r1q2/).
-- **h0s3r** — this RENEGADE update.
+- **r1ch** - original R1Q2 (http://www.r1ch.net/stuff/r1q2/).
+- **h0s3r** - this RENEGADE / R1Q2v2 update.
 - Public archive: https://github.com/tastyspleen/r1q2-archive
 - Ideas (not a full port): https://github.com/q2pro/q2pro
 

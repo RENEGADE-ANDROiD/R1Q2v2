@@ -138,7 +138,7 @@ if(R1Q2_BUILD_CLIENT)
   )
   set_target_properties(r1q2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    OUTPUT_NAME "r1q2"
+    OUTPUT_NAME "R1Q2v2"
   )
 endif()
 
