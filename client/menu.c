@@ -215,6 +215,10 @@ static const char *Default_MenuKey( menuframework_s *m, int key )
 	case K_MOUSE1:
 	case K_MOUSE2:
 	case K_MOUSE3:
+		IN_UpdateMenuMouse();
+		if ( m )
+			Menu_UpdateCursorFromMouse( m );
+		/* fallthrough */
 	case K_JOY1:
 	case K_JOY2:
 	case K_JOY3:
@@ -399,62 +403,80 @@ MAIN MENU
 #define	MAIN_ITEMS	5
 
 
+
+static char *m_main_names[] =
+{
+	"m_main_game",
+	"m_main_multiplayer",
+	"m_main_options",
+	"m_main_video",
+	"m_main_quit",
+	0
+};
+
+static void M_Main_Layout( int *ystart, int *xoffset, int *widest_out )
+{
+	int i, w, h, widest = -1;
+	float s = SCR_GetMenuScale();
+
+	for ( i = 0; m_main_names[i] != 0; i++ )
+	{
+		re.DrawGetPicSize( &w, &h, m_main_names[i] );
+		if ( w > widest )
+			widest = w;
+	}
+
+	*ystart = (int)( viddef.height / 2 - 110 * s );
+	*xoffset = (int)( ( viddef.width - widest * s + 70 * s ) / 2 );
+	if ( widest_out )
+		*widest_out = widest;
+}
+
+static void M_Main_UpdateHoverFromMouse( void )
+{
+	int i, w, h, ystart, xoffset;
+	float s = SCR_GetMenuScale();
+
+	if ( !menu_mouse_valid )
+		return;
+
+	M_Main_Layout( &ystart, &xoffset, NULL );
+	for ( i = 0; m_main_names[i] != 0; i++ )
+	{
+		int iy = (int)( ystart + i * 40 * s + 13 * s );
+		/* Widen X a bit beyond the pic so clicks near the cursor still hit */
+		re.DrawGetPicSize( &w, &h, m_main_names[i] );
+		if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(h * s)
+			&& menu_mouse_x >= xoffset - (int)(8 * s)
+			&& menu_mouse_x < xoffset + (int)(w * s) + (int)(8 * s) )
+		{
+			m_main_cursor = i;
+			break;
+		}
+	}
+}
+
+
 static void M_Main_Draw (void)
 {
 	int i;
 	int w, h;
 	int ystart;
 	int	xoffset;
-	int widest = -1;
-	int totalheight = 0;
 	char litname[80];
 	float s = SCR_GetMenuScale();
-	char *names[] =
+
+	M_Main_Layout( &ystart, &xoffset, NULL );
+	M_Main_UpdateHoverFromMouse();
+
+	for ( i = 0; m_main_names[i] != 0; i++ )
 	{
-		"m_main_game",
-		"m_main_multiplayer",
-		"m_main_options",
-		"m_main_video",
-		"m_main_quit",
-		0
-	};
-
-	for ( i = 0; names[i] != 0; i++ )
-	{
-		re.DrawGetPicSize( &w, &h, names[i] );
-
-		if ( w > widest )
-			widest = w;
-		totalheight += ( h + 12 );
-	}
-
-	ystart = (int)( viddef.height / 2 - 110 * s );
-	xoffset = (int)( ( viddef.width - widest * s + 70 * s ) / 2 );
-
-	/* Mouse hover on main menu bitmaps */
-	if ( menu_mouse_valid )
-	{
-		for ( i = 0; names[i] != 0; i++ )
-		{
-			int iy = (int)( ystart + i * 40 * s + 13 * s );
-			re.DrawGetPicSize( &w, &h, names[i] );
-			if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(h * s)
-				&& menu_mouse_x >= xoffset && menu_mouse_x < xoffset + (int)(w * s) )
-			{
-				m_main_cursor = i;
-				break;
-			}
-		}
-	}
-
-	for ( i = 0; names[i] != 0; i++ )
-	{
-		re.DrawGetPicSize( &w, &h, names[i] );
+		re.DrawGetPicSize( &w, &h, m_main_names[i] );
 		if ( i != m_main_cursor )
 			re.DrawStretchPic( xoffset, (int)(ystart + i * 40 * s + 13 * s),
-				(int)(w * s), (int)(h * s), names[i] );
+				(int)(w * s), (int)(h * s), m_main_names[i] );
 	}
-	strcpy( litname, names[m_main_cursor] );
+	strcpy( litname, m_main_names[m_main_cursor] );
 	strcat( litname, "_sel" );
 	re.DrawGetPicSize( &w, &h, litname );
 	re.DrawStretchPic( xoffset, (int)(ystart + m_main_cursor * 40 * s + 13 * s),
@@ -496,6 +518,9 @@ static const char *M_Main_Key (int key)
 		return sound;
 
 	case K_MOUSE1:
+		IN_UpdateMenuMouse();
+		M_Main_UpdateHoverFromMouse();
+		/* fallthrough */
 	case K_KP_ENTER:
 	case K_ENTER:
 		m_entersound = true;
@@ -4284,6 +4309,9 @@ void M_Draw (void)
 
 	scale = SCR_GetMenuScale();
 	Cvar_SetValue( "gl_fontscale", scale );
+
+	/* Fresh absolute cursor before hover hit-tests in draw funcs */
+	IN_UpdateMenuMouse();
 
 	m_drawfunc ();
 

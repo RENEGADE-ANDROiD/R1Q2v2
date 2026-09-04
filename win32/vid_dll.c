@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0400
 #include "resource.h"
+#include <stdlib.h>
 #include "..\client\client.h"
 #include "winquake.h"
 //#include "zmouse.h"
@@ -539,18 +540,19 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEMOVE:
 		{
 			int	temp;
+			qboolean menu_or_console = (cls.key_dest == key_menu || cls.key_dest == key_console);
 
-			/* DirectInput owns buttons only while mouse is grabbed */
-			if (g_pMouse && mouseactive)
-				break;
-
-			/* Absolute cursor for menu hit-testing (client coords) */
-			if (uMsg == WM_MOUSEMOVE || !mouseactive)
+			/* Always keep absolute cursor for menu/console hit-testing */
+			if (menu_or_console || uMsg == WM_MOUSEMOVE || !mouseactive)
 			{
 				menu_mouse_x = (int)(short)LOWORD(lParam);
 				menu_mouse_y = (int)(short)HIWORD(lParam);
 				menu_mouse_valid = true;
 			}
+
+			/* DirectInput owns buttons while grabbed — never skip WM path in menu/console */
+			if (g_pMouse && mouseactive && !menu_or_console)
+				break;
 
 			temp = 0;
 
@@ -675,6 +677,29 @@ static char			vid_mode_strings[MAX_VID_MODES][32];
 static const char	*vid_mode_names[MAX_VID_MODES + 1];
 static int			vid_num_modes;
 
+static int VID_ModeCmp( const void *a, const void *b )
+{
+	const vidmode_t *ma = (const vidmode_t *)a;
+	const vidmode_t *mb = (const vidmode_t *)b;
+
+	if ( ma->width != mb->width )
+		return ma->width - mb->width;
+	return ma->height - mb->height;
+}
+
+static void VID_RebuildModeNames( void )
+{
+	int i;
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		Com_sprintf( vid_mode_strings[i], sizeof(vid_mode_strings[i]),
+			"[%4d %4d]", vid_modes[i].width, vid_modes[i].height );
+		vid_mode_names[i] = vid_mode_strings[i];
+	}
+	vid_mode_names[vid_num_modes] = 0;
+}
+
 static void VID_AddMode( int width, int height )
 {
 	int i;
@@ -693,9 +718,6 @@ static void VID_AddMode( int width, int height )
 
 	vid_modes[vid_num_modes].width = width;
 	vid_modes[vid_num_modes].height = height;
-	Com_sprintf( vid_mode_strings[vid_num_modes], sizeof(vid_mode_strings[vid_num_modes]),
-		"[%4d %4d]", width, height );
-	vid_mode_names[vid_num_modes] = vid_mode_strings[vid_num_modes];
 	vid_num_modes++;
 }
 
@@ -723,7 +745,10 @@ void VID_InitModeList( void )
 	for ( i = 0; EnumDisplaySettings( NULL, i, &dm ); i++ )
 		VID_AddMode( (int)dm.dmPelsWidth, (int)dm.dmPelsHeight );
 
-	vid_mode_names[vid_num_modes] = 0;
+	if ( vid_num_modes > 1 )
+		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );
+
+	VID_RebuildModeNames();
 
 	Com_Printf( "VID: %d video modes available\n", LOG_CLIENT, vid_num_modes );
 }

@@ -759,6 +759,7 @@ void V_AddLight (vec3_t org, float intensity, float r, float g, float b);
 void V_AddLightStyle (int style, float r, float g, float b);
 
 void IN_DeactivateMouse (void);
+void IN_UpdateMenuMouse (void);
 
 //
 // cl_tent.c

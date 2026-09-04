@@ -1107,6 +1107,32 @@ void IN_Restart_f (void)
 
 /*
 ===========
+IN_UpdateMenuMouse
+
+Sample absolute cursor in client coords for menu/console hit-testing.
+Call before draw and before mouse-activate in menu keys so clicks
+do not depend on a prior WM_MOUSEMOVE.
+===========
+*/
+void IN_UpdateMenuMouse (void)
+{
+	POINT	pt;
+
+	if (!cl_hwnd)
+		return;
+	if (!GetCursorPos (&pt))
+		return;
+	if (!ScreenToClient (cl_hwnd, &pt))
+		return;
+
+	menu_mouse_x = pt.x;
+	menu_mouse_y = pt.y;
+	menu_mouse_valid = true;
+}
+
+
+/*
+===========
 IN_MouseEvent
 ===========
 */

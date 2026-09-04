@@ -360,29 +360,43 @@ void Menu_Center( menuframework_s *menu )
 	menu->y = ( VID_HEIGHT - (int)(height * s) ) / 2;
 }
 
+void Menu_UpdateCursorFromMouse( menuframework_s *menu )
+{
+	int i;
+	menucommon_s *item;
+	float s = Menu_Scale();
+	int x0, x1;
+
+	if ( !menu || !menu_mouse_valid )
+		return;
+
+	/* Parent menu X span (classic 320-wide UI centered on menu->x) */
+	x0 = menu->x - (int)(160 * s);
+	x1 = menu->x + (int)(160 * s);
+
+	for ( i = 0; i < menu->nitems; i++ )
+	{
+		int iy, dummyx;
+		item = ( menucommon_s * ) menu->items[i];
+		if ( !item || item->type == MTYPE_SEPARATOR )
+			continue;
+		Menu_ScaledXY( item, &dummyx, &iy );
+		if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(10 * s)
+			&& menu_mouse_x >= x0 && menu_mouse_x < x1 )
+		{
+			menu->cursor = i;
+			break;
+		}
+	}
+}
+
 void Menu_Draw( menuframework_s *menu )
 {
 	int i;
 	menucommon_s *item;
 	float s = Menu_Scale();
 
-	/* Mouse hover: map absolute cursor into scaled item rows */
-	if ( menu_mouse_valid )
-	{
-		for ( i = 0; i < menu->nitems; i++ )
-		{
-			int ix, iy;
-			item = ( menucommon_s * ) menu->items[i];
-			if ( !item || item->type == MTYPE_SEPARATOR )
-				continue;
-			Menu_ScaledXY( item, &ix, &iy );
-			if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(10 * s) )
-			{
-				menu->cursor = i;
-				break;
-			}
-		}
-	}
+	Menu_UpdateCursorFromMouse( menu );
 
 	/*
 	** draw contents

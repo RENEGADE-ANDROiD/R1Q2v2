@@ -1365,7 +1365,14 @@ void Key_Event (int key, qboolean down, uint32 time)
 //
 // if not a consolekey, send to the interpreter no matter what mode is
 //
-	if ( (cls.key_dest == key_menu && menubound[key])
+	/* Menu must always see mouse buttons/wheel — never consume via binds */
+	if ( cls.key_dest == key_menu
+		&& ( (key >= K_MOUSE1 && key <= K_MOUSE3)
+			|| key == K_MWHEELUP || key == K_MWHEELDOWN ) )
+	{
+		/* fall through to M_Keydown below */
+	}
+	else if ( (cls.key_dest == key_menu && menubound[key])
 	|| (cls.key_dest == key_console && !consolekeys[key])
 	|| (cls.key_dest == key_game && ( cls.state == ca_active || !consolekeys[key] ) ) )
 	{
