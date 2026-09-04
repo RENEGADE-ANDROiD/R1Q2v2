@@ -35,7 +35,7 @@ A `vcpkg.json` manifest is included; CMake+vcpkg will also restore these in mani
 
 ## Configure + build (recommended: Ninja + vcvars x86)
 
-From a **Developer** environment (or call `vcvarsall.bat x86` first). Do **not** set the `CL` environment variable to a path — MSVC treats `%CL%` as extra compiler flags.
+From a **Developer** environment (or call `vcvarsall.bat x86` first). Do **not** set the `CL` environment variable to a path â€” MSVC treats `%CL%` as extra compiler flags.
 
 ```powershell
 $vs = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
@@ -48,7 +48,7 @@ Outputs in `build\bin\`:
 |------------|---------------------------------|
 | `game`     | `gamex86.dll`                   |
 | `r1q2ded`  | `r1q2ded.exe`                   |
-| `r1q2`     | `r1q2.exe`                      |
+| `r1q2`     | `R1Q2v2.exe`                                          |
 | `ref_r1gl` | `ref_r1gl.dll` (+ `ref_gl.dll`) |
 
 Also copy/use `z.dll` from `build\bin` (vcpkg shared zlib), and libpng/jpeg DLLs if they appear beside the build outputs.
@@ -77,10 +77,10 @@ Also copy/use `z.dll` from `build\bin` (vcpkg shared zlib), and libpng/jpeg DLLs
 
 Deploy into your Quake II folder (example: `D:\SteamLibrary\steamapps\common\Quake 2`):
 
-- `r1q2.exe`, `r1q2ded.exe`, `gamex86.dll`, `z.dll`
+- `R1Q2v2.exe`, `r1q2ded.exe`, `gamex86.dll`, `z.dll`
 - `ref_r1gl.dll` (required) and `ref_gl.dll` (same binary; default `vid_ref`)
 - Shared libpng / jpeg DLLs from `build\bin` or `build\vcpkg_installed\x86-windows\bin` when present
 
-`gamex86.dll` also belongs where `Sys_GetGameAPI` searches (often `baseq2\` as well as the exe root for this install). Desktop **R1Q2.lnk** should keep targeting that folder's `r1q2.exe`.
+`gamex86.dll` also belongs where `Sys_GetGameAPI` searches (often `baseq2\` as well as the exe root for this install). Launch `R1Q2v2.exe` from that folder (create your own shortcut if you want).
 
 More renderer detail: `RENDERER.md`.

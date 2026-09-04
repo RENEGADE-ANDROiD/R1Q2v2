@@ -26,6 +26,8 @@ Build string: **8012-RENEGADE** (so you can tell this apart from stock R1Q2).
 
 ## What's in so far
 
+- Fixed null-call ACCESS_VIOLATION during sound init: re-enabled `dsound.dll` LoadLibrary/GetProcAddress for `DirectSoundCreate` (left commented after the CMake port switched callers to `iDirectSoundCreate`).
+
 - CMake build for the game DLL, dedicated server, client, and `ref_r1gl` (see `BUILD-WINDOWS.md` / `RENDERER.md` if you are compiling).
 - Official binary name **R1Q2v2.exe**, product name **R1Q2v2**.
 - Fork marked in `build.h` as `8012-RENEGADE`.
