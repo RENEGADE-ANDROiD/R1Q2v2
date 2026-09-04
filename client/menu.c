@@ -4453,8 +4453,11 @@ static qboolean PlayerConfig_MenuInit( void )
 		}
 	}
 
-	s_player_config_menu.x = viddef.width / 2 - 95; 
-	s_player_config_menu.y = viddef.height / 2 - 97;
+	{
+		float scale = SCR_GetMenuScale();
+		s_player_config_menu.x = viddef.width / 2 - (int)(95 * scale);
+		s_player_config_menu.y = viddef.height / 2 - (int)(97 * scale);
+	}
 	s_player_config_menu.nitems = 0;
 
 	s_player_name_field.generic.type = MTYPE_FIELD;
@@ -4557,12 +4560,15 @@ static void PlayerConfig_MenuDraw( void )
 	refdef_t refdef;
 	char scratch[MAX_QPATH];
 
+	float scale = SCR_GetMenuScale();
+
 	memset( &refdef, 0, sizeof( refdef ) );
 
+	/* Scale preview viewport with menu scale so it stays clear of the name field */
 	refdef.x = viddef.width / 2;
-	refdef.y = viddef.height / 2 - 72;
-	refdef.width = 144;
-	refdef.height = 168;
+	refdef.y = viddef.height / 2 - (int)(72 * scale);
+	refdef.width = (int)(144 * scale);
+	refdef.height = (int)(168 * scale);
 	refdef.fov_x = 40;
 	refdef.fov_y = CalcFov( refdef.fov_x, refdef.width, refdef.height );
 	refdef.time = cls.realtime*0.001f;
@@ -4600,7 +4606,10 @@ static void PlayerConfig_MenuDraw( void )
 
 		Menu_Draw( &s_player_config_menu );
 
-		M_DrawTextBox( (int)(( refdef.x ) * ( 320.0F / viddef.width ) - 8), (int)(( viddef.height / 2 ) * ( 240.0F / viddef.height) - 77), refdef.width / 8, refdef.height / 8 );
+		/* Virtual 320 coords + M_DrawCharacter scale must match scaled refdef pixels */
+		M_DrawTextBox( (int)(( refdef.x ) * ( 320.0F / viddef.width ) - 8),
+			(int)(( viddef.height / 2 ) * ( 240.0F / viddef.height) - 77),
+			(int)(refdef.width / (8 * scale)), (int)(refdef.height / (8 * scale)) );
 		refdef.height += 4;
 
 		re.RenderFrame( &refdef );
@@ -4608,7 +4617,12 @@ static void PlayerConfig_MenuDraw( void )
 		Com_sprintf( scratch, sizeof( scratch ), "/players/%s/%s_i.pcx", 
 			s_pmi[s_player_model_box.curvalue].directory,
 			s_pmi[s_player_model_box.curvalue].skindisplaynames[s_player_skin_box.curvalue] );
-		re.DrawPic( s_player_config_menu.x - 40, refdef.y, scratch );
+		{
+			int iw, ih;
+			re.DrawGetPicSize( &iw, &ih, scratch );
+			re.DrawStretchPic( s_player_config_menu.x - (int)(40 * scale), refdef.y,
+				(int)(iw * scale), (int)(ih * scale), scratch );
+		}
 	}
 }
 
