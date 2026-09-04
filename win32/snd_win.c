@@ -437,7 +437,7 @@ sndinitstat SNDDMA_InitDirect (void)
 	}*/
 
 	Com_DPrintf( "...creating DS object: " );
-	while ( ( hresult = DirectSoundCreate ( NULL, &pDS, NULL ) ) != DS_OK )
+	while ( ( hresult = iDirectSoundCreate ( NULL, &pDS, NULL ) ) != DS_OK )
 	{
 		if (hresult != DSERR_ALLOCATED)
 		{

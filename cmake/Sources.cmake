@@ -1,0 +1,122 @@
+# Source lists derived from quake2.dsp / game.dsp and binaries/*/Makefile.
+# net_common.c is #included by win32/net_wins.c (do not compile separately).
+# unzip.c + ioapi.c are required by files.c (present in Linux Makefiles; omitted from VS6 dsp).
+
+set(R1Q2_QCOMMON_SOURCES
+  qcommon/cmd.c
+  qcommon/cmodel.c
+  qcommon/common.c
+  qcommon/crc.c
+  qcommon/cvar.c
+  qcommon/files.c
+  qcommon/ioapi.c
+  qcommon/md4.c
+  qcommon/mersennetwister.c
+  qcommon/net_chan.c
+  qcommon/pmove.c
+  qcommon/redblack.c
+  qcommon/unzip.c
+)
+
+set(R1Q2_SERVER_SOURCES
+  server/sv_ccmds.c
+  server/sv_ents.c
+  server/sv_game.c
+  server/sv_init.c
+  server/sv_main.c
+  server/sv_send.c
+  server/sv_user.c
+  server/sv_world.c
+)
+
+set(R1Q2_WIN32_COMMON_SOURCES
+  win32/conproc.c
+  win32/net_wins.c
+  win32/q_shwin.c
+  win32/sys_win.c
+  win32/q2.rc
+)
+
+set(R1Q2_CLIENT_SOURCES
+  client/cl_cin.c
+  client/cl_dll.c
+  client/cl_ents.c
+  client/cl_fx.c
+  client/cl_input.c
+  client/cl_inv.c
+  client/cl_main.c
+  client/cl_newfx.c
+  client/cl_parse.c
+  client/cl_pred.c
+  client/cl_scrn.c
+  client/cl_tent.c
+  client/cl_view.c
+  client/console.c
+  client/keys.c
+  client/le_physics.c
+  client/le_util.c
+  client/menu.c
+  client/qmenu.c
+  client/snd_dma.c
+  client/snd_mem.c
+  client/snd_mix.c
+  game/m_flash.c
+  win32/alw_win.c
+  win32/cd_win.c
+  win32/in_win.c
+  win32/qal_win.c
+  win32/snd_win.c
+  win32/vid_dll.c
+  win32/vid_menu.c
+)
+
+set(R1Q2_GAME_SOURCES
+  game/g_ai.c
+  game/g_chase.c
+  game/g_cmds.c
+  game/g_combat.c
+  game/g_func.c
+  game/g_items.c
+  game/g_main.c
+  game/g_misc.c
+  game/g_monster.c
+  game/g_phys.c
+  game/g_save.c
+  game/g_spawn.c
+  game/g_svcmds.c
+  game/g_target.c
+  game/g_trigger.c
+  game/g_turret.c
+  game/g_utils.c
+  game/g_weapon.c
+  game/m_actor.c
+  game/m_berserk.c
+  game/m_boss2.c
+  game/m_boss3.c
+  game/m_boss31.c
+  game/m_boss32.c
+  game/m_brain.c
+  game/m_chick.c
+  game/m_flash.c
+  game/m_flipper.c
+  game/m_float.c
+  game/m_flyer.c
+  game/m_gladiator.c
+  game/m_gunner.c
+  game/m_hover.c
+  game/m_infantry.c
+  game/m_insane.c
+  game/m_medic.c
+  game/m_move.c
+  game/m_mutant.c
+  game/m_parasite.c
+  game/m_soldier.c
+  game/m_supertank.c
+  game/m_tank.c
+  game/p_client.c
+  game/p_hud.c
+  game/p_trail.c
+  game/p_view.c
+  game/p_weapon.c
+  game/q_shared.c
+)

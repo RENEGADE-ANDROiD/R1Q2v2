@@ -1,0 +1,7 @@
+{
+  "name": "r1q2",
+  "version-string": "8012-RENEGADE",
+  "dependencies": [
+    "zlib"
+  ]
+}
