@@ -1354,88 +1354,125 @@ static int EXPORT filecmp (const void *a, const void *b)
    return strcmp (*(char**)a, *(char**)b);
 }
 
-static void FS_LoadPaks (const char *dir, const char *ext)
+static void FS_AddPackToSearchpath (pack_t *pak)
 {
-	int				i;
-	int				total;
-	int				totalpaks;
-	size_t			pakmatchlen;
+	searchpath_t	*search;
 
+	if (!pak)
+		return;
+
+	search = Z_TagMalloc (sizeof(searchpath_t), TAGMALLOC_SEARCHPATH);
+	search->pack = pak;
+	search->filename[0] = 0;
+	search->next = fs_searchpaths;
+	fs_searchpaths = search;
+}
+
+/*
+Load numbered pakN.pak / pakN.pkz in ascending N.
+Same-number .pkz overrides .pak; higher N overrides lower N.
+(Loading every .pkz after every .pak made pak2.pkz beat pak11.pak.)
+*/
+static void FS_LoadNumberedPacks (const char *dir)
+{
+	int				i, j, n;
+	int				totalpaks;
+	int				pakfiles[1024];
+	size_t			pakmatchlen;
 	char			pakfile[MAX_OSPATH];
 	char			pakmatch[MAX_OSPATH];
 	char			*s;
-
-	char			*filenames[4096];
-	int				pakfiles[1024];
-
 	pack_t			*pak;
-	searchpath_t	*search;
+	const char		*exts[] = { "pak",
+#ifndef NO_ZLIB
+		"pkz",
+#endif
+		NULL };
 
-	//r1: load all *.pak files
+	Com_sprintf (pakmatch, sizeof(pakmatch), "%s/pak", dir);
+	pakmatchlen = strlen(pakmatch);
+	totalpaks = 0;
+
+	for (j = 0; exts[j]; j++)
+	{
+		Com_sprintf (pakfile, sizeof(pakfile), "%s/*.%s", dir, exts[j]);
+		if (!(s = Sys_FindFirst (pakfile, 0, SFF_SUBDIR | SFF_HIDDEN | SFF_SYSTEM)))
+		{
+			Sys_FindClose ();
+			continue;
+		}
+		while (s)
+		{
+			i = (int)strlen (s);
+			if (i > 4 && *(s+(i-4)) == '.' && !Q_stricmp (s+(i-3), exts[j]) &&
+				!Q_strncasecmp (s, pakmatch, pakmatchlen))
+			{
+				n = atoi (s + pakmatchlen);
+				for (i = 0; i < totalpaks; i++)
+				{
+					if (pakfiles[i] == n)
+						break;
+				}
+				if (i == totalpaks && totalpaks < (int)(sizeof(pakfiles)/sizeof(pakfiles[0])))
+					pakfiles[totalpaks++] = n;
+			}
+			s = Sys_FindNext (0, SFF_SUBDIR | SFF_HIDDEN | SFF_SYSTEM);
+		}
+		Sys_FindClose ();
+	}
+
+	qsort (pakfiles, totalpaks, sizeof(pakfiles[0]), pakcmp);
+
+	for (i = 0; i < totalpaks; i++)
+	{
+		for (j = 0; exts[j]; j++)
+		{
+			Com_sprintf (pakfile, sizeof(pakfile), "%s/pak%d.%s", dir, pakfiles[i], exts[j]);
+			pak = FS_LoadPackFile (pakfile, exts[j]);
+			FS_AddPackToSearchpath (pak);
+		}
+	}
+}
+
+/* Non-numbered packs (zz_*.pkz, quake2-neural-*.pkz, …) — loaded last so they win. */
+static void FS_LoadNamedPacks (const char *dir, const char *ext)
+{
+	int				i;
+	int				total;
+	size_t			pakmatchlen;
+	char			pakfile[MAX_OSPATH];
+	char			pakmatch[MAX_OSPATH];
+	char			*s;
+	char			*filenames[4096];
+	pack_t			*pak;
+
 	Com_sprintf (pakfile, sizeof(pakfile), "%s/*.%s", dir, ext);
 	Com_sprintf (pakmatch, sizeof(pakmatch), "%s/pak", dir);
 	pakmatchlen = strlen(pakmatch);
 
 	total = 0;
-	totalpaks = 0;
-
 	if ((s = Sys_FindFirst (pakfile, 0, SFF_SUBDIR | SFF_HIDDEN | SFF_SYSTEM)))
 	{
 		while (s)
 		{
 			i = (int)strlen (s);
-			if (*(s+(i-4)) == '.' && !Q_stricmp (s+(i-3), ext))
+			if (i > 4 && *(s+(i-4)) == '.' && !Q_stricmp (s+(i-3), ext) &&
+				Q_strncasecmp (s, pakmatch, pakmatchlen))
 			{
-				if (!Q_strncasecmp (s, pakmatch, pakmatchlen))
-				{
-					pakfiles[totalpaks++] = atoi(s+pakmatchlen);
-				}
-				else
-				{
+				if (total < (int)(sizeof(filenames)/sizeof(filenames[0])))
 					filenames[total++] = strdup(s);
-					//filenames[total] = alloca(strlen(s)+1);
-					//strcpy (filenames[total], s);
-					//total++;
-				}
 			}
-
 			s = Sys_FindNext (0, SFF_SUBDIR | SFF_HIDDEN | SFF_SYSTEM);
 		}
 	}
-
 	Sys_FindClose ();
 
-	//sort for filenames designed to override earlier pak files
 	qsort (filenames, total, sizeof(filenames[0]), filecmp);
-	qsort (pakfiles, totalpaks, sizeof(pakfiles[0]), pakcmp);
 
-	//r1: load pak*.pak first
-	for (i = 0; i < totalpaks; i++)
-	{
-		Com_sprintf (pakfile, sizeof(pakfile), "%s/pak%d.%s", dir, pakfiles[i], ext);
-		pak = FS_LoadPackFile (pakfile, ext);
-		if (pak)
-		{
-			search = Z_TagMalloc (sizeof(searchpath_t), TAGMALLOC_SEARCHPATH);
-			search->pack = pak;
-			search->filename[0] = 0;
-			search->next = fs_searchpaths;
-			fs_searchpaths = search;
-		}
-	}
-
-	//now the rest of them
 	for (i = 0; i < total; i++)
 	{
 		pak = FS_LoadPackFile (filenames[i], ext);
-		if (pak)
-		{
-			search = Z_TagMalloc (sizeof(searchpath_t), TAGMALLOC_SEARCHPATH);
-			search->pack = pak;
-			search->filename[0] = 0;
-			search->next = fs_searchpaths;
-			fs_searchpaths = search;
-		}
+		FS_AddPackToSearchpath (pak);
 		free (filenames[i]);
 	}
 }
@@ -1482,10 +1519,11 @@ static void FS_AddGameDirectory (const char *dir)
 		}
 	}*/
 
-	FS_LoadPaks (dir, "pak");
+	/* Numbered packs by N (pak then pkz); named *.pkz last so HUD/HD packs still win. */
+	FS_LoadNumberedPacks (dir);
+	FS_LoadNamedPacks (dir, "pak");
 #ifndef NO_ZLIB
-	/* Q2PRO-compatible ZIP packs (.pkz) — HUD replacements, HD textures, etc. */
-	FS_LoadPaks (dir, "pkz");
+	FS_LoadNamedPacks (dir, "pkz");
 #endif
 }
 
