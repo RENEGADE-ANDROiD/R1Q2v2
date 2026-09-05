@@ -53,6 +53,11 @@ DEVMODE		fullScreenMode;
 
 qboolean	usingDesktopSettings;
 
+/* Exclusive CDS active (false = borderless / desktop-native fullscreen). */
+static qboolean	glimp_exclusive_fs = false;
+
+extern cvar_t *vid_borderless;
+
 static qboolean VerifyDriver( void )
 {
 	char buffer[1024];
@@ -303,18 +308,55 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 		GLimp_Shutdown ();
 	}
 
-	// do a CDS if needed
+	// do a CDS if needed (or borderless / desktop-native fullscreen)
 	if ( fullscreen )
 	{
 		DEVMODE dm;
-
+		qboolean use_borderless;
 		int		index = 0;
 		int		bestFrequency = 0;
 		DEVMODE	settings;
 
 		EnumDisplaySettings (NULL, ENUM_CURRENT_SETTINGS, &originalDesktopMode);
 
-		ri.Con_Printf( PRINT_ALL, "...attempting fullscreen\n" );
+		/*
+		** Borderless / desktop-native path:
+		** - vid_borderless 1 forces it
+		** - matching ENUM_CURRENT_SETTINGS skips exclusive CDS (usual ultrawide fix)
+		*/
+		use_borderless = false;
+		if ( vid_borderless && FLOAT_NE_ZERO(vid_borderless->value) )
+		{
+			use_borderless = true;
+			ri.Con_Printf( PRINT_ALL, "...vid_borderless 1: borderless fullscreen (no exclusive CDS)\n" );
+		}
+		else if ( (originalDesktopMode.dmFields & (DM_PELSWIDTH|DM_PELSHEIGHT))
+			&& originalDesktopMode.dmPelsWidth == (DWORD)width
+			&& originalDesktopMode.dmPelsHeight == (DWORD)height )
+		{
+			use_borderless = true;
+			ri.Con_Printf( PRINT_ALL, "...desktop-native %dx%d: borderless fullscreen (no exclusive CDS)\n", width, height );
+		}
+
+		if ( use_borderless )
+		{
+			ChangeDisplaySettings( 0, 0 );
+			*pwidth = width;
+			*pheight = height;
+			gl_state.fullscreen = true;
+			glimp_exclusive_fs = false;
+			usingDesktopSettings = false;
+			fullScreenMode = originalDesktopMode;
+			error = VID_CreateWindow (width, height, true);
+			if (error != VID_ERR_NONE)
+			{
+				error |= VID_ERR_FULLSCREEN_FAILED;
+				return error;
+			}
+			return VID_ERR_NONE;
+		}
+
+		ri.Con_Printf( PRINT_ALL, "...attempting exclusive fullscreen\n" );
 
 		memset( &dm, 0, sizeof( dm ) );
 
@@ -391,6 +433,8 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 			*pheight = height;
 
 			gl_state.fullscreen = true;
+			glimp_exclusive_fs = true;
+			usingDesktopSettings = false;
 
 			ri.Con_Printf( PRINT_ALL, "ok\n" );
 
@@ -412,40 +456,27 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 		}
 		else
 		{
+			/*
+			** Exclusive CDS failed (common on ultrawide / multi-monitor).
+			** Prefer borderless windowed fullscreen at the requested size
+			** instead of the legacy dual-monitor width*2 CDS hack.
+			*/
+			ri.Con_Printf( PRINT_ALL, "failed\n" );
+			ri.Con_Printf( PRINT_ALL, "...exclusive CDS failed for %dx%d; falling back to borderless windowed fullscreen\n", width, height );
+
+			ChangeDisplaySettings( 0, 0 );
+
 			*pwidth = width;
 			*pheight = height;
+			gl_state.fullscreen = true;
+			glimp_exclusive_fs = false;
+			usingDesktopSettings = false;
+			fullScreenMode = originalDesktopMode;
 
-			ri.Con_Printf( PRINT_ALL, "failed\n" );
-
-			ri.Con_Printf( PRINT_ALL, "...calling CDS assuming dual monitors:" );
-
-			dm.dmPelsWidth = width * 2;
-			
-			//should already still be set
-			/*
-			dm.dmPelsHeight = height;
-			dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
-
-			if ( FLOAT_NE_ZERO(gl_bitdepth->value) )
+			error = VID_CreateWindow (width, height, true);
+			if (error != VID_ERR_NONE)
 			{
-				dm.dmBitsPerPel = Q_ftol(gl_bitdepth->value);
-				dm.dmFields |= DM_BITSPERPEL;
-			}*/
-
-			/*
-			** our first CDS failed, so maybe we're running on some weird dual monitor
-			** system 
-			*/
-			if ( ChangeDisplaySettings( &dm, CDS_FULLSCREEN ) != DISP_CHANGE_SUCCESSFUL )
-			{
-				ri.Con_Printf( PRINT_ALL, " failed\n" );
-
-				ri.Con_Printf( PRINT_ALL, "...setting windowed mode\n" );
-
-				ChangeDisplaySettings( 0, 0 );
-
-				*pwidth = width;
-				*pheight = height;
+				ri.Con_Printf( PRINT_ALL, "...borderless fullscreen failed, trying decorated windowed\n" );
 				gl_state.fullscreen = false;
 				error = VID_CreateWindow (width, height, false);
 				if (error != VID_ERR_NONE)
@@ -454,17 +485,7 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 					return error;
 				}
 			}
-			else
-			{
-				ri.Con_Printf( PRINT_ALL, " ok\n" );
-				error = VID_CreateWindow (width, height, true);
-				if (error != VID_ERR_NONE)
-					return error;
-
-				EnumDisplaySettings (NULL, ENUM_CURRENT_SETTINGS, &fullScreenMode);
-				gl_state.fullscreen = true;
-				return VID_ERR_NONE;
-			}
+			return VID_ERR_NONE;
 		}
 	}
 	else
@@ -476,6 +497,7 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 		*pwidth = width;
 		*pheight = height;
 		gl_state.fullscreen = false;
+		glimp_exclusive_fs = false;
 		error = VID_CreateWindow (width, height, false);
 		if (error != VID_ERR_NONE)
 			return error;
@@ -547,8 +569,10 @@ void GLimp_Shutdown( void )
 
 	if ( gl_state.fullscreen )
 	{
-		ChangeDisplaySettings( 0, 0 );
+		if ( glimp_exclusive_fs )
+			ChangeDisplaySettings( 0, 0 );
 		gl_state.fullscreen = false;
+		glimp_exclusive_fs = false;
 	}
 }
 
@@ -1633,7 +1657,7 @@ void EXPORT GLimp_AppActivate( qboolean active )
 		if (IsIconic (glw_state.hWnd))
 			return;
 
-		if ( FLOAT_NE_ZERO(vid_fullscreen->value))
+		if ( FLOAT_NE_ZERO(vid_fullscreen->value) && glimp_exclusive_fs )
 		{
 			if (usingDesktopSettings)
 			{
@@ -1656,7 +1680,7 @@ void EXPORT GLimp_AppActivate( qboolean active )
 	}
 	else
 	{
-		if ( FLOAT_NE_ZERO(vid_fullscreen->value))
+		if ( FLOAT_NE_ZERO(vid_fullscreen->value) && glimp_exclusive_fs )
 		{
 			ShowWindow( glw_state.hWnd, SW_MINIMIZE );
 			if (FLOAT_NE_ZERO (vid_restore_on_switch->value) && !usingDesktopSettings)

@@ -24,6 +24,8 @@ You still need the usual game data (`baseq2` and so on). This project does not s
 
 - **[CVARS.md](CVARS.md)** — useful console variables (video, HUD, input, net, R1Q2 extras) with defaults and short explainers
 
+**Ultrawide (e.g. 3440x1440):** use `gl_mode -1`, `vid_forcewidth` / `vid_forceheight`, and prefer `vid_borderless 1` (or desktop-native size). There is no `r_customwidth`. If you `exec r1q2v2_visual.cfg`, clear its 1920x1080 force dims first — see [CVARS.md](CVARS.md).
+
 ## Menus
 
 Click a row or use the arrow keys. Left-click / right-arrow moves a toggle or slider forward; right-click / left-arrow moves it back. Enter also cycles a toggle.
