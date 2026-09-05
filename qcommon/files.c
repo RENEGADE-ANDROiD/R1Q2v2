@@ -551,6 +551,43 @@ void FS_WhereIs_f (void)
 }
 
 /*
+============
+FS_DumpFile_f
+
+Load a file and print size + magic bytes (verifies .pkz reads, not just index).
+============
+*/
+void FS_DumpFile_f (void)
+{
+	byte	*buf;
+	int		len;
+	int		i;
+	int		n;
+
+	if (Cmd_Argc() != 2)
+	{
+		Com_Printf ("Purpose: Load a file and show size/magic (tests .pkz reads).\n"
+					"Syntax : fs_dump <path>\n"
+					"Example: fs_dump pics/num_0.png\n", LOG_GENERAL);
+		return;
+	}
+
+	len = FS_LoadFile (Cmd_Argv(1), (void **)&buf);
+	if (len < 0 || !buf)
+	{
+		Com_Printf ("%s: load failed\n", LOG_GENERAL, Cmd_Argv(1));
+		return;
+	}
+
+	Com_Printf ("%s: loaded %d bytes, magic:", LOG_GENERAL, Cmd_Argv(1), len);
+	n = len < 8 ? len : 8;
+	for (i = 0; i < n; i++)
+		Com_Printf (" %02x", LOG_GENERAL, buf[i]);
+	Com_Printf ("\n", LOG_GENERAL);
+	FS_FreeFile (buf);
+}
+
+/*
 ===========
 FS_FOpenFile
 
@@ -777,11 +814,16 @@ int EXPORT FS_FOpenFile (const char *filename, FILE **file, handlestyle_t openHa
 				if (entry)
 				{
 					entry = *(packfile_t **)entry;
-					/* ZIP entries are loaded via FS_LoadFile (no FILE* stream). */
+					/*
+					 * ZIP packs have no FILE* stream. Existence/length checks
+					 * succeed here; actual bytes are read via FS_LoadFile.
+					 * For HANDLE_OPEN, keep searching so a later .pak / loose
+					 * file can still satisfy stream callers — do NOT return -1
+					 * or a ZIP hit would shadow every classic open.
+					 */
 					if (openHandle == HANDLE_NONE)
 						return entry->filelen;
-					*file = NULL;
-					return -1;
+					continue;
 				}
 			}
 #endif
@@ -1024,16 +1066,44 @@ int EXPORT FS_LoadFile (const char *path, void /*@out@*/ /*@null@*/**buffer)
 #ifndef NO_ZLIB
 			else if (pak->type == PAK_ZIP)
 			{
-				if (unzSetOffset (pak->h.zhandle, entry->filepos) != UNZ_OK)
-					Com_Error (ERR_FATAL, "FS_LoadFile: unzSetOffset failed for %s in %s", path, pak->filename);
-				if (unzOpenCurrentFile (pak->h.zhandle) != UNZ_OK)
-					Com_Error (ERR_FATAL, "FS_LoadFile: unzOpenCurrentFile failed for %s in %s", path, pak->filename);
-				if (unzReadCurrentFile (pak->h.zhandle, buf, entry->filelen) != (int)entry->filelen)
+				int		got;
+				qboolean	located;
+
+				/*
+				 * Prefer locate-by-name (Q2PRO-style, case-insensitive). Offset
+				 * is a fast fallback if the zip tool left odd central-dir state.
+				 */
+				located = (unzLocateFile (pak->h.zhandle, entry->name, 2) == UNZ_OK);
+				if (!located)
+					located = (unzLocateFile (pak->h.zhandle, path, 2) == UNZ_OK);
+				if (!located && unzSetOffset (pak->h.zhandle, entry->filepos) == UNZ_OK)
+					located = true;
+				if (!located)
 				{
-					unzCloseCurrentFile (pak->h.zhandle);
-					Com_Error (ERR_FATAL, "FS_LoadFile: incomplete read for %s in %s", path, pak->filename);
+					Z_Free (buf);
+					*buffer = NULL;
+					Com_Printf ("FS_LoadFile: couldn't locate %s in %s\n",
+						LOG_GENERAL|LOG_WARNING, path, pak->filename);
+					return -1;
 				}
+				if (unzOpenCurrentFile (pak->h.zhandle) != UNZ_OK)
+				{
+					Z_Free (buf);
+					*buffer = NULL;
+					Com_Printf ("FS_LoadFile: unzOpenCurrentFile failed for %s in %s\n",
+						LOG_GENERAL|LOG_WARNING, path, pak->filename);
+					return -1;
+				}
+				got = unzReadCurrentFile (pak->h.zhandle, buf, entry->filelen);
 				unzCloseCurrentFile (pak->h.zhandle);
+				if (got != (int)entry->filelen)
+				{
+					Z_Free (buf);
+					*buffer = NULL;
+					Com_Printf ("FS_LoadFile: incomplete ZIP read for %s in %s (%d/%u)\n",
+						LOG_GENERAL|LOG_WARNING, path, pak->filename, got, entry->filelen);
+					return -1;
+				}
 				return entry->filelen;
 			}
 #endif
@@ -1188,7 +1258,7 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 	{
 		unzFile			f;
 		unz_global_info	zipinfo;
-		char			zipFileName[56];
+		char			zipFileName[MAX_QPATH];
 		unz_file_info	fileInfo;
 		size_t			namelen;
 
@@ -1828,6 +1898,7 @@ void FS_InitFilesystem (void)
 
 	//r1: search for a file
 	Cmd_AddCommand ("whereis", FS_WhereIs_f);
+	Cmd_AddCommand ("fs_dump", FS_DumpFile_f);
 
 	//r1: allow manual cache flushing
 	Cmd_AddCommand ("fsflushcache", FS_FlushCache);

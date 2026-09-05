@@ -682,6 +682,7 @@ void CL_GetChallengePacket (void);
 void CL_PingServers_f (void);
 void CL_RunServerPings (void);
 qboolean CL_ServerPingBusy (void);
+int CL_ConsumeServerPing (netadr_t *adr);
 void CL_Snd_Restart_f (void);
 void CL_RequestNextDownload (void);
 

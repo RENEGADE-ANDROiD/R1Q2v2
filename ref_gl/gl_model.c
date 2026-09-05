@@ -559,65 +559,17 @@ void Mod_LoadEdges (lump_t *l)
 //FIXME: this is bad, loads entire file for just 8 bytes!
 qboolean GetWalInfo (const char *name, int *width, int *height)
 {
-	if (rx.FS_FOpenFile)
-	{
-#ifdef _DEBUG
-		int		i;
-		char	grey = 8;
-#endif
-		miptex_t	mt;
-		qboolean	closeFile;
-		FILE		*h;
+	miptex_t	*mt;
 
-		rx.FS_FOpenFile (name, &h, HANDLE_OPEN, &closeFile);
-		if (!h)
-			return false;
+	/* FS_LoadFile reads .wal from .pak and .pkz alike. */
+	ri.FS_LoadFile (name, (void **)&mt);
+	if (!mt)
+		return false;
 
-		/*if (fread (&mt, sizeof(mt), 1, h) != 1)
-		{
-			ri.FS_FCloseFile (h);
-			return false;
-		}*/
-		rx.FS_Read (&mt, sizeof(mt), h);
-
-		if (closeFile)
-			rx.FS_FCloseFile (h);
-		
-		*width = LittleLong (mt.width);
-		*height = LittleLong (mt.height);
-
-#ifdef _DEBUG
-		FS_CreatePath (va("wals/%s", name));
-		h = fopen (va("wals/%s", name), "wb");
-		fwrite (&mt, 1, sizeof(mt), h);
-		for (i = 0; i < mt.width * mt.height; i++)
-			fwrite (&grey, 1, 1, h);
-		for (i = 0; i < (mt.width * mt.height) / 2; i++)
-			fwrite (&grey, 1, 1, h);
-		for (i = 0; i < (mt.width * mt.height) / 4; i++)
-			fwrite (&grey, 1, 1, h);
-		for (i = 0; i < (mt.width * mt.height) / 8; i++)
-			fwrite (&grey, 1, 1, h);
-		fclose (h);
-#endif
-
-		return true;
-	}
-	else
-	{
-		miptex_t	*mt;
-
-		ri.FS_LoadFile (name, (void **)&mt);
-
-		if (!mt)
-			return false;
-
-		*width = LittleLong (mt->width);
-		*height = LittleLong (mt->height);
-
-		ri.FS_FreeFile ((void *)mt);
-		return true;
-	}
+	*width = LittleLong (mt->width);
+	*height = LittleLong (mt->height);
+	ri.FS_FreeFile ((void *)mt);
+	return true;
 }
 
 /*

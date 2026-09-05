@@ -456,40 +456,18 @@ PCX LOADING
 
 qboolean GetPCXInfo (const char *filename, int *width, int *height)
 {
-	if (rx.FS_FOpenFile)
-	{
-		pcx_t		pcx;
-		FILE		*fh;
-		qboolean	closeFile;
+	pcx_t	*pcx;
+	byte	*raw;
 
-		rx.FS_FOpenFile (filename, &fh, HANDLE_OPEN, &closeFile);
-		if (!fh)
-			return false;
+	/* Always use FS_LoadFile so pics inside .pkz packs resolve (no FILE*). */
+	ri.FS_LoadFile (filename, (void **)&raw);
+	if (!raw)
+		return false;
 
-		rx.FS_Read (&pcx, sizeof(pcx), fh);
-
-		*width = pcx.xmax + 1;
-		*height = pcx.ymax + 1;
-
-		if (closeFile)
-			rx.FS_FCloseFile (fh);
-	}
-	else
-	{
-		pcx_t	*pcx;
-		byte	*raw;
-
-		ri.FS_LoadFile (filename, (void **)&raw);
-		if (!raw)
-			return false;
-
-		pcx = (pcx_t *)raw;
-
-		*width = pcx->xmax + 1;
-		*height = pcx->ymax + 1;
-
-		ri.FS_FreeFile (raw);
-	}
+	pcx = (pcx_t *)raw;
+	*width = pcx->xmax + 1;
+	*height = pcx->ymax + 1;
+	ri.FS_FreeFile (raw);
 	return true;
 }
 

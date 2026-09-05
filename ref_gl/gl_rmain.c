@@ -1187,7 +1187,10 @@ void R_RenderView (refdef_t *fd)
 
 	r_newrefdef = *fd;
 
-	if (FLOAT_NE_ZERO(gl_hudscale->value))
+	/* Player-setup preview (and other NOWROLDMODEL views) already use
+	 * framebuffer pixels — do not apply gl_hudscale on top. */
+	if (FLOAT_NE_ZERO(gl_hudscale->value)
+		&& !(r_newrefdef.rdflags & RDF_NOWORLDMODEL))
 	{
 		float hs = R_EffectiveHudScale ();
 		r_newrefdef.width = (int)(r_newrefdef.width * hs);

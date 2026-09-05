@@ -395,7 +395,8 @@ qboolean Menu_UpdateCursorFromMouse( menuframework_s *menu )
 		if ( !item || item->type == MTYPE_SEPARATOR )
 			continue;
 		Menu_ScaledXY( item, &dummyx, &iy );
-		if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(10 * s)
+		/* Slightly taller hit box so Join Server's 12-pitch rows stay clickable */
+		if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(12 * s)
 			&& menu_mouse_x >= x0 && menu_mouse_x < x1 )
 		{
 			menu->cursor = i;

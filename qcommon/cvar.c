@@ -868,6 +868,7 @@ void Cvar_Init (void)
 	cvartree = rbinit ((int (EXPORT *)(const void *, const void *))strcmp, 0);
 
 	Cmd_AddCommand ("set", Cvar_Set_f);
+	Cmd_AddCommand ("seta", Cvar_Set_f);	/* Q2PRO configs */
 	Cmd_AddCommand ("cvarlist", Cvar_List_f);
 	Cmd_AddCommand ("cvarhelp", Cvar_Help_f);
 

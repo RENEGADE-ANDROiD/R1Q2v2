@@ -1454,7 +1454,9 @@ void CL_ParseStatusMessage (void)
 
 	s = MSG_ReadString (&net_message);
 
-	Com_Printf ("%s\n", LOG_CLIENT, s);
+	/* Join Server menu owns the list — don't flood the disconnected console. */
+	if (cls.key_dest != key_menu)
+		Com_Printf ("%s\n", LOG_CLIENT, s);
 	M_AddToServerList (net_from, s);
 }
 
@@ -1471,16 +1473,97 @@ static cvar_t *cl_master2;
 static cvar_t *cl_masterhttp;
 
 #define MAX_PING_QUEUE		512
+#define MAX_PING_PENDING	512
 #define PINGS_PER_BURST		12
 
 static netadr_t	cl_ping_queue[MAX_PING_QUEUE];
 static int		cl_ping_head;
 static int		cl_ping_count;
 
+typedef struct
+{
+	netadr_t	adr;
+	int			sendtime;
+	qboolean	active;
+} ping_pending_t;
+
+static ping_pending_t	cl_ping_pending[MAX_PING_PENDING];
+static int				cl_broadcast_ping_time;
+
+static void CL_MarkPingSent (netadr_t *adr)
+{
+	int		i;
+	int		free_slot;
+
+	if (!adr)
+		return;
+
+	free_slot = -1;
+	for (i = 0; i < MAX_PING_PENDING; i++)
+	{
+		if (cl_ping_pending[i].active
+			&& NET_CompareAdr (&cl_ping_pending[i].adr, adr))
+		{
+			cl_ping_pending[i].sendtime = cls.realtime;
+			return;
+		}
+		if (free_slot < 0 && !cl_ping_pending[i].active)
+			free_slot = i;
+	}
+
+	if (free_slot < 0)
+		return;
+
+	cl_ping_pending[free_slot].adr = *adr;
+	cl_ping_pending[free_slot].sendtime = cls.realtime;
+	cl_ping_pending[free_slot].active = true;
+}
+
+/*
+=================
+CL_ConsumeServerPing
+
+Return measured RTT for a reply address, or -1 if unknown.
+=================
+*/
+int CL_ConsumeServerPing (netadr_t *adr)
+{
+	int		i;
+	int		ping;
+
+	if (!adr)
+		return -1;
+
+	for (i = 0; i < MAX_PING_PENDING; i++)
+	{
+		if (!cl_ping_pending[i].active)
+			continue;
+		if (!NET_CompareAdr (&cl_ping_pending[i].adr, adr))
+			continue;
+		ping = cls.realtime - cl_ping_pending[i].sendtime;
+		cl_ping_pending[i].active = false;
+		if (ping < 0)
+			ping = 0;
+		return ping;
+	}
+
+	/* LAN broadcast replies share the broadcast send time. */
+	if (cl_broadcast_ping_time)
+	{
+		ping = cls.realtime - cl_broadcast_ping_time;
+		if (ping < 0)
+			ping = 0;
+		return ping;
+	}
+
+	return -1;
+}
+
 static void CL_PingOneServer (netadr_t *adr)
 {
 	if (!adr->port)
 		adr->port = ShortSwap (PORT_SERVER);
+	CL_MarkPingSent (adr);
 	Netchan_OutOfBandPrint (NS_CLIENT, adr, "info %i\n", PROTOCOL_ORIGINAL);
 }
 
@@ -1532,8 +1615,13 @@ void CL_RunServerPings (void)
 
 static void CL_ResetPingQueue (void)
 {
+	int		i;
+
 	cl_ping_head = 0;
 	cl_ping_count = 0;
+	cl_broadcast_ping_time = 0;
+	for (i = 0; i < MAX_PING_PENDING; i++)
+		cl_ping_pending[i].active = false;
 }
 
 static void CL_ParseMasterText (char *data)
@@ -1801,6 +1889,7 @@ void CL_PingServers_f (void)
 
 	adr.type = NA_BROADCAST;
 	adr.port = ShortSwap(PORT_SERVER);
+	cl_broadcast_ping_time = cls.realtime;
 
 	/* r1: only ping original; 3.20 servers error on enhanced info */
 	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info 34\n");
@@ -1809,7 +1898,7 @@ void CL_PingServers_f (void)
 	adr.type = NA_IP;
 	*(int *)&adr.ip = 0x100007F;
 	adr.port = ShortSwap(PORT_SERVER);
-	Netchan_OutOfBandPrint (NS_CLIENT, &adr, "info 34\n");
+	CL_PingOneServer (&adr);
 
 	CL_FetchQ2ServersHTTP ();
 	CL_QueryMasters_f ();
