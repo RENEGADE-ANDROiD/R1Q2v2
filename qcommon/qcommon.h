@@ -133,7 +133,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 	#define PRODUCTNAMELOWER "r1q2v2"
 #endif
 
-#define R1Q2_VERSION_STRING "R1Q2v2 " VERSION " " CPUSTRING " " __DATE__ " " BUILDSTRING
+#define R1Q2_VERSION_STRING "R1Q2v2 (Build: " BUILD ") " CPUSTRING " " __DATE__ " " BUILDSTRING
 
 //============================================================================
 

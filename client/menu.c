@@ -607,7 +607,6 @@ static void StartNetworkServerFunc( void *unused )
 
 static void Multiplayer_MenuInit( void )
 {
-	s_multiplayer_menu.x = (int)(viddef.width * 0.50f) - 64;
 	s_multiplayer_menu.nitems = 0;
 
 	s_join_network_server_action.generic.type	= MTYPE_ACTION;
@@ -638,6 +637,9 @@ static void Multiplayer_MenuInit( void )
 	Menu_SetStatusBar( &s_multiplayer_menu, NULL );
 
 	Menu_Center( &s_multiplayer_menu );
+	/* Left-justified rows: center ~21-char labels under the banner. */
+	s_multiplayer_menu.x = (int)(viddef.width * 0.50f)
+		- (int)(44 * SCR_GetMenuScale());
 }
 
 static const char *Multiplayer_MenuKey( int key )
@@ -2325,7 +2327,6 @@ static void Game_MenuInit( void )
 		0
 	};*/
 
-	s_game_menu.x = (int)(viddef.width * 0.50f);
 	s_game_menu.nitems = 0;
 	s_game_menu.cursor = 0;
 
@@ -2383,6 +2384,9 @@ static void Game_MenuInit( void )
 	Menu_AddItem( &s_game_menu, ( void * ) &s_credits_action );
 
 	Menu_Center( &s_game_menu );
+	/* Left-justified difficulty/load rows under the banner. */
+	s_game_menu.x = (int)(viddef.width * 0.50f)
+		- (int)(8 * SCR_GetMenuScale());
 }
 
 static void Game_MenuDraw( void )

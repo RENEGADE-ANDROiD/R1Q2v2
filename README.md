@@ -1,10 +1,10 @@
-﻿# R1Q2v2 (RENEGADE)
+﻿# R1Q2v2
 
 A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons) without turning this into a cheat client or a heavy effects pack.
 
-Build string: **8012-RENEGADE**.
+Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 ## Play
 
@@ -34,8 +34,8 @@ OpenGL / R1GL:
 - **Lightmap** brightness
 - **Anisotropy** (1 / 2 / 4 / 8 / 16; default 16)
 - **Texture sharpen** (LOD bias on world textures; 0 = off)
-- **HUD scale** (`gl_hudscale`, about 0.5–2.5)
-- **HUD at top** (`scr_hud_top`) — flips status bar / layout `yb` to the top
+- **HUD scale** (`gl_hudscale`, about 0.5–2.5) — Video Options, under texture sharpen
+- **HUD at top** (`scr_hud_top`) — same menu; flips status bar / layout `yb` to the top
 - **Shadows**
 - **Dynamic lights**
 
@@ -78,7 +78,7 @@ On Windows, run `build-windows.cmd` (VS2022 Build Tools, CMake, Ninja, vcpkg). O
 ## Credits
 
 - **r1ch** — original R1Q2 (http://www.r1ch.net/stuff/r1q2/)
-- **h0s3r** — this RENEGADE / R1Q2v2 update
+- **h0s3r** — this R1Q2v2 update
 - Public archive: https://github.com/tastyspleen/r1q2-archive
 - Ideas (not a full port): https://github.com/q2pro/q2pro
 

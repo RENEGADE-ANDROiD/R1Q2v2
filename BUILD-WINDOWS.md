@@ -2,7 +2,7 @@
 
 Modern MSVC scaffold for this R1Q2 fork. Classic VS6 projects (`quake2.dsp` / `game.dsp`) remain for reference.
 
-**Fork marker:** `build.h` defines `BUILD` as `"8012-RENEGADE"` (per `r1q2.txt`).
+**Fork marker:** `build.h` defines `BUILD` (currently `"8012"`). Console shows `R1Q2v2 (Build: <BUILD>)` — bump `BUILD` for each release.
 
 ## Prerequisites
 

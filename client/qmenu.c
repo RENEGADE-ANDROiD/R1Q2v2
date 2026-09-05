@@ -32,8 +32,10 @@ static void	 SpinControl_DoEnter( menulist_s *s );
 static void	 SpinControl_Draw( menulist_s *s );
 static void	 SpinControl_DoSlide( menulist_s *s, int dir );
 
-#define RCOLUMN_OFFSET  16
-#define LCOLUMN_OFFSET -16
+/* Gutter between right-aligned labels and left-aligned values.
+ * Classic was ±16 (tight at high menu scale / long labels). */
+#define RCOLUMN_OFFSET  40
+#define LCOLUMN_OFFSET -40
 
 extern refexport_t re;
 extern viddef_t viddef;
@@ -367,6 +369,8 @@ void Menu_Center( menuframework_s *menu )
 	height = ( ( menucommon_s * ) menu->items[menu->nitems-1])->y;
 	height += 10;
 
+	/* Column menus use menu->x as the label|value split — center that on screen. */
+	menu->x = VID_WIDTH / 2;
 	menu->y = ( VID_HEIGHT - (int)(height * s) ) / 2;
 }
 

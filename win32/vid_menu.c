@@ -442,13 +442,13 @@ void EXPORT VID_MenuInit( void )
 		s_defaults_action[i].generic.type = MTYPE_ACTION;
 		s_defaults_action[i].generic.name = "reset to defaults";
 		s_defaults_action[i].generic.x    = 0;
-		s_defaults_action[i].generic.y    = 150;
+		s_defaults_action[i].generic.y    = 170;
 		s_defaults_action[i].generic.callback = ResetDefaults;
 
 		s_cancel_action[i].generic.type = MTYPE_ACTION;
 		s_cancel_action[i].generic.name = "cancel";
 		s_cancel_action[i].generic.x    = 0;
-		s_cancel_action[i].generic.y    = 160;
+		s_cancel_action[i].generic.y    = 180;
 		s_cancel_action[i].generic.callback = CancelChanges;
 	}
 
@@ -623,8 +623,6 @@ void EXPORT VID_MenuInit( void )
 
 	Menu_Center( &s_software_menu );
 	Menu_Center( &s_opengl_menu );
-	s_opengl_menu.x -= 8;
-	s_software_menu.x -= 8;
 }
 
 /*

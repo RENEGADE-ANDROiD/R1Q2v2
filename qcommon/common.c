@@ -2383,7 +2383,7 @@ void Qcommon_Init (int argc, char **argv)
 #endif
 
 	Com_Printf ("====== Quake2 Initialized ======\n", LOG_GENERAL);	
-	Com_Printf ("R1Q2 build " BUILD ", compiled " __DATE__ ".\n"
+	Com_Printf ("R1Q2v2 (Build: " BUILD "), compiled " __DATE__ ".\n"
 				"http://www.r1ch.net/stuff/r1q2/\n"
 				BUILDSTRING " " CPUSTRING " (%s)\n\n", LOG_GENERAL, binary_name);
 
@@ -2401,7 +2401,7 @@ void Qcommon_Init (int argc, char **argv)
 #endif
 
 #ifndef DEDICATED_ONLY
-			/* Menu-first default (RENEGADE): open main menu instead of console.
+			/* Default: open main menu instead of console.
 			 * Power users can still toggleconsole; +commands skip this branch. */
 			Cbuf_AddText ("menu_main\n");
 
