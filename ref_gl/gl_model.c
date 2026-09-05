@@ -1453,9 +1453,9 @@ static void MD3_ResolveMissingSkins (model_t *mod, md3model_t *md3)
 
 	Q_strncpy (path, mod->name, sizeof(path)-1);
 	dot = strrchr (path, '.');
-	if (dot)
+	if (dot && (size_t)(dot - path) + 5 < sizeof(path))
 		strcpy (dot, ".skin");
-	else
+	else if (!dot)
 	{
 		n = strlen (path);
 		if (n + 5 < sizeof(path))

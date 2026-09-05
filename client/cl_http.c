@@ -258,12 +258,11 @@ static void CL_StartHTTPDownload (dlqueue_t *entry, dlhandle_t *dl)
 	}
 	else
 	{
-		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s", FS_Gamedir(), entry->quakePath);
-
 		Com_sprintf (tempFile, sizeof(tempFile), "%s/%s", cl.gamedir, entry->quakePath);
+		/* Escape path used in URL; append .tmp via Com_sprintf (no strcat overflow). */
+		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s", FS_Gamedir(), entry->quakePath);
 		CL_EscapeHTTPPath (dl->filePath, escapedFilePath);
-
-		strcat (dl->filePath, ".tmp");
+		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s.tmp", FS_Gamedir(), entry->quakePath);
 
 		FS_CreatePath (dl->filePath);
 

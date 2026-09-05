@@ -312,7 +312,10 @@ qboolean QAL_Init (const char *driver){
 
 	if (!qalcIsExtensionPresent || !qalcOpenDevice || !qalcCloseDevice || !qalcCreateContext || !qalcDestroyContext)
 	{
-		Com_Error (ERR_DROP, "Unsupported OpenAL driver '%s' (missing exports). Please check you have a current version of OpenAL installed.", driver);
+		/* Soft-fail so S_Init can fall back to DirectSound (s_initsound 2). */
+		Com_Printf("...WARNING: Unsupported OpenAL driver '%s' (missing exports)\n", LOG_CLIENT|LOG_WARNING, driver);
+		QAL_Shutdown();
+		return false;
 	}
 
 	openal_active = true;
