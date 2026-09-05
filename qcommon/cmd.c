@@ -543,6 +543,175 @@ void Cmd_Echo_f (void)
 	Com_Printf ("%s\n", LOG_GENERAL, StripQuotes(Cmd_Args()));
 }
 
+static qboolean Cmd_TokenIsFloat (const char *s)
+{
+	int	c;
+	int	dot;
+
+	if (!s || !*s)
+		return false;
+
+	if (*s == '-')
+		s++;
+	if (!*s)
+		return false;
+
+	dot = 0;
+	do
+	{
+		c = *s++;
+		if (c == '.')
+		{
+			if (dot)
+				return false;
+			dot = 1;
+		}
+		else if (c < '0' || c > '9')
+			return false;
+	} while (*s);
+
+	return true;
+}
+
+static const char *Cmd_Stristr (const char *haystack, const char *needle)
+{
+	size_t	nlen;
+
+	if (!needle || !*needle)
+		return haystack;
+
+	nlen = strlen (needle);
+	for (; *haystack; haystack++)
+	{
+		if (!Q_strncasecmp (haystack, needle, nlen))
+			return haystack;
+	}
+	return NULL;
+}
+
+static void Cmd_InsertArgRange (int start, int end)
+{
+	char	buf[MAX_STRING_CHARS];
+	int		i, n, alen;
+	const char	*a;
+
+	buf[0] = 0;
+	n = 0;
+	for (i = start; i < end; i++)
+	{
+		a = Cmd_Argv (i);
+		alen = (int)strlen (a);
+		if (n + alen + 3 >= (int)sizeof(buf))
+			break;
+		if (n)
+			buf[n++] = ' ';
+		memcpy (buf + n, a, alen);
+		n += alen;
+	}
+	if (!n)
+		return;
+	buf[n++] = '\n';
+	buf[n] = 0;
+	Cbuf_InsertText (StripQuotes (buf));
+}
+
+/*
+===============
+Cmd_If_f
+
+Q2PRO-compatible: if <a> <op> <b> [then] <cmd> [else <cmd>]
+Stops zoom/cfg aliases from being forwarded as chat.
+===============
+*/
+static void Cmd_If_f (void)
+{
+	const char	*a, *b, *op;
+	qboolean	numeric;
+	qboolean	matched;
+	int			i, j;
+
+	if (Cmd_Argc () < 5)
+	{
+		Com_Printf ("Usage: if <expr> <op> <expr> [then] <command> [else <command>]\n", LOG_GENERAL);
+		return;
+	}
+
+	a = Cmd_Argv (1);
+	op = Cmd_Argv (2);
+	b = Cmd_Argv (3);
+
+	numeric = Cmd_TokenIsFloat (a) && Cmd_TokenIsFloat (b);
+	if (!strcmp (op, "=="))
+		matched = numeric ? atof (a) == atof (b) : !strcmp (a, b);
+	else if (!strcmp (op, "!=") || !strcmp (op, "<>"))
+		matched = numeric ? atof (a) != atof (b) : !!strcmp (a, b);
+	else if (!strcmp (op, "<"))
+	{
+		if (!numeric)
+			goto bad_numeric;
+		matched = atof (a) < atof (b);
+	}
+	else if (!strcmp (op, "<="))
+	{
+		if (!numeric)
+			goto bad_numeric;
+		matched = atof (a) <= atof (b);
+	}
+	else if (!strcmp (op, ">"))
+	{
+		if (!numeric)
+			goto bad_numeric;
+		matched = atof (a) > atof (b);
+	}
+	else if (!strcmp (op, ">="))
+	{
+		if (!numeric)
+			goto bad_numeric;
+		matched = atof (a) >= atof (b);
+	}
+	else if (!Q_stricmp (op, "isin"))
+		matched = strstr (b, a) != NULL;
+	else if (!Q_stricmp (op, "!isin"))
+		matched = strstr (b, a) == NULL;
+	else if (!Q_stricmp (op, "isini"))
+		matched = Cmd_Stristr (b, a) != NULL;
+	else if (!Q_stricmp (op, "!isini"))
+		matched = Cmd_Stristr (b, a) == NULL;
+	else if (!Q_stricmp (op, "eq"))
+		matched = !Q_stricmp (a, b);
+	else if (!Q_stricmp (op, "ne"))
+		matched = Q_stricmp (a, b) != 0;
+	else
+	{
+		Com_Printf ("Unknown operator '%s'\n", LOG_GENERAL, op);
+		Com_Printf ("Valid are: ==, != or <>, <, <=, >, >=, [!]isin[i], eq, ne\n", LOG_GENERAL);
+		return;
+	}
+
+	i = 4;
+	if (!Q_stricmp (Cmd_Argv (i), "then"))
+		i++;
+
+	for (j = i; i < Cmd_Argc (); i++)
+	{
+		if (!Q_stricmp (Cmd_Argv (i), "else"))
+			break;
+	}
+
+	if (matched)
+	{
+		if (i > j)
+			Cmd_InsertArgRange (j, i);
+	}
+	else if (i + 1 < Cmd_Argc ())
+		Cmd_InsertArgRange (i + 1, Cmd_Argc ());
+
+	return;
+
+bad_numeric:
+	Com_Printf ("Can't use '%s' with non-numeric expression(s)\n", LOG_GENERAL, op);
+}
+
 static int EXPORT aliassort( const void *_a, const void *_b )
 {
 	const cmdalias_t	*a = (const cmdalias_t *)_a;
@@ -1549,5 +1718,6 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("alias",Cmd_Alias_f);
 	Cmd_AddCommand ("aliaslist",Cmd_Aliaslist_f);
 	Cmd_AddCommand ("wait", Cmd_Wait_f);
+	Cmd_AddCommand ("if", Cmd_If_f);
 }
 

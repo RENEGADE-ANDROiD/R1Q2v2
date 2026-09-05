@@ -136,6 +136,7 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 | `m_pitch` | `0.022` | Pitch scale; negate to invert Y. |
 | `m_yaw` | `0.022` | Yaw scale. |
 | `m_filter` | `0` | Average mouse deltas (smoother, less raw). |
+| `m_autosens` | `0` | Scale mouse by FOV (Q2PRO zoom aliases). `1` uses 90 as the base. |
 | `m_directinput` | `0` | `0` off; `1` buffered DirectInput; `2` immediate. |
 | `m_fixaccel` | OS-dependent | XP mouse-acceleration fix (Options → R1Q2). |
 | `in_mouse` | `1` | Enable mouse input. |
