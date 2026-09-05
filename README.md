@@ -13,6 +13,7 @@ Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h
    - `R1Q2v2.exe`, `r1q2ded.exe`, `gamex86.dll`
    - `ref_r1gl.dll`, `ref_gl.dll`
    - `z.dll`, `libpng16.dll`, `jpeg62.dll`
+   - **OpenAL (recommended):** `OpenAL32.dll`, `alsoft.ini`, and the `oal/hrtf/` + `oal/presets/` folders (OpenAL Soft runtime). Shipped in the [desktop tester zip](#tester-zip); R1Q2 loads `OpenAL32.dll` at runtime.
    - `baseq2/r1q2v2_visual.cfg` (and optionally `pretty_r1q2v2.cfg`) into the install `baseq2` folder
 3. Launch `R1Q2v2.exe`.
 
@@ -106,7 +107,26 @@ Drop a `maps/<map>.loc` (or `locs/<map>.loc`) in the gamedir. Nearest name draws
 
 ### Sound
 
-OpenAL (when the build has it) keeps your own shots on the listener so they do not drift. World sounds stay positional.
+Builds with **`R1Q2_USE_OPENAL=ON`** (default) support OpenAL via `s_initsound 2`. R1Q2 loads **`OpenAL32.dll`** from the game folder (OpenAL Soft from vcpkg at build time, or copy from a Q2PRO-X install as `soft_oal.dll` → `OpenAL32.dll`).
+
+Shipped presets use OpenAL + 44 kHz:
+
+```
+seta s_initsound "2"
+seta s_khz "44"
+```
+
+Player-local and `ATTN_NONE` sources stay on the listener so your shots do not drift; world sounds stay positional. Optional: `s_openal_device ""` (default output), `alsoft.ini`, and `oal/hrtf/` for HRTF data.
+
+### Tester zip
+
+Regenerate the shareable Desktop package (binaries + visual cfgs + OpenAL runtime):
+
+```powershell
+py -3 scripts/pack_r1q2v2_desktop.py
+```
+
+Output: `R1Q2v2-8012-RENEGADE-win32.zip` on your Desktop. Always includes `OpenAL32.dll`, `soft_oal.dll` (when sourced from install), `alsoft.ini`, and `oal/hrtf` + `oal/presets`.
 
 ### Options → R1Q2 settings
 
@@ -116,7 +136,9 @@ DirectInput mouse, XP mouse acceleration fix, deferred model loading, **sync phy
 
 ## Building
 
-On Windows, run `build-windows.cmd` (VS2022 Build Tools, CMake, Ninja, vcpkg). Output lands in `build\bin\`.
+On Windows, run `build-windows.cmd` (VS2022 Build Tools, CMake, Ninja, vcpkg). Requires **openal-soft** (in `vcpkg.json`). Output lands in `build\bin\` including `OpenAL32.dll` beside `R1Q2v2.exe`.
+
+If CMake skips manifest packages (e.g. after editing `vcpkg.json`), delete `build/CMakeCache.txt` and reconfigure with `-DVCPKG_MANIFEST_INSTALL=ON`, or run `vcpkg install --triplet x86-windows` from the repo root before building.
 
 ## Credits
 

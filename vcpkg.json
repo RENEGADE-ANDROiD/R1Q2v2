@@ -4,6 +4,7 @@
   "dependencies": [
     "zlib",
     "libpng",
-    "libjpeg-turbo"
+    "libjpeg-turbo",
+    "openal-soft"
   ]
 }

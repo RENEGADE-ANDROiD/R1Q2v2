@@ -5,6 +5,7 @@ project(r1q2 VERSION 8012 LANGUAGES C RC)
 #   cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 option(R1Q2_BUILD_CLIENT "Build Win32 client (needs DirectInput/DirectSound headers)" ON)
+option(R1Q2_USE_OPENAL "Compile client with OpenAL (s_initsound 2)" ON)
 option(R1Q2_ANTICHEAT "Compile server anticheat hooks (ANTICHEAT)" OFF)
 
 set(CMAKE_C_STANDARD 99)
@@ -21,6 +22,9 @@ endif()
 find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 find_package(JPEG REQUIRED)
+if(R1Q2_USE_OPENAL)
+  find_package(OpenAL CONFIG REQUIRED)
+endif()
 
 if(MSVC)
   add_compile_definitions(
@@ -115,6 +119,9 @@ if(R1Q2_BUILD_CLIENT)
   if(R1Q2_ANTICHEAT)
     target_compile_definitions(r1q2 PRIVATE ANTICHEAT)
   endif()
+  if(R1Q2_USE_OPENAL)
+    target_compile_definitions(r1q2 PRIVATE USE_OPENAL)
+  endif()
   target_include_directories(r1q2 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/client
@@ -124,6 +131,9 @@ if(R1Q2_BUILD_CLIENT)
     ${CMAKE_CURRENT_SOURCE_DIR}/win32
     ${ZLIB_INCLUDE_DIRS}
   )
+  if(R1Q2_USE_OPENAL)
+    target_link_libraries(r1q2 PRIVATE OpenAL::OpenAL)
+  endif()
   target_link_libraries(r1q2 PRIVATE
     ZLIB::ZLIB
     winmm
@@ -137,6 +147,14 @@ if(R1Q2_BUILD_CLIENT)
     dinput8
     wininet
   )
+  if(R1Q2_USE_OPENAL)
+    add_custom_command(TARGET r1q2 POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:OpenAL::OpenAL>
+        $<TARGET_FILE_DIR:r1q2>/OpenAL32.dll
+      COMMENT "Copy OpenAL32.dll beside R1Q2v2.exe"
+    )
+  endif()
   set_target_properties(r1q2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     OUTPUT_NAME "R1Q2v2"

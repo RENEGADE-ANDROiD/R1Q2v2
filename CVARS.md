@@ -113,7 +113,7 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 | `s_mixahead` | `0.2` | Mix-ahead buffer (seconds). |
 | `s_ambient` | `1` | Ambient / looping world sounds. |
 | `s_focusfree` | `0` | Keep playing sound when the window is unfocused. |
-| `s_initsound` | `1` | `0` silent; `1` normal DMA/DirectSound. |
+| `s_initsound` | `1` | `0` silent; `1` DirectSound/DMA; **`2` OpenAL** (needs `OpenAL32.dll` beside exe). |
 | `cd_nocd` | `0` | Disable CD audio. |
 
 ---
