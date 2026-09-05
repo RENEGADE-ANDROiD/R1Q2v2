@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Lock R1Q2v2 to 1920x1080 via gl_mode 17 + vid_force (this display's 1080p index)."""
+﻿#!/usr/bin/env python3
+"""Lock R1Q2v2 to 1920x1080 via gl_mode 11 + vid_force (stable 1080p index)."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from pathlib import Path
 
 Q2 = Path(r"D:\SteamLibrary\steamapps\common\Quake 2")
 REPO = Path(__file__).resolve().parents[1]
-MODE = "17"
+MODE = "11"
 
 VIDEO_LOCK = f"""
-// --- Video lock (R1Q2v2 1920x1080 @ gl_mode {MODE} on this display) ---
+// --- Video lock (R1Q2v2 1920x1080 @ gl_mode {MODE} stable index) ---
 seta gl_mode "{MODE}"
 seta sw_mode "{MODE}"
 seta vid_forcewidth "1920"
@@ -120,7 +120,7 @@ def patch_visual_cfg(path: Path) -> bool:
     text = orig
     text = re.sub(
         r"// (?:gl_mode -1|R1 uses gl_mode \+ vid_force\* \(no vid_geometry\))\..*",
-        f"// gl_mode {MODE} = 1920x1080 on this display (+ vid_force* backup)",
+        f"// gl_mode {MODE} = 1920x1080 stable index (+ vid_force* backup)",
         text,
         count=1,
     )

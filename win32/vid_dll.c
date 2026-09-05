@@ -550,7 +550,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				menu_mouse_valid = true;
 			}
 
-			/* DirectInput owns buttons while grabbed — never skip WM path in menu/console */
+			/* DirectInput owns buttons while grabbed - never skip WM path in menu/console */
 			if (g_pMouse && mouseactive && !menu_or_console)
 				break;
 
@@ -664,8 +664,10 @@ static void VID_Front_f( void )
 }
 
 /*
-** VID_GetModeInfo / dynamic mode list
-** Prefer EnumDisplaySettings desktop modes, seeded with common modern presets.
+** VID_GetModeInfo / stable + dynamic mode list
+** Hard-coded common resolutions first (fixed order = stable gl_mode indices).
+** EnumDisplaySettings then appends any WxH not already present (extras only).
+** Optional sort applies only to the appended extras, never the static prefix.
 */
 #define MAX_VID_MODES 128
 
@@ -678,6 +680,30 @@ static vidmode_t	vid_modes[MAX_VID_MODES];
 static char			vid_mode_strings[MAX_VID_MODES][32];
 static const char	*vid_mode_names[MAX_VID_MODES + 1];
 static int			vid_num_modes;
+static int			vid_num_static_modes;	/* hard-coded prefix length; never reorder */
+
+/*
+** Fixed-order common resolutions. Index in this table == stable gl_mode.
+** Keep order identical across machines; document indices in CVARS.md.
+*/
+static const int vid_static_modes[][2] = {
+	/* Classic 4:3 */
+	{320, 240}, {640, 480}, {800, 600}, {1024, 768},
+	{1152, 864}, {1280, 960}, {1280, 1024}, {1600, 1200},
+	/* 16:9 */
+	{1280, 720}, {1366, 768}, {1600, 900}, {1920, 1080},
+	{2560, 1440}, {3840, 2160},
+	/* 16:10 */
+	{1280, 800}, {1440, 900}, {1680, 1050}, {1920, 1200},
+	{2560, 1600},
+	/* Ultrawide 21:9 */
+	{2560, 1080}, {3440, 1440}, {3840, 1600}, {5120, 1440},
+	/* Other useful */
+	{1920, 1440}, {2048, 1152}, {2880, 1800}, {3200, 1800},
+	{5120, 2160}
+};
+
+#define VID_NUM_STATIC_MODES ( (int)(sizeof(vid_static_modes) / sizeof(vid_static_modes[0])) )
 
 static int VID_ModeCmp( const void *a, const void *b )
 {
@@ -723,26 +749,35 @@ static void VID_AddMode( int width, int height )
 	vid_num_modes++;
 }
 
+/* Sort only modes beyond the hard-coded prefix. */
+static void VID_SortExtraModes( void )
+{
+	int extras;
+
+	if ( vid_num_static_modes < 0 )
+		vid_num_static_modes = 0;
+	if ( vid_num_static_modes > vid_num_modes )
+		vid_num_static_modes = vid_num_modes;
+
+	extras = vid_num_modes - vid_num_static_modes;
+	if ( extras > 1 )
+		qsort( vid_modes + vid_num_static_modes, (size_t)extras,
+			sizeof(vid_modes[0]), VID_ModeCmp );
+}
+
 void VID_InitModeList( void )
 {
 	DEVMODE	dm;
 	int		i;
-	static const int presets[][2] = {
-		{320, 240}, {640, 480}, {800, 600}, {1024, 768},
-		{1280, 720}, {1280, 800}, {1280, 1024},
-		{1366, 768}, {1440, 900}, {1600, 900}, {1680, 1050},
-		{1920, 1080}, {1920, 1200},
-		{2560, 1080}, {2560, 1440}, {2560, 1600},
-		{3440, 1440}, {3840, 1600}, {3840, 2160},
-		{5120, 1440},
-		{0, 0}
-	};
 
 	vid_num_modes = 0;
 
-	for ( i = 0; presets[i][0]; i++ )
-		VID_AddMode( presets[i][0], presets[i][1] );
+	/* 1) Stable hard-coded prefix - do NOT qsort this block. */
+	for ( i = 0; i < VID_NUM_STATIC_MODES; i++ )
+		VID_AddMode( vid_static_modes[i][0], vid_static_modes[i][1] );
+	vid_num_static_modes = vid_num_modes;
 
+	/* 2) Append OS-reported modes not already in the table. */
 	memset( &dm, 0, sizeof(dm) );
 	dm.dmSize = sizeof(dm);
 	for ( i = 0; EnumDisplaySettings( NULL, i, &dm ); i++ )
@@ -756,12 +791,12 @@ void VID_InitModeList( void )
 			VID_AddMode( (int)fw->value, (int)fh->value );
 	}
 
-	if ( vid_num_modes > 1 )
-		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );
-
+	/* Sort extras only; static gl_mode indices stay machine-independent. */
+	VID_SortExtraModes();
 	VID_RebuildModeNames();
 
-	Com_Printf( "VID: %d video modes available\n", LOG_CLIENT, vid_num_modes );
+	Com_Printf( "VID: %d video modes available (%d stable + %d extras)\n", LOG_CLIENT,
+		vid_num_modes, vid_num_static_modes, vid_num_modes - vid_num_static_modes );
 }
 
 /*
@@ -769,7 +804,8 @@ void VID_InitModeList( void )
 VID_GetDesktopModeIndex
 
 Return index of ENUM_CURRENT_SETTINGS width/height in vid_modes[].
-Adds the desktop resolution if it was missing from presets/enum.
+Adds the desktop resolution if it was missing from the static/enum list
+(appended among extras - never reorders the hard-coded prefix).
 Returns -1 if EnumDisplaySettings fails.
 ============
 */
@@ -793,10 +829,9 @@ int VID_GetDesktopModeIndex( void )
 			return i;
 	}
 
-	/* Desktop res not in list (unusual) - append, re-sort, rebuild names. */
+	/* Desktop res not in list - append as an extra, sort extras only. */
 	VID_AddMode( (int)dm.dmPelsWidth, (int)dm.dmPelsHeight );
-	if ( vid_num_modes > 1 )
-		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );
+	VID_SortExtraModes();
 	VID_RebuildModeNames();
 
 	for ( i = 0; i < vid_num_modes; i++ )
