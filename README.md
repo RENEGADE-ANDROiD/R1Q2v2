@@ -4,7 +4,7 @@ A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8013)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 ## Play
 
@@ -127,7 +127,7 @@ Regenerate the shareable Desktop package (binaries + visual cfgs + OpenAL runtim
 py -3 scripts/pack_r1q2v2_desktop.py
 ```
 
-Output: `R1Q2v2-8012-win32.zip` on your Desktop. Always includes `OpenAL32.dll`, `fmt.dll`, and `oal/hrtf` + `oal/presets` when those folders exist.
+Output: `R1Q2v2-8013-win32.zip` on your Desktop. Always includes `OpenAL32.dll`, `fmt.dll`, and `oal/hrtf` + `oal/presets` when those folders exist.
 
 ### Options → R1Q2 settings
 
