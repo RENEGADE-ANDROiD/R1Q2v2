@@ -4681,8 +4681,16 @@ void CL_RefreshInputs (void)
 
 void CL_LoadDeferredModels (void)
 {
+	static unsigned int last_load;
+
 	if (deferred_model_index == MAX_MODELS || !cl.refresh_prepped)
 		return;
+
+	/* Cap I/O to ~60/sec so high r_maxfps does not load a model every render
+	 * frame. Timedemo still drains as fast as the caller runs. */
+	if (!cl_timedemo->intvalue && last_load && (unsigned)(curtime - last_load) < 16)
+		return;
+	last_load = curtime;
 
 	for (;;)
 	{
@@ -4965,7 +4973,6 @@ void CL_Frame (int msec)
 	{
 		packet_delta = 0;
 		CL_SendCommand ();
-		CL_LoadDeferredModels();
 
 #ifdef USE_CURL
 		//we run less often in game
@@ -5006,6 +5013,10 @@ void CL_Frame (int msec)
 		
 		if (!cl.refresh_prepped && cls.state == ca_active)
 			CL_PrepRefresh ();
+
+		/* Model I/O on the render frame, not the send frame — packet cadence
+		 * and cmd build/send stay untouched. */
+		CL_LoadDeferredModels();
 
 		// predict all unacknowledged movements
 		CL_PredictMovement ();

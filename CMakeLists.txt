@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(r1q2 VERSION 8012 LANGUAGES C RC)
+project(r1q2 VERSION 8014 LANGUAGES C RC)
 
 # Prefer vcpkg toolchain:
 #   cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake

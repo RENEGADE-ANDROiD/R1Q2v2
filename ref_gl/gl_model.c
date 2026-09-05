@@ -1756,6 +1756,7 @@ void EXPORT R_BeginRegistration (char *model)
 
 	r_registering = true;
 	GL_ClearImageMissCache ();
+	Draw_InvalidatePicCache ();
 
 #ifdef RB_IMAGE_CACHE
 	EmptyImageCache();

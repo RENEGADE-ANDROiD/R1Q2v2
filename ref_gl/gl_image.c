@@ -158,6 +158,10 @@ void GL_SelectTexture( GLenum texture )
 		tmu = 1;
 	}
 
+	/* Already on this TMU — skip ActiveTexture + ClientActiveTexture. */
+	if ( gl_state.currenttmu == tmu && gl_state.currenttarget == texture )
+		return;
+
 	gl_state.currenttmu = tmu;
 	gl_state.currenttarget = texture;
 
@@ -3823,6 +3827,8 @@ void	GL_ShutdownImages (void)
 {
 	int		i;
 	image_t	*image;
+
+	Draw_InvalidatePicCache ();
 
 #ifdef RB_IMAGE_CACHE
 	DestroyImageCache ();

@@ -93,6 +93,55 @@ int			defer_drawing;
 int			drawcharsindex;
 drawchars_t	drawchars[MAX_DRAWCHARS];
 
+/* Last Draw_FindPic hit — status bar / HUD repeats the same names every frame. */
+static char		draw_last_pic_name[MAX_QPATH];
+static image_t	*draw_last_pic;
+
+/* 2D blend/alpha cache. Invalidated when leaving 2D or after Fill/Fade/Raw. */
+static qboolean	draw2d_state_valid;
+static qboolean	draw2d_blend;
+
+void Draw_InvalidatePicCache (void)
+{
+	draw_last_pic_name[0] = 0;
+	draw_last_pic = NULL;
+}
+
+void Draw_Reset2DState (void)
+{
+	/* Restore the default 2D unit (alpha test, no blend) so a leftover
+	 * HUD blend cannot leak into the next 3D view. */
+	qglColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+	GL_TexEnv (GL_REPLACE);
+	qglEnable (GL_ALPHA_TEST);
+	qglDisable (GL_BLEND);
+	draw2d_blend = false;
+	draw2d_state_valid = true;
+}
+
+static void Draw_EnsurePicState (qboolean want_blend)
+{
+	if (draw2d_state_valid && draw2d_blend == want_blend)
+		return;
+
+	if (want_blend)
+	{
+		qglDisable (GL_ALPHA_TEST);
+		qglEnable (GL_BLEND);
+		GL_TexEnv (GL_MODULATE);
+	}
+	else
+	{
+		qglColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+		GL_TexEnv (GL_REPLACE);
+		qglEnable (GL_ALPHA_TEST);
+		qglDisable (GL_BLEND);
+	}
+
+	draw2d_blend = want_blend;
+	draw2d_state_valid = true;
+}
+
 /*
 ===============
 Draw_InitLocal
@@ -100,6 +149,10 @@ Draw_InitLocal
 */
 void Draw_InitLocal (void)
 {
+	Draw_InvalidatePicCache ();
+	draw2d_state_valid = false;
+	drawcharsindex = 0;
+
 	// load console characters (don't bilerp characters)
 	draw_chars = GL_FindImage ("pics/conchars.pcx", "pics/conchars.pcx", it_pic);
 	if (!draw_chars)
@@ -127,6 +180,8 @@ void Draw_AddText (void)
 
 	if (!drawcharsindex)
 		return;
+
+	draw2d_state_valid = false;
 
 	if (draw_chars->has_alpha)
 	{
@@ -188,6 +243,20 @@ void Draw_AddText (void)
 	drawcharsindex = 0;
 }
 
+void Draw_FlushChars (void)
+{
+	Draw_AddText ();
+}
+
+/* Flush queued glyphs before a pic/fill so draw order stays classic.
+ * gl_defertext 1 keeps the old "all text at EndFrame" layering. */
+static void Draw_FlushCharsIfImmediate (void)
+{
+	if (defer_drawing)
+		return;
+	Draw_AddText ();
+}
+
 /*
 ================
 Draw_Char
@@ -195,83 +264,25 @@ Draw_Char
 Draws one 8*8 graphics character with 0 being transparent.
 It can be clipped to the top of the screen to allow the console to be
 smoothly scrolled off.
+
+Always queued: consecutive chars share one bind + one glBegin/glEnd.
+Flushed before other 2D primitives (unless gl_defertext) and at EndFrame.
 ================
 */
 void EXPORT Draw_Char (int x, int y, int num)
 {
-	int				row, col;
-	float			frow, fcol, frowbottom, fcolbottom;
-
 	num &= 0xFF;
 
 	if ( (num&127) == 32 )
 		return;		// space
 
-	//r1: dump all draw chars to a buffer so we can do them all at once later
-	if (defer_drawing)
-	{
-		drawchars[drawcharsindex].x = x;
-		drawchars[drawcharsindex].y = y;
-		drawchars[drawcharsindex].num = num;
-		drawchars[drawcharsindex].scale = Draw_GetFontScale();
+	drawchars[drawcharsindex].x = x;
+	drawchars[drawcharsindex].y = y;
+	drawchars[drawcharsindex].num = num;
+	drawchars[drawcharsindex].scale = Draw_GetFontScale();
 
-		if (++drawcharsindex == MAX_DRAWCHARS)
-			ri.Sys_Error (ERR_FATAL, "drawcharsindex == MAX_DRAWCHARS");
-
-		return;
-	}
-
-
-	//if (y <= -8)
-	//	return;			// totally off screen
-
-	row = num>>4;
-	col = num&15;
-
-	frow = conchars_texoffset[row];
-	fcol = conchars_texoffset[col];
-
-	frowbottom = conchars_texlimits[row];
-	fcolbottom = conchars_texlimits[col];
-
-	GL_Bind (draw_chars->texnum);
-
-	if (draw_chars->has_alpha)
-	{
-		qglDisable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglEnable(GL_BLEND);
-		GL_CheckForError ();
-
-		GL_TexEnv(GL_MODULATE);
-	}
-
-	{
-		float s = Draw_GetFontScale();
-		qglBegin (GL_QUADS);
-		qglTexCoord2f (fcol, frow);
-		qglVertex2f ((float)x, (float)y);
-		qglTexCoord2f (fcolbottom, frow);
-		qglVertex2f ((float)x + 8.0f * s, (float)y);
-		qglTexCoord2f (fcolbottom, frowbottom);
-		qglVertex2f ((float)x + 8.0f * s, (float)y + 8.0f * s);
-		qglTexCoord2f (fcol, frowbottom);
-		qglVertex2f ((float)x, (float)y + 8.0f * s);
-		qglEnd ();
-	}
-	GL_CheckForError ();
-
-	if (draw_chars->has_alpha)
-	{
-		GL_TexEnv (GL_REPLACE);
-		
-		qglEnable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglDisable(GL_BLEND);
-		GL_CheckForError ();
-	}
+	if (++drawcharsindex == MAX_DRAWCHARS)
+		Draw_AddText ();
 }
 
 
@@ -286,6 +297,12 @@ image_t	* EXPORT Draw_FindPic (char *name)
 	char	lowered[MAX_QPATH];
 	char	fullname[MAX_QPATH];
 
+	if (!name || !name[0])
+		return NULL;
+
+	if (draw_last_pic_name[0] && !Q_stricmp (name, draw_last_pic_name))
+		return draw_last_pic;
+
 	/* Copy first — never write through the caller's pointer (string literals). */
 	Q_strncpy (lowered, name, sizeof(lowered)-1);
 	fast_strlwr (lowered);
@@ -298,6 +315,8 @@ image_t	* EXPORT Draw_FindPic (char *name)
 	else
 		gl = GL_FindImage (lowered+1, lowered+1, it_pic);
 
+	Q_strncpy (draw_last_pic_name, name, sizeof(draw_last_pic_name)-1);
+	draw_last_pic = gl;
 	return gl;
 }
 
@@ -329,6 +348,9 @@ Draw_StretchPic
 void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 {
 	image_t *gl;
+	qboolean want_blend;
+
+	Draw_FlushCharsIfImmediate ();
 
 	gl = Draw_FindPic (pic);
 	if (!gl)
@@ -340,23 +362,11 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 	if (scrap_dirty)
 		Scrap_Upload ();
 
+	want_blend = (gl->has_alpha || Draw_ColorActive()) ? true : false;
 	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
-	{
-		qglDisable (GL_ALPHA_TEST);
-		GL_CheckForError ();
-	}
+		want_blend = true;
 
-	if (gl->has_alpha)
-	{
-		qglDisable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglEnable(GL_BLEND);
-		GL_CheckForError ();
-
-		GL_TexEnv(GL_MODULATE);
-	}
-
+	Draw_EnsurePicState (want_blend);
 	Draw_BeginTint ();
 	GL_Bind (gl->texnum);
 	qglBegin (GL_QUADS);
@@ -370,25 +380,10 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 	qglVertex2i (x, y+h);
 	qglEnd ();
 	Draw_EndTint ();
+	if (Draw_ColorActive())
+		draw2d_state_valid = false;
 
 	GL_CheckForError ();
-
-	if (gl->has_alpha)
-	{
-		GL_TexEnv (GL_REPLACE);
-
-		qglEnable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglDisable(GL_BLEND);
-		GL_CheckForError ();
-	}
-
-	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
-	{
-		qglEnable (GL_ALPHA_TEST);
-		GL_CheckForError ();
-	}
 }
 
 
@@ -400,6 +395,9 @@ Draw_Pic
 void EXPORT Draw_Pic (int x, int y, char *pic)
 {
 	image_t *gl;
+	qboolean want_blend;
+
+	Draw_FlushCharsIfImmediate ();
 
 	gl = Draw_FindPic (pic);
 
@@ -412,23 +410,11 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 	if (scrap_dirty)
 		Scrap_Upload ();
 
+	want_blend = (gl->has_alpha || Draw_ColorActive()) ? true : false;
 	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
-	{
-		qglDisable (GL_ALPHA_TEST);
-		GL_CheckForError ();
-	}
+		want_blend = true;
 
-	if (gl->has_alpha)
-	{
-		qglDisable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglEnable(GL_BLEND);
-		GL_CheckForError ();
-
-		GL_TexEnv(GL_MODULATE);
-	}
-
+	Draw_EnsurePicState (want_blend);
 	Draw_BeginTint ();
 	GL_Bind (gl->texnum);
 
@@ -443,23 +429,10 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 	qglVertex2i (x, y+gl->height);
 	qglEnd ();
 	Draw_EndTint ();
+	if (Draw_ColorActive())
+		draw2d_state_valid = false;
 
 	GL_CheckForError ();
-
-	if (gl->has_alpha)
-	{
-		GL_TexEnv (GL_REPLACE);
-		qglEnable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-		qglDisable(GL_BLEND);
-		GL_CheckForError ();
-	}
-
-	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) )  && !gl->has_alpha)
-	{
-		qglEnable (GL_ALPHA_TEST);
-		GL_CheckForError ();
-	}
 }
 
 /*
@@ -473,6 +446,9 @@ refresh window.
 void EXPORT Draw_TileClear (int x, int y, int w, int h, char *pic)
 {
 	image_t	*image;
+
+	Draw_FlushCharsIfImmediate ();
+	Draw_EnsurePicState (false);
 
 	image = Draw_FindPic (pic);
 
@@ -527,6 +503,9 @@ void EXPORT Draw_Fill (int x, int y, int w, int h, int c)
 	if ( (unsigned)c > 255)
 		ri.Sys_Error (ERR_FATAL, "Draw_Fill: bad color");
 
+	Draw_FlushCharsIfImmediate ();
+	draw2d_state_valid = false;
+
 	qglDisable (GL_TEXTURE_2D);
 	GL_CheckForError ();
 
@@ -562,6 +541,9 @@ Draw_FadeScreen
 */
 void EXPORT Draw_FadeScreen (void)
 {
+	Draw_FlushCharsIfImmediate ();
+	draw2d_state_valid = false;
+
 	qglEnable (GL_BLEND);
 	GL_CheckForError ();
 
@@ -612,6 +594,9 @@ void EXPORT Draw_StretchRaw (int x, int y, int w, int h, int cols, int rows, byt
 	float		hscale;
 	int			row;
 	float		t;
+
+	Draw_FlushCharsIfImmediate ();
+	draw2d_state_valid = false;
 
 	GL_Bind (0);
 

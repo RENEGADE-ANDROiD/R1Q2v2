@@ -1,6 +1,6 @@
 # R1Q2v2 console variables
 
-Useful client settings for **R1Q2v2 (Build 8012+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
+Useful client settings for **R1Q2v2 (Build 8014+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
 
 ## How to use
 
@@ -63,7 +63,9 @@ Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolut
 | `gl_dynamic` | `1` | Dynamic lights from weapons / explosions. |
 | `gl_flashblend` | `0` | Draw dlights as blend sprites instead of lighting surfaces. |
 | `gl_coloredlightmaps` | `1` | Colored lightmaps. |
-| `gl_finish` | `0` | Call `glFinish` each frame (can hurt FPS). |
+| `gl_finish` | `0` | Call `glFinish` each frame (can hurt FPS). Leave off. |
+| `gl_flush` | `0` | Call `glFlush` before each 3D view (can hurt FPS). Leave off. |
+| `gl_defertext` | `0` | Opt-in: draw all 2D text at EndFrame (changes layering vs pics). Console/HUD chars are already batched in order; you usually do not need this. |
 | `gl_polyblend` | `0` | Full-screen damage / powerup tint (default **off** in R1Q2v2). |
 | `cl_blend` | `0` | Client blend effects (default **off**). |
 | `gl_texture_formats` | `png jpg tga` | High-res wall try order before `.wal`. |
@@ -204,7 +206,7 @@ These are often **not** written to `config.cfg` — keep them in `autoexec.cfg` 
 |------|---------|--------|
 | `m_directinput` | `0` | DirectInput mouse (see Input). |
 | `m_fixaccel` | OS-dependent | OS mouse accel fix. |
-| `cl_defermodels` | `1` | Defer model loads to reduce hitching. |
+| `cl_defermodels` | `1` | Defer model loads to reduce hitching. Loads run on the **render** frame (throttled to about one model / 16 ms), not on the packet-send frame. |
 | `cl_async` | `1` | Sync physics when `0`. Saved. Not Q2PRO pmove. |
 | `cl_autorecord` | `0` | Auto-record demos on map start. |
 | `cl_railtrail` | `0` | Xania-style rail colors `1`–`5`; `0` off. |

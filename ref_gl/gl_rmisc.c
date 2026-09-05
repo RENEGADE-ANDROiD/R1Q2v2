@@ -399,6 +399,10 @@ void GL_SetDefaultState( void )
 
 	GL_TexEnv( GL_REPLACE );
 
+	gl_state.currenttmu = 0;
+	gl_state.currenttarget = 0;
+	GL_ApplyLodBiasState ();
+
 	if ( qglPointParameterfEXT && FLOAT_NE_ZERO(gl_ext_pointparameters->value))
 	{
 		float attenuations[3];
