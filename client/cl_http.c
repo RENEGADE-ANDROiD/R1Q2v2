@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifdef USE_CURL
 #include "client.h"
+#include <curl/curl.h>
 
 cvar_t	*cl_http_downloads;
 cvar_t	*cl_http_filelists;

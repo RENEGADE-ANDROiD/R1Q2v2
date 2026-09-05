@@ -5,6 +5,7 @@
     "zlib",
     "libpng",
     "libjpeg-turbo",
-    "openal-soft"
+    "openal-soft",
+    "curl"
   ]
 }
