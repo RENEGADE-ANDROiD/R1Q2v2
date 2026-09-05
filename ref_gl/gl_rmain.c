@@ -159,6 +159,7 @@ cvar_t	*gl_forcewidth;
 cvar_t	*gl_forceheight;
 
 cvar_t	*vid_topmost;
+cvar_t	*vid_borderless;
 
 //cvar_t	*gl_log;
 cvar_t	*gl_bitdepth;
@@ -1465,6 +1466,7 @@ void R_Register( void )
 	gl_forceheight = ri.Cvar_Get ("vid_forceheight", "0", CVAR_ARCHIVE);
 
 	vid_topmost = ri.Cvar_Get ("vid_topmost", "0", 0);
+	vid_borderless = ri.Cvar_Get ("vid_borderless", "0", CVAR_ARCHIVE);
 
 	gl_pic_scale = ri.Cvar_Get ("gl_pic_scale", "1", 0);
 	//r1ch end my shit
@@ -1555,16 +1557,27 @@ int R_SetMode (void)
 		}
 		else if ( err & VID_ERR_FAIL )
 		{
-			ri.Cvar_SetValue( "gl_mode", (float)gl_state.prev_mode );
-			gl_mode->modified = false;
+			/* Keep gl_mode -1 sticky when force dims are set (ultrawide custom). */
+			if ( Q_ftol(gl_mode->value) != -1 )
+			{
+				ri.Cvar_SetValue( "gl_mode", (float)gl_state.prev_mode );
+				gl_mode->modified = false;
+			}
 			ri.Con_Printf( PRINT_ALL, "ref_gl::R_SetMode() - invalid mode\n" );
 		}
 
 		// try setting it back to something safe
-		if ( ( err = GLimp_SetMode( &vid.width, &vid.height, gl_state.prev_mode, false ) ) != VID_ERR_NONE )
 		{
-			ri.Con_Printf( PRINT_ALL, "ref_gl::R_SetMode() - could not revert to safe mode\n" );
-			return VID_ERR_FAIL;
+			int safe_mode = gl_state.prev_mode;
+			if ( Q_ftol(gl_mode->value) == -1
+				&& FLOAT_NE_ZERO(gl_forcewidth->value)
+				&& FLOAT_NE_ZERO(gl_forceheight->value) )
+				safe_mode = -1;
+			if ( ( err = GLimp_SetMode( &vid.width, &vid.height, safe_mode, false ) ) != VID_ERR_NONE )
+			{
+				ri.Con_Printf( PRINT_ALL, "ref_gl::R_SetMode() - could not revert to safe mode\n" );
+				return VID_ERR_FAIL;
+			}
 		}
 	}
 	return VID_ERR_NONE;
@@ -2107,12 +2120,17 @@ void EXPORT R_BeginFrame( float camera_separation )
 	/*
 	** change modes if necessary
 	*/
-	if ( gl_mode->modified || vid_fullscreen->modified )
+	if ( gl_mode->modified || vid_fullscreen->modified || (vid_borderless && vid_borderless->modified)
+		|| gl_forcewidth->modified || gl_forceheight->modified )
 	{	// FIXME: only restart if CDS is required
 		cvar_t	*ref;
 
 		ref = ri.Cvar_Get ("vid_ref", "r1gl", 0);
 		ref->modified = true;
+		if (vid_borderless)
+			vid_borderless->modified = false;
+		gl_forcewidth->modified = false;
+		gl_forceheight->modified = false;
 	}
 
 	/*if ( gl_log->modified )
