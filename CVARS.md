@@ -84,8 +84,8 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_menupicscale` | `1.2` | Extra scale for menu PCX art (banners, plaques) on top of menu scale (clamped 1–2). |
 | `con_scale` | `0` | Console / notify text scale. `0` = auto like menus. |
 | `scr_hudscale` | `1` | **Status bar only** (~0.5–2.5). Menus and crosshair stay unscaled. Presets must use this, not `gl_hudscale`. |
-| `scr_hud_top` | `0` | `1` draws the HUD at the top. |
-| `scr_hudwide` | `1` | On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. |
+| `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs (those keep classic coordinates). |
+| `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
 | `crosshair` | `0` | `0` none; `1`+ uses `pics/chN` (stock `ch1`…`ch3`, or higher if the pic exists). |
 | `ch1` / `ch2` / `ch3` | empty | Extra overlay pics (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when that cvar is non-zero. |

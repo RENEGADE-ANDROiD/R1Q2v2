@@ -82,6 +82,7 @@ cvar_t		*loc_enable;
 /* Only set while drawing CS_STATUSBAR — keeps menus/crosshair unscaled. */
 static float	scr_hud_draw_scale = 1.0f;
 static qboolean	scr_hud_wide_xv;
+static qboolean	scr_hud_top_active;
 
 static qboolean SCR_HudIsWide (void)
 {
@@ -141,7 +142,7 @@ static void SCR_HudPlace (int *x, int *y)
 	else
 		*x = mid + (int)((*x - mid) * hs);
 
-	if (scr_hud_top && scr_hud_top->intvalue)
+	if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
 		*y = (int)(*y * hs);
 	else
 		*y = viddef.height - (int)((viddef.height - *y) * hs);
@@ -1550,8 +1551,8 @@ void SCR_ExecuteLayoutString (char *s)
 				else if (token[1] == 'b')
 				{
 					token = COM_Parse (&s);
-					/* yb is bottom-relative (usually negative). Flip to top. */
-					if (scr_hud_top && scr_hud_top->intvalue)
+					/* yb is bottom-relative (usually negative). Flip to top for status bar only. */
+					if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
 						y = -atoi(token);
 					else
 						y = viddef.height + atoi(token);
@@ -1560,7 +1561,7 @@ void SCR_ExecuteLayoutString (char *s)
 				else if (token[1] == 't')
 				{
 					token = COM_Parse (&s);
-					if (scr_hud_top && scr_hud_top->intvalue)
+					if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
 						y = viddef.height - atoi(token);
 					else
 						y = atoi(token);
@@ -1845,7 +1846,9 @@ void SCR_DrawStats (void)
 		re.DrawSetColor (1.0f, 1.0f, 1.0f, a);
 	scr_hud_draw_scale = SCR_HudScaleValue ();
 	scr_hud_wide_xv = true;
+	scr_hud_top_active = true;
 	SCR_ExecuteLayoutString (cl.configstrings[CS_STATUSBAR]);
+	scr_hud_top_active = false;
 	scr_hud_wide_xv = false;
 	scr_hud_draw_scale = 1.0f;
 	if (re.DrawSetColor)
