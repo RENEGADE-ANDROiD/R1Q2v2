@@ -1,6 +1,6 @@
 # R1Q2v2 console variables
 
-Useful client settings for **R1Q2v2 (Build 8012+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
+Useful client settings for **R1Q2v2 (Build 8014+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
 
 ## How to use
 
@@ -84,7 +84,8 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_menupicscale` | `1.2` | Extra scale for menu PCX art (banners, plaques) on top of menu scale (clamped 1–2). |
 | `con_scale` | `0` | Console / notify text scale. `0` = auto like menus. |
 | `scr_hudscale` | `1` | **Status bar only** (~0.5–2.5). Menus and crosshair stay unscaled. Presets must use this, not `gl_hudscale`. |
-| `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs (those keep classic coordinates). |
+| `scr_layoutscale` | `0` | **In-game layout menus only** (`STAT_LAYOUTS` / `cl.layout`: Arena team select, help, scoreboards) plus inventory. `0` = auto (~height/480, clamped 1–6). `1` = classic tiny 8px. Does **not** apply `scr_hud_top` / `scr_hudwide`. |
+| `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs. |
 | `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
 | `crosshair` | `0` | `0` none; `1`+ uses `pics/chN` (stock `ch1`…`ch3`, or higher if the pic exists). |
@@ -255,6 +256,7 @@ seta scr_menuscale "2.5"
 seta scr_menupicscale "1.2"
 seta con_scale "0"
 seta scr_hudscale "2.5"
+seta scr_layoutscale "0"
 seta gl_hudscale "1"
 ```
 

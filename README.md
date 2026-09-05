@@ -1,10 +1,10 @@
-﻿# R1Q2v2
+# R1Q2v2
 
 A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8013)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8014)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 ## Play
 
@@ -51,8 +51,9 @@ OpenGL / R1GL:
 - **Anisotropy** (1 / 2 / 4 / 8 / 16; default 16)
 - **Texture sharpen** (LOD bias on world textures; 0 = off)
 - **HUD scale** (`scr_hudscale`, about 0.5–2.5) — status bar only; menus stay unscaled
-- **HUD at top** (`scr_hud_top`) — flips status bar / layout `yb` to the top
-- **Wide HUD** (`scr_hudwide`, on by default) — on 16:9, health/ammo sit left and armor/weapon sit right. 4:3 stays the old centered strip. Scoreboards are unchanged.
+- **Layout menu scale** (`scr_layoutscale`, default auto) — Arena team select, help, scoreboards, inventory scale with resolution (`0` = height/480). Does not use `scr_hud_top` / `scr_hudwide`.
+- **HUD at top** (`scr_hud_top`) — flips status bar to the top (status bar only)
+- **Wide HUD** (`scr_hudwide`, on by default) — on 16:9, health/ammo sit left and armor/weapon sit right. 4:3 stays the old centered strip. Layout menus are unchanged by this.
 - **Shadows**
 - **Dynamic lights**
 

@@ -42,10 +42,17 @@ Inv_DrawString
 */
 static void Inv_DrawString (int x, int y, const char *string)
 {
+	int		step;
+	float	ls;
+
+	ls = SCR_GetLayoutScale ();
+	step = (int)(8.0f * ls + 0.5f);
+	if (step < 1)
+		step = 1;
 	while (*string)
 	{
 		re.DrawChar (x, y, *string);
-		x+=8;
+		x += step;
 		string++;
 	}
 }
@@ -98,19 +105,37 @@ void CL_DrawInventory (void)
 	if (top < 0)
 		top = 0;
 
-	x = (viddef.width-256)/2;
-	y = (viddef.height-240)/2;
+	{
+		float	ls = SCR_GetLayoutScale ();
+		int		cs = (int)(8.0f * ls + 0.5f);
+		int		w, h;
 
-	// repaint everything next framed
-	SCR_DirtyScreen ();
+		if (cs < 1)
+			cs = 1;
+		x = (viddef.width - (int)(256 * ls + 0.5f)) / 2;
+		y = (viddef.height - (int)(240 * ls + 0.5f)) / 2;
 
-	re.DrawPic (x, y+8, "inventory");
+		// repaint everything next framed
+		SCR_DirtyScreen ();
 
-	y += 24;
-	x += 24;
-	Inv_DrawString (x, y, "hotkey ### item");
-	Inv_DrawString (x, y+8, "------ --- ----");
-	y += 16;
+		if (ls == 1.0f)
+			re.DrawPic (x, y + 8, "inventory");
+		else
+		{
+			Cvar_SetValue ("gl_fontscale", ls);
+			re.DrawGetPicSize (&w, &h, "inventory");
+			if (w < 1)
+				w = 256;
+			if (h < 1)
+				h = 192;
+			re.DrawStretchPic (x, y + (int)(8 * ls + 0.5f), (int)(w * ls + 0.5f), (int)(h * ls + 0.5f), "inventory");
+		}
+
+		y += (int)(24 * ls + 0.5f);
+		x += (int)(24 * ls + 0.5f);
+		Inv_DrawString (x, y, "hotkey ### item");
+		Inv_DrawString (x, y + cs, "------ --- ----");
+		y += 2 * cs;
 	for (i=top ; i<num && i < top+DISPLAY_ITEMS ; i++)
 	{
 		item = index[i];
@@ -131,10 +156,13 @@ void CL_DrawInventory (void)
 		else	// draw a blinky cursor by the selected item
 		{
 			if ( (int)(cls.realtime*10) & 1)
-				re.DrawChar (x-8, y, 15);
+				re.DrawChar (x - cs, y, 15);
 		}
 		Inv_DrawString (x, y, string);
-		y += 8;
+		y += cs;
+	}
+	if (ls != 1.0f)
+		Cvar_SetValue ("gl_fontscale", 1);
 	}
 }
 
