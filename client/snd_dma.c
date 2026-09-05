@@ -1374,7 +1374,7 @@ static void S_OpenAL_PlayChannel (openal_channel_t *ch, sfx_t *sfx)
 
 	qalSourcei(ch->sourceNum, AL_BUFFER, sfx->bufferNum);
 	qalSourcei(ch->sourceNum, AL_LOOPING, ch->loopSound);
-	qalSourcei(ch->sourceNum, AL_SOURCE_RELATIVE, AL_FALSE);
+	/* Relative vs world is set in S_OpenAL_SpatializeChannel. */
 	qalSourcePlay(ch->sourceNum);
 }
 
@@ -1440,20 +1440,28 @@ openal_channel_t *S_OpenAL_PickChannel (int entNum, int entChannel)
 
 static void S_OpenAL_SpatializeChannel (openal_channel_t *ch)
 {
-	vec3_t	position;
+	vec3_t		position;
+	qboolean	relative;
 
-	// Update position and velocity
-	if (ch->entNum == cl.playernum+1 || !ch->distanceMult)
+	/* Player-local and ATTN_NONE sources stay glued to the listener
+	   (AL_SOURCE_RELATIVE at origin). World sources use Q2→AL remap
+	   (y, z, -x) and inverse-distance with unit rolloff. */
+	relative = (ch->entNum == cl.playernum+1 || !ch->distanceMult);
+
+	if (relative)
 	{
-		qalSourcefv(ch->sourceNum, AL_POSITION, s_openal_listener.position);
-		//qalSourcefv(ch->sourceNum, AL_VELOCITY, s_openal_listener.velocity);
+		qalSourcei(ch->sourceNum, AL_SOURCE_RELATIVE, AL_TRUE);
+		qalSource3f(ch->sourceNum, AL_POSITION, 0.0f, 0.0f, 0.0f);
+		qalSourcef(ch->sourceNum, AL_REFERENCE_DISTANCE, 1.0f);
+		qalSourcef(ch->sourceNum, AL_MAX_DISTANCE, 8192.0f);
+		qalSourcef(ch->sourceNum, AL_ROLLOFF_FACTOR, 0.0f);
 	}
 	else
 	{
+		qalSourcei(ch->sourceNum, AL_SOURCE_RELATIVE, AL_FALSE);
 		if (ch->fixedPosition)
 		{
 			qalSource3f(ch->sourceNum, AL_POSITION, ch->position[1], ch->position[2], -ch->position[0]);
-			//qalSource3f(ch->sourceNum, AL_VELOCITY, 0, 0, 0);
 		}
 		else
 		{
@@ -1463,22 +1471,13 @@ static void S_OpenAL_SpatializeChannel (openal_channel_t *ch)
 				Snd_GetEntityOrigin (ch->entNum, position);
 
 			qalSource3f(ch->sourceNum, AL_POSITION, position[1], position[2], -position[0]);
-			//qalSource3f(ch->sourceNum, AL_VELOCITY, velocity[1], velocity[2], -velocity[0]);
 		}
+		qalSourcef(ch->sourceNum, AL_REFERENCE_DISTANCE, 240.0f * ch->distanceMult);
+		qalSourcef(ch->sourceNum, AL_MAX_DISTANCE, 8192.0f);
+		qalSourcef(ch->sourceNum, AL_ROLLOFF_FACTOR, 1.0f);
 	}
 
-	// Update min/max distance
-	if (ch->distanceMult)
-		qalSourcef(ch->sourceNum, AL_REFERENCE_DISTANCE, 240.0f * ch->distanceMult);
-	else
-		qalSourcef(ch->sourceNum, AL_REFERENCE_DISTANCE,  8192);
-
-	qalSourcef(ch->sourceNum, AL_MAX_DISTANCE, 8192);
-
-	// Update volume and rolloff factor
 	qalSourcef(ch->sourceNum, AL_GAIN, s_openal_volume->value * ch->volume);
-
-	qalSourcef(ch->sourceNum, AL_ROLLOFF_FACTOR, 1.0f);
 }
 
 static void S_OpenAL_AddLoopingSounds (void)

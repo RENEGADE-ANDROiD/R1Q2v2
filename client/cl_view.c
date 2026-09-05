@@ -34,6 +34,21 @@ struct model_s	*gun_model;
 //=============
 
 cvar_t		*crosshair;
+cvar_t		*ch1;
+cvar_t		*ch2;
+cvar_t		*ch3;
+cvar_t		*ch_scale;
+cvar_t		*ch_x;
+cvar_t		*ch_y;
+cvar_t		*ch_red;
+cvar_t		*ch_green;
+cvar_t		*ch_blue;
+cvar_t		*ch_alpha;
+cvar_t		*ch_health;
+cvar_t		*ch1_scale;
+cvar_t		*ch2_scale;
+cvar_t		*ch3_scale;
+cvar_t		*cl_adjustfov;
 cvar_t		*cl_testparticles;
 cvar_t		*cl_testentities;
 cvar_t		*cl_testlights;
@@ -542,25 +557,108 @@ void V_Gun_Model_f (void)
 
 /*
 =================
+SCR_DrawOneCrosshair
+
+Center a pic on the view rect with optional scale / pixel offset.
+=================
+*/
+static void SCR_DrawOneCrosshair (const char *pic, int pw, int ph, int ox, int oy, float scale)
+{
+	int	dw, dh, x, y;
+
+	if (!pic || !pic[0] || pw <= 0 || ph <= 0)
+		return;
+
+	if (scale < 0.1f)
+		scale = 0.1f;
+	if (scale > 8.0f)
+		scale = 8.0f;
+
+	dw = (int)(pw * scale);
+	dh = (int)(ph * scale);
+	if (dw < 1)
+		dw = 1;
+	if (dh < 1)
+		dh = 1;
+
+	x = scr_vrect.x + ox + ((scr_vrect.width - dw) >> 1);
+	y = scr_vrect.y + oy + ((scr_vrect.height - dh) >> 1);
+	re.DrawStretchPic (x, y, dw, dh, (char *)pic);
+}
+
+static void SCR_CrosshairColor (float *r, float *g, float *b, float *a)
+{
+	*r = (ch_red) ? ch_red->value : 1.0f;
+	*g = (ch_green) ? ch_green->value : 1.0f;
+	*b = (ch_blue) ? ch_blue->value : 1.0f;
+	*a = (ch_alpha) ? ch_alpha->value : 1.0f;
+
+	if (ch_health && ch_health->intvalue && cls.state == ca_active)
+	{
+		int		hp = cl.frame.playerstate.stats[STAT_HEALTH];
+		float	t;
+
+		if (hp < 0)
+			hp = 0;
+		if (hp > 100)
+			hp = 100;
+		t = hp / 100.0f;
+		/* Q2PRO-ish: green at 100, yellow mid, red low */
+		*r = (t < 0.5f) ? 1.0f : (1.0f - (t - 0.5f) * 2.0f);
+		*g = (t > 0.5f) ? 1.0f : (t * 2.0f);
+		*b = 0.15f;
+	}
+
+	if (*r < 0.0f) *r = 0.0f; if (*r > 1.0f) *r = 1.0f;
+	if (*g < 0.0f) *g = 0.0f; if (*g > 1.0f) *g = 1.0f;
+	if (*b < 0.0f) *b = 0.0f; if (*b > 1.0f) *b = 1.0f;
+	if (*a < 0.0f) *a = 0.0f; if (*a > 1.0f) *a = 1.0f;
+}
+
+/*
+=================
 SCR_DrawCrosshair
+
+Q2PRO-style: stock `crosshair` pic plus up to three overlay pics.
 =================
 */
 __inline void SCR_DrawCrosshair (void)
 {
+	int		ox, oy, i;
+	float	scale;
+	float	r, g, b, a;
+	cvar_t	*layer_scale[MAX_CH_LAYERS];
+
 	if (!crosshair->intvalue)
 		return;
 
-	/*if (crosshair->modified)
+	ox = scr_crosshair_x->intvalue;
+	oy = scr_crosshair_y->intvalue;
+	if (ch_x)
+		ox += ch_x->intvalue;
+	if (ch_y)
+		oy += ch_y->intvalue;
+
+	scale = (ch_scale && ch_scale->value > 0.0f) ? ch_scale->value : 1.0f;
+	SCR_CrosshairColor (&r, &g, &b, &a);
+	if (re.DrawSetColor)
+		re.DrawSetColor (r, g, b, a);
+
+	SCR_DrawOneCrosshair (crosshair_pic, crosshair_width, crosshair_height, ox, oy, scale);
+
+	layer_scale[0] = ch1_scale;
+	layer_scale[1] = ch2_scale;
+	layer_scale[2] = ch3_scale;
+	for (i = 0; i < MAX_CH_LAYERS; i++)
 	{
-		crosshair->modified = false;
-		SCR_TouchPics ();
-	}*/
+		float	ls = scale;
+		if (layer_scale[i] && layer_scale[i]->value > 0.0f)
+			ls *= layer_scale[i]->value;
+		SCR_DrawOneCrosshair (ch_layer_pic[i], ch_layer_width[i], ch_layer_height[i], ox, oy, ls);
+	}
 
-	if (!crosshair_pic[0])
-		return;
-
-	re.DrawPic (scr_vrect.x + scr_crosshair_x->intvalue + ((scr_vrect.width - crosshair_width)>>1)
-	, scr_vrect.y + + scr_crosshair_y->intvalue + ((scr_vrect.height - crosshair_height)>>1), crosshair_pic);
+	if (re.DrawSetColor)
+		re.DrawSetColor (1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 int spc = 0;
@@ -652,6 +750,17 @@ void V_RenderView(void)
 		cl.refdef.y = scr_vrect.y;
 		cl.refdef.width = scr_vrect.width;
 		cl.refdef.height = scr_vrect.height;
+		if (cl_adjustfov && cl_adjustfov->intvalue && cl.refdef.height > 0)
+		{
+			/* Hor+: keep the 4:3 vertical FOV, widen on 16:9. */
+			float	x = cl.refdef.fov_x;
+			float	fy43;
+			if (x < 1.0f) x = 1.0f;
+			if (x > 179.0f) x = 179.0f;
+			fy43 = (float)(atan(tan(x * M_PI / 360.0) * 0.75) * 360.0 / M_PI);
+			cl.refdef.fov_x = (float)(atan(tan(fy43 * M_PI / 360.0) *
+				((float)cl.refdef.width / (float)cl.refdef.height)) * 360.0 / M_PI);
+		}
 		cl.refdef.fov_y = CalcFov (cl.refdef.fov_x, cl.refdef.width, cl.refdef.height);
 		cl.refdef.time = cl.time * 0.001f;
 
@@ -868,6 +977,25 @@ void V_Init (void)
 
 	crosshair = Cvar_Get ("crosshair", "0", CVAR_ARCHIVE);
 	crosshair->changed = OnCrossHairChange;
+
+	ch1 = Cvar_Get ("ch1", "", CVAR_ARCHIVE);
+	ch2 = Cvar_Get ("ch2", "", CVAR_ARCHIVE);
+	ch3 = Cvar_Get ("ch3", "", CVAR_ARCHIVE);
+	ch1->changed = OnCrossHairChange;
+	ch2->changed = OnCrossHairChange;
+	ch3->changed = OnCrossHairChange;
+	ch_scale = Cvar_Get ("ch_scale", "1", CVAR_ARCHIVE);
+	ch_x = Cvar_Get ("ch_x", "0", CVAR_ARCHIVE);
+	ch_y = Cvar_Get ("ch_y", "0", CVAR_ARCHIVE);
+	ch_red = Cvar_Get ("ch_red", "1", CVAR_ARCHIVE);
+	ch_green = Cvar_Get ("ch_green", "1", CVAR_ARCHIVE);
+	ch_blue = Cvar_Get ("ch_blue", "1", CVAR_ARCHIVE);
+	ch_alpha = Cvar_Get ("ch_alpha", "1", CVAR_ARCHIVE);
+	ch_health = Cvar_Get ("ch_health", "0", CVAR_ARCHIVE);
+	ch1_scale = Cvar_Get ("ch1_scale", "1", CVAR_ARCHIVE);
+	ch2_scale = Cvar_Get ("ch2_scale", "1", CVAR_ARCHIVE);
+	ch3_scale = Cvar_Get ("ch3_scale", "1", CVAR_ARCHIVE);
+	cl_adjustfov = Cvar_Get ("cl_adjustfov", "1", CVAR_ARCHIVE);
 
 	cl_particlecount = Cvar_Get ("cl_particlecount", "16384", 0);
 	cl_particlecount->changed = _particlecount_changed;

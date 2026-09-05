@@ -54,11 +54,21 @@ extern	int			sb_lines;
 
 extern	cvar_t		*scr_viewsize;
 extern	cvar_t		*crosshair;
+extern	cvar_t		*ch1;
+extern	cvar_t		*ch2;
+extern	cvar_t		*ch3;
+extern	cvar_t		*ch_scale;
+extern	cvar_t		*ch_x;
+extern	cvar_t		*ch_y;
 
 extern	vrect_t		scr_vrect;		// position of render window
 
-extern	char		crosshair_pic[8];
+extern	char		crosshair_pic[MAX_QPATH];
 extern	int			crosshair_width, crosshair_height;
+#define	MAX_CH_LAYERS	3
+extern	char		ch_layer_pic[MAX_CH_LAYERS][MAX_QPATH];
+extern	int			ch_layer_width[MAX_CH_LAYERS];
+extern	int			ch_layer_height[MAX_CH_LAYERS];
 
 void SCR_AddDirtyPoint (int x, int y);
 void SCR_DirtyScreen (void);

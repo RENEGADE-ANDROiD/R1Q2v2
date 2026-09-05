@@ -9,7 +9,7 @@ Useful client settings for **R1Q2v2 (Build 8012+)**. Defaults are engine default
 - Put keepers in `baseq2/autoexec.cfg` so they survive menu / `config.cfg` rewrites
 - Many Video Options rows already map to the cvars below
 
-**Not in this client:** Q2PRO-only names like `cl_movement_feel_mode`, `cl_mouse_behavior_mode`, `scr_scale` (HUD uses `scr_hudscale`). For classic jump feel use `cl_async 0`.
+**Not in this client:** Q2PRO-only names like `cl_movement_feel_mode`, `cl_mouse_behavior_mode`, `scr_scale` (HUD uses `scr_hudscale`). There is no Q2PRO pmove. For classic jump *timing* use **sync physics** (`cl_async 0`) — that only locks render FPS to `cl_maxfps`. Default `cl_async 1` is stock R1Q2 async and is the natural R1Q2 feel.
 
 ---
 
@@ -68,9 +68,20 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `con_scale` | `0` | Console / notify text scale. `0` = auto like menus. |
 | `scr_hudscale` | `1` | **Status bar only** (~0.5–2.5). Menus and crosshair stay unscaled. Presets must use this, not `gl_hudscale`. |
 | `scr_hud_top` | `0` | `1` draws the HUD at the top. |
+| `scr_hudwide` | `1` | On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
-| `crosshair` | `0` | `0` none; `1`–`3` use `pics/ch1`…`ch3`. |
+| `crosshair` | `0` | `0` none; `1`+ uses `pics/chN` (stock `ch1`…`ch3`, or higher if the pic exists). |
+| `ch1` / `ch2` / `ch3` | empty | Extra overlay pics (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when that cvar is non-zero. |
+| `ch_scale` | `1` | Scale for the stock crosshair and all `ch1`–`ch3` layers. Options slider (0.1–4). Saved. |
+| `ch_red` / `ch_green` / `ch_blue` | `1` | Crosshair tint 0–1. Options → Crosshair setup. Saved. |
+| `ch_alpha` | `1` | Crosshair opacity 0.1–1. Saved. |
+| `ch_health` | `0` | `1` = green→yellow→red from current HP (overrides RGB). Saved. |
+| `ch1_scale` / `ch2_scale` / `ch3_scale` | `1` | Per-layer scale on top of `ch_scale` (0.1–4). Saved. |
+| `ch_x` / `ch_y` | `0` / `0` | Extra pixel offset, added to `scr_crosshair_x` / `y`. |
 | `scr_crosshair_x` / `scr_crosshair_y` | `0` / `0` | Crosshair pixel offset. |
+| `scr_alpha` | `1` | Status-bar opacity (Options → R1Q2). Saved. |
+| `loc_enable` | `1` | Draw nearest `.loc` name on the HUD. Saved. |
+| `cl_adjustfov` | `1` | Hor+ FOV: keep 4:3 vertical FOV, widen on widescreen. Saved. |
 | `scr_conspeed` | `3` | Console drop / raise speed. |
 | `scr_conheight` | `0.5` | Open console height as a fraction of the screen. |
 | `con_notifytime` | `3` | Seconds notify lines stay on screen. |
@@ -84,6 +95,8 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 ---
 
 ## Sound
+
+OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_RELATIVE` at the listener so they do not drift; world sources use the Q2→AL axis remap and inverse-distance with rolloff 1.
 
 | Cvar | Default | Notes |
 |------|---------|--------|
@@ -119,7 +132,7 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 
 | Cvar | Default | Notes |
 |------|---------|--------|
-| `cl_async` | `1` | `1` = R1Q2 net/render split; **`0` = synced physics** (classic / Q2PRO-like jump feel). |
+| `cl_async` | `1` | **`1` = stock R1Q2 async** (net/render split, default feel). **`0` = sync physics** — render FPS locked to `cl_maxfps` so jump timing matches classic Quake II. This is *not* Q2PRO pmove. Saved. |
 | `cl_predict` | `1` | Local movement prediction. |
 | `cl_smoothsteps` | `3` | Stair-step smoothing in prediction (modes 1–3). |
 | `cl_run` | `1` | Always-run. |
@@ -161,6 +174,7 @@ There is no `cl_snaps` in this tree.
 | `adr0` … `adr15` | `""` | Address Book favorites (Join Server bookmarks). |
 | `rcon_password` / `rcon_address` | `""` | Remote console. |
 | `cl_filterchat` | `0` | Filter chat messages. |
+| `cl_demospeed` | `1` | Demo playback speed 0.1–8 (`demospeed`). Saved. |
 
 ---
 
@@ -173,7 +187,7 @@ These are often **not** written to `config.cfg` — keep them in `autoexec.cfg` 
 | `m_directinput` | `0` | DirectInput mouse (see Input). |
 | `m_fixaccel` | OS-dependent | OS mouse accel fix. |
 | `cl_defermodels` | `1` | Defer model loads to reduce hitching. |
-| `cl_async` | `1` | Q2Pro-style sync when set to `0`. |
+| `cl_async` | `1` | Sync physics when `0`. Saved. Not Q2PRO pmove. |
 | `cl_autorecord` | `0` | Auto-record demos on map start. |
 | `cl_railtrail` | `0` | Xania-style rail colors `1`–`5`; `0` off. |
 
@@ -189,7 +203,7 @@ These are often **not** written to `config.cfg` — keep them in `autoexec.cfg` 
 | `cl_quietstartup` | `1` | Quieter engine startup. |
 | `gl_fontscale` | `1` | Renderer-side font scale helper. |
 
-**Commands (not cvars):** `screenshot` (PNG on Win32), `screenshot jpg`, `vid_restart`, `menu_video`, `connect`, `disconnect`.
+**Commands (not cvars):** `screenshot` (PNG on Win32), `screenshot jpg`, `vid_restart`, `menu_video`, `connect`, `disconnect`, `ignore` / `unignore` / `mute` / `unmute` / `ignorelist` (persisted in `ignore.txt`), `demopause`, `demospeed`, `addloc`, `saveloc`.
 
 ---
 

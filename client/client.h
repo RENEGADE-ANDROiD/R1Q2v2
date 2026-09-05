@@ -531,6 +531,7 @@ qboolean	CL_CheckOrDownloadFile (const char *filename);
 
 void CL_AddNetgraph (void);
 void CL_AddSizegraph (void);
+const char *CL_Get_Loc_Here (void);
 
 //ROGUE
 typedef struct cl_sustain

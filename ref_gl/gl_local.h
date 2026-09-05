@@ -278,6 +278,7 @@ extern	cvar_t	*gl_cull;
 //extern	cvar_t	*gl_texsort;
 extern	cvar_t	*gl_polyblend;
 extern	cvar_t	*gl_flashblend;
+extern	cvar_t	*gl_flashblend;
 //extern	cvar_t	*gl_lightmaptype;
 extern	cvar_t	*gl_modulate;
 //extern	cvar_t	*gl_playermip;
@@ -395,6 +396,7 @@ void	EXPORT Draw_TileClear (int x, int y, int w, int h, char *name);
 void	EXPORT Draw_Fill (int x, int y, int w, int h, int c);
 void	EXPORT Draw_FadeScreen (void);
 void	EXPORT Draw_StretchRaw (int x, int y, int w, int h, int cols, int rows, byte *data);
+void	EXPORT Draw_SetColor (float r, float g, float b, float a);
 
 void	EXPORT R_BeginFrame( float camera_separation );
 void	EXPORT R_SetPalette ( const unsigned char *palette);

@@ -26,6 +26,26 @@ static vec3_t	modelorg;		// relative to viewpoint
 
 msurface_t	*r_alpha_surfaces;
 
+static float R_TurbSurfaceAlpha (msurface_t *s)
+{
+	const char	*n;
+
+	if (!(s->flags & SURF_DRAWTURB))
+		return 1.0f;
+
+	n = (s->texinfo && s->texinfo->image) ? s->texinfo->image->name : "";
+	if (strstr (n, "lava"))
+		return 1.0f;
+	if (strstr (n, "slime"))
+		return 0.84f;
+	return 0.66f;
+}
+
+static qboolean R_TurbWantsAlpha (msurface_t *s)
+{
+	return (s->flags & SURF_DRAWTURB) && R_TurbSurfaceAlpha (s) < 0.99f;
+}
+
 #define DYNAMIC_LIGHT_WIDTH  128
 #define DYNAMIC_LIGHT_HEIGHT 128
 
@@ -621,7 +641,21 @@ void R_DrawAlphaSurfaces (void)
 		else
 			qglColor4f (intens,intens,intens,1);
 		if (s->flags & SURF_DRAWTURB)
+		{
+			float	a = R_TurbSurfaceAlpha (s);
+
+			if (a >= 0.99f)
+			{
+				if (s->texinfo->flags & SURF_TRANS33)
+					a = 0.33f;
+				else if (s->texinfo->flags & SURF_TRANS66)
+					a = 0.66f;
+			}
+			qglColor4f (intens, intens, intens, a);
+			qglDepthMask (GL_FALSE);
 			EmitWaterPolys (s);
+			qglDepthMask (GL_TRUE);
+		}
 		else if(s->texinfo->flags & SURF_FLOWING)			// PGM	9/16/98
 			DrawGLFlowingPoly (s);							// PGM
 		else
@@ -931,7 +965,7 @@ void R_DrawInlineBModel (void)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66) )
+			if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66) || R_TurbWantsAlpha (psurf))
 			{	// add to the translucent chain
 				psurf->texturechain = r_alpha_surfaces;
 				r_alpha_surfaces = psurf;
@@ -1196,7 +1230,7 @@ static void R_RecursiveWorldNode (mnode_t *node, int planebits)
 		{	// just adds to visible sky bounds
 			R_AddSkySurface (surf);
 		}
-		else if(surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
+		else if (surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66) || R_TurbWantsAlpha (surf))
 		{	// add to the translucent chain
 			surf->texturechain = r_alpha_surfaces;
 			r_alpha_surfaces = surf;

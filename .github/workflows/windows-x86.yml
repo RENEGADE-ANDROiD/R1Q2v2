@@ -1,0 +1,66 @@
+name: windows-x86
+
+on:
+  push:
+    branches: [update/modernize, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: MSVC x86 environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Restore vcpkg packages
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install zlib libpng libjpeg-turbo --triplet x86-windows
+
+      - name: Configure
+        run: |
+          cmake -B build -S . -G "Visual Studio 17 2022" -A Win32 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x86-windows
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Stage drop
+        shell: pwsh
+        run: |
+          $out = "package/win32-bin"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $roots = @(
+            "build\bin\Release",
+            "build\bin",
+            "build\Release",
+            "build\vcpkg_installed\x86-windows\bin"
+          )
+          $want = @(
+            "R1Q2v2.exe", "r1q2ded.exe",
+            "gamex86.dll", "ref_r1gl.dll", "ref_gl.dll",
+            "z.dll", "zlib1.dll", "zlib.dll",
+            "libpng16.dll", "png16.dll",
+            "jpeg62.dll", "jpeg.dll", "turbojpeg.dll"
+          )
+          foreach ($root in $roots) {
+            if (Test-Path $root) {
+              Get-ChildItem $root -File | ForEach-Object {
+                if ($want -contains $_.Name) {
+                  Copy-Item $_.FullName -Destination $out -Force
+                }
+              }
+            }
+          }
+          Get-ChildItem $out | Format-Table Name, Length
+
+      - name: Upload win32-bin
+        uses: actions/upload-artifact@v4
+        with:
+          name: R1Q2v2-win32-bin
+          path: package/win32-bin/*
+          if-no-files-found: error
