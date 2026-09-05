@@ -148,11 +148,15 @@ if(R1Q2_BUILD_CLIENT)
     wininet
   )
   if(R1Q2_USE_OPENAL)
+    # OpenAL Soft from vcpkg also needs fmt.dll next to OpenAL32.dll (LoadLibrary).
     add_custom_command(TARGET r1q2 POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:OpenAL::OpenAL>
         $<TARGET_FILE_DIR:r1q2>/OpenAL32.dll
-      COMMENT "Copy OpenAL32.dll beside R1Q2v2.exe"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin/fmt.dll"
+        $<TARGET_FILE_DIR:r1q2>/fmt.dll
+      COMMENT "Copy OpenAL32.dll + fmt.dll beside R1Q2v2.exe"
     )
   endif()
   set_target_properties(r1q2 PROPERTIES
