@@ -101,6 +101,12 @@ static image_t	*draw_last_pic;
 static qboolean	draw2d_state_valid;
 static qboolean	draw2d_blend;
 
+void Draw_InvalidatePicCache (void)
+{
+	draw_last_pic_name[0] = 0;
+	draw_last_pic = NULL;
+}
+
 void Draw_Reset2DState (void)
 {
 	/* Restore the default 2D unit (alpha test, no blend) so a leftover
@@ -143,8 +149,7 @@ Draw_InitLocal
 */
 void Draw_InitLocal (void)
 {
-	draw_last_pic_name[0] = 0;
-	draw_last_pic = NULL;
+	Draw_InvalidatePicCache ();
 	draw2d_state_valid = false;
 	drawcharsindex = 0;
 

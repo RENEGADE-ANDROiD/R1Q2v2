@@ -3828,6 +3828,8 @@ void	GL_ShutdownImages (void)
 	int		i;
 	image_t	*image;
 
+	Draw_InvalidatePicCache ();
+
 #ifdef RB_IMAGE_CACHE
 	DestroyImageCache ();
 #endif

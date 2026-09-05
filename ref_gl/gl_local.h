@@ -314,6 +314,7 @@ extern	int		defer_drawing;
 
 void Draw_FlushChars (void);
 void Draw_Reset2DState (void);
+void Draw_InvalidatePicCache (void);
 
 extern	const int		gl_solid_format;
 extern	const int		gl_alpha_format;
