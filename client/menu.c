@@ -78,7 +78,7 @@ typedef struct
 menulayer_t	m_layers[MAX_MENU_DEPTH];
 int		m_menudepth;
 
-static void M_Banner( char *name )
+void M_Banner( char *name )
 {
 	int w, h;
 	float s = SCR_GetMenuScale();

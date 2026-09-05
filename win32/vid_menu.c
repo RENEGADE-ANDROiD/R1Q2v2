@@ -667,25 +667,12 @@ VID_MenuDraw
 */
 void VID_MenuDraw (void)
 {
-	int w, h;
-
 	if ( s_current_menu_index == 0 )
 		s_current_menu = &s_software_menu;
 	else
 		s_current_menu = &s_opengl_menu;
 
-	/*
-	** draw the banner
-	*/
-	{
-		float s = SCR_GetMenuScale();
-		float ps = SCR_GetMenuPicScale();
-		re.DrawGetPicSize( &w, &h, "m_banner_video" );
-		if (w > 0 && h > 0)
-			re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
-				(int)(viddef.height / 2 - 110 * s),
-				(int)(w * ps), (int)(h * ps), "m_banner_video" );
-	}
+	M_Banner( "m_banner_video" );
 
 	/*
 	** move cursor to a reasonable starting position

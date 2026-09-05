@@ -138,4 +138,6 @@ void	 Menu_DrawStringDark( int, int, const char * );
 void	 Menu_DrawStringR2L( int, int, const char * );
 void	 Menu_DrawStringR2LDark( int, int, const char * );
 
+void	M_Banner( char *name );
+
 #endif

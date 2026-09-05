@@ -214,13 +214,15 @@ void S_Init (int fullInit)
 			}
 			else
 			{
-				Com_Printf ("OpenAL failed to initialize; no sound available\n", LOG_CLIENT);
+				Com_Printf ("OpenAL failed to initialize; falling back to DirectSound.\n", LOG_CLIENT|LOG_WARNING);
+				cv->intvalue = 1;
 			}
 #else
-			Com_Printf ("This binary was compiled without OpenAL support.\n", LOG_CLIENT);
+			Com_Printf ("This binary was compiled without OpenAL support; using DirectSound.\n", LOG_CLIENT);
+			cv->intvalue = 1;
 #endif
 		}
-		else
+		if (cv->intvalue == 1)
 		{
 			if (!SNDDMA_Init(fullInit))
 				return;

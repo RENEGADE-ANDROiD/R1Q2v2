@@ -36,6 +36,7 @@ static void	 SpinControl_DoSlide( menulist_s *s, int dir );
  * Classic was ±16 (tight at high menu scale / long labels). */
 #define RCOLUMN_OFFSET  40
 #define LCOLUMN_OFFSET -40
+#define CURSOR_LCOLUMN_OFFSET (LCOLUMN_OFFSET - 8)
 
 extern refexport_t re;
 extern viddef_t viddef;
@@ -458,7 +459,7 @@ void Menu_Draw( menuframework_s *menu )
 			int cx, cy;
 			Menu_ScaledXY( item, &cx, &cy );
 			if ( item->flags & QMF_LEFT_JUSTIFY )
-				Draw_Char( cx - (int)(24 * s) + (int)(item->cursor_offset * s), cy, 12 + ( ( int ) ( Sys_Milliseconds()/250 ) & 1 ) );
+				Draw_Char( cx + (int)(CURSOR_LCOLUMN_OFFSET * s) + (int)(item->cursor_offset * s), cy, 12 + ( ( int ) ( Sys_Milliseconds()/250 ) & 1 ) );
 			else
 				Draw_Char( menu->x + (int)(item->cursor_offset * s), cy, 12 + ( ( int ) ( Sys_Milliseconds()/250 ) & 1 ) );
 		}
