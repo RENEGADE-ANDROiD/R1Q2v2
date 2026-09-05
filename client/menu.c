@@ -2881,32 +2881,6 @@ static void JoinServer_RefreshName (int i)
 		src[3] = local_server_isfav[i] ? '*' : ' ';
 }
 
-#define JOIN_MAX_PING			200
-
-static qboolean JoinServer_HostnameLooksLikeBots (const char *hostname)
-{
-	char	lower[64];
-	int		i;
-
-	if (!hostname || !hostname[0])
-		return false;
-
-	for (i = 0; hostname[i] && i < (int)sizeof(lower) - 1; i++)
-	{
-		if (hostname[i] >= 'A' && hostname[i] <= 'Z')
-			lower[i] = (char)(hostname[i] + ('a' - 'A'));
-		else
-			lower[i] = hostname[i];
-	}
-	lower[i] = 0;
-
-	/* Common bot-farm / botmatch naming (info replies have no bot count). */
-	if (strstr (lower, "bot"))
-		return true;
-	if (strstr (lower, "3zb"))
-		return true;
-	return false;
-}
 
 void M_AddToServerList (netadr_t adr, char *info)
 {
@@ -2979,9 +2953,6 @@ void M_AddToServerList (netadr_t adr, char *info)
 	if (!players[0])
 		strcpy (players, "?/?");
 
-	if (JoinServer_HostnameLooksLikeBots (hostname))
-		return;
-
 	ping = CL_ConsumeServerPing (&adr);
 	if (ping < 0)
 		ping = cls.realtime - m_serverlist_start_time;
@@ -2989,8 +2960,6 @@ void M_AddToServerList (netadr_t adr, char *info)
 		ping = 0;
 	if (ping > 999)
 		ping = 999;
-	if (ping > JOIN_MAX_PING)
-		return;
 
 	{
 		int	cur = 0, maxp = 0;

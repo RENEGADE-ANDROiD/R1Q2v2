@@ -1301,6 +1301,15 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 					continue;
 				}
 				strcpy (info[i].name, zipFileName);
+				/* ZIP tools on Windows may store backslashes; Quake paths use '/'. */
+				{
+					char	*slash;
+					for (slash = info[i].name; *slash; slash++)
+					{
+						if (*slash == '\\')
+							*slash = '/';
+					}
+				}
 				fast_strlwr (info[i].name);
 				info[i].filepos = unzGetOffset (f);
 				info[i].filelen = fileInfo.uncompressed_size;

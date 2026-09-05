@@ -1880,6 +1880,9 @@ CL_PingServers_f
 void CL_PingServers_f (void)
 {
 	netadr_t	adr;
+	int			i;
+	char		name[16];
+	const char	*s;
 
 	NET_Config (NET_CLIENT);		/* allow remote */
 
@@ -1899,6 +1902,18 @@ void CL_PingServers_f (void)
 	*(int *)&adr.ip = 0x100007F;
 	adr.port = ShortSwap(PORT_SERVER);
 	CL_PingOneServer (&adr);
+
+	/* Address-book favorites first so PacketFlinger / TastySpleen bookmarks show up. */
+	for (i = 0; i < 16; i++)
+	{
+		Com_sprintf (name, sizeof(name), "adr%i", i);
+		s = Cvar_VariableString (name);
+		if (!s || !s[0])
+			continue;
+		if (!NET_StringToAdr (s, &adr))
+			continue;
+		CL_EnqueueServerPing (&adr);
+	}
 
 	CL_FetchQ2ServersHTTP ();
 	CL_QueryMasters_f ();
@@ -3903,6 +3918,13 @@ void CL_InitLocal (void)
 	adr6 = Cvar_Get( "adr6", "", CVAR_ARCHIVE );
 	adr7 = Cvar_Get( "adr7", "", CVAR_ARCHIVE );
 	adr8 = Cvar_Get( "adr8", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr9", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr10", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr11", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr12", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr13", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr14", "", CVAR_ARCHIVE );
+	Cvar_Get( "adr15", "", CVAR_ARCHIVE );
 
 //
 // register our variables
