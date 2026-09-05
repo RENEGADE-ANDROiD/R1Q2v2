@@ -29,6 +29,26 @@ cvar_t		*con_notifytime;
 extern	char	key_lines[32][MAXCMDLINE];
 extern	int		edit_line;
 extern	int		key_linepos;
+
+static int Con_CharSize (void)
+{
+	int	cw;
+
+	cw = (int)(8.0f * SCR_GetConsoleScale () + 0.5f);
+	if (cw < 8)
+		cw = 8;
+	return cw;
+}
+
+static void Con_BeginFont (void)
+{
+	Cvar_SetValue ("gl_fontscale", SCR_GetConsoleScale ());
+}
+
+static void Con_EndFont (void)
+{
+	Cvar_SetValue ("gl_fontscale", 1);
+}
 		
 
 void DrawString (int x, int y, const char *s)
@@ -368,8 +388,10 @@ If the line width has changed, reformat the buffer.
 void Con_CheckResize (void)
 {
 	int		width;
+	int		cw;
 
-	width = (viddef.width >> 3) - 2;
+	cw = Con_CharSize ();
+	width = (viddef.width / cw) - 2;
 
 	if (width == con.linewidth)
 		return;
@@ -559,6 +581,7 @@ static void Con_DrawInput (void)
 	int		linepos;
 	int		length;
 	int		i;
+	int		cw;
 	char	*text;
 
 	if (cls.key_dest == key_menu)
@@ -566,15 +589,9 @@ static void Con_DrawInput (void)
 	if (cls.key_dest != key_console && cls.state == ca_active)
 		return;		// don't draw anything (always draw if not active)
 
+	cw = Con_CharSize ();
 	text = key_lines[edit_line];
 	
-// add the cursor frame
-	//text[key_linepos] = 10+((int)(cls.realtime>>8)&1);
-	
-// fill out remainder with spaces
-	//for (i=key_linepos+1 ; i< con.linewidth ; i++)
-	//	text[i] = ' ';
-		
 //	prestep if horizontally scrolling
 	if (key_linepos + 1  >= con.linewidth)
 	{
@@ -585,20 +602,14 @@ static void Con_DrawInput (void)
 	{
 		linepos = key_linepos + 1;
 	}
-		
-// draw it
-	//y = con.vislines-16;
 
 	length = (int)strlen (text);
 
 	for (i=0 ; i<length; i++)
-		re.DrawChar ( (i+1)<<3, con.vislines - 22, text[i]);
+		re.DrawChar ( (i+1)*cw, con.vislines - (int)(2.75f * cw), text[i]);
 
 	if (((int)(cls.realtime>>8)&1))
-		re.DrawChar ( (linepos)<<3, con.vislines - 21, '_');
-
-// remove cursor
-	//key_lines[edit_line][key_linepos] = 0;
+		re.DrawChar ( linepos*cw, con.vislines - (int)(2.625f * cw), '_');
 }
 
 
@@ -615,7 +626,11 @@ void Con_DrawNotify (void)
 	const char	*text;
 	int		i;
 	int		time;
+	int		cw;
 	char	*s;
+
+	cw = Con_CharSize ();
+	Con_BeginFont ();
 
 	v = 0;
 	for (i= con.current-NUM_CON_TIMES+1 ; i<=con.current ; i++)
@@ -631,9 +646,9 @@ void Con_DrawNotify (void)
 		text = con.text + (i % con.totallines)*con.linewidth;
 		
 		for (x = 0 ; x < con.linewidth ; x++)
-			re.DrawChar ( (x+1)<<3, v, text[x]);
+			re.DrawChar ( (x+1)*cw, v, text[x]);
 
-		v += 8;
+		v += cw;
 	}
 
 
@@ -646,22 +661,28 @@ void Con_DrawNotify (void)
 		switch (chat_mode)
 		{
 			case CHAT_MODE_PUBLIC:
-				DrawString (8, v, "say:");
+				s = "say:";
 				skip = 5;
 				break;
 			case CHAT_MODE_TEAM:
-				DrawString (8, v, "say_team:");
+				s = "say_team:";
 				skip = 11;
 				break;
 			case CHAT_MODE_CUSTOM:
-				DrawString (8, v, chat_custom_prompt);
+				s = chat_custom_prompt;
 				skip = (int)strlen (chat_custom_prompt)+1;
+				break;
+			default:
+				s = "";
 				break;
 		}
 
+		for (x = 0; s[x]; x++)
+			re.DrawChar ( (x+1)*cw, v, s[x]);
+
 		s = chat_buffer[chat_curbuffer];
 
-		maxwidth =  (viddef.width>>3);
+		maxwidth =  viddef.width / cw;
 
 		if (chat_cursorpos > maxwidth-(skip+1))
 		{
@@ -676,14 +697,16 @@ void Con_DrawNotify (void)
 		x = 0;
 		while(s[x])
 		{
-			re.DrawChar ( (x+skip)<<3, v, s[x]);
+			re.DrawChar ( (x+skip)*cw, v, s[x]);
 			x++;
 		}
 
 		if (((cls.realtime>>8)&1))
-			re.DrawChar ( (cursorpos)<<3, v+1, '_');
-		v += 8;
+			re.DrawChar ( cursorpos*cw, v+1, '_');
+		v += cw;
 	}
+
+	Con_EndFont ();
 	
 	if (v)
 	{
@@ -703,6 +726,7 @@ void Con_DrawConsole (float frac)
 {
 	int				i, j, x, y, n, len, offset;
 	int				rows;
+	int				cw;
 	char			*text;
 	int				row;
 	int				lines;
@@ -712,6 +736,8 @@ void Con_DrawConsole (float frac)
 	time_t			t;
 	struct tm		*today;
 
+	Con_CheckResize ();
+
 	lines = (int)(viddef.height * frac);
 
 	if (lines <= 0)
@@ -720,6 +746,9 @@ void Con_DrawConsole (float frac)
 	if (lines > viddef.height)
 		lines = viddef.height;
 
+	cw = Con_CharSize ();
+	Con_BeginFont ();
+
 // draw the background
 	re.DrawStretchPic (0, lines - viddef.height, viddef.width, viddef.height, "conback");
 	SCR_AddDirtyPoint (0,0);
@@ -727,49 +756,43 @@ void Con_DrawConsole (float frac)
 
 	len = (int)strlen(key_lines[edit_line]);
 
-	i = Com_sprintf (version, sizeof(version), PRODUCTNAMELOWER " " VERSION);
+	i = Com_sprintf (version, sizeof(version), "R1Q2v2 (Build: " BUILD ")");
 
-	if (len >= (viddef.width * 0.125f) - (i+2))
-		offset = 20;
+	if (len >= (viddef.width / (float)cw) - (i+2))
+		offset = (int)(2.5f * cw);
 	else
 		offset = 0;
 
 	for (x=i-1; x>=0 ; x--)
-		re.DrawChar (viddef.width-2-(i*8)+x*8, lines-12-offset, 128 + version[x] );
+		re.DrawChar (viddef.width-2-(i*cw)+x*cw, lines-(int)(1.5f * cw)-offset, 128 + version[x] );
 
 	t = time (NULL);
 	today = localtime(&t);
 
 	i = (int)strftime (version, sizeof(version), "%H:%M:%S", today);
 	for (x=0 ; x<i ; x++)
-		re.DrawChar (viddef.width-66+x*8, lines-22-offset, 128 + version[x] );
+		re.DrawChar (viddef.width-(8*cw+2)+x*cw, lines-(int)(2.75f * cw)-offset, 128 + version[x] );
 
 // draw the text
 	con.vislines = lines;
 	
-#if 0
-	rows = (lines-8)>>3;		// rows of text to draw
+	rows = (lines - (int)(2.75f * cw)) / cw;
 
-	y = lines - 24;
-#else
-	rows = (lines-22)>>3;		// rows of text to draw
-
-	y = lines - 30;
-#endif
+	y = lines - (int)(3.75f * cw);
 
 // draw from the bottom up
 	if (con.display != con.current)
 	{
 	// draw arrows to show the buffer is backscrolled
 		for (x=0 ; x<con.linewidth ; x+=4)
-			re.DrawChar ( (x+1)<<3, y, '^');
+			re.DrawChar ( (x+1)*cw, y, '^');
 	
-		y -= 8;
+		y -= cw;
 		rows--;
 	}
 	
 	row = con.display;
-	for (i=0 ; i<rows ; i++, y-=8, row--)
+	for (i=0 ; i<rows ; i++, y-=cw, row--)
 	{
 		if (row < 0)
 			break;
@@ -779,7 +802,7 @@ void Con_DrawConsole (float frac)
 		text = con.text + (row % con.totallines)*con.linewidth;
 
 		for (x=0 ; x<con.linewidth ; x++)
-			re.DrawChar ( (x+1)<<3, y, text[x]);
+			re.DrawChar ( (x+1)*cw, y, text[x]);
 	}
 
 //ZOID
@@ -825,14 +848,15 @@ void Con_DrawConsole (float frac)
 		j = (int)strlen(dlbar);
 
 		// draw it
-		y = con.vislines-12;
+		y = con.vislines-(int)(1.5f * cw);
 		for (i = 0; i < j; i++)
-			re.DrawChar ( (i+1)<<3, y, dlbar[i]);
+			re.DrawChar ( (i+1)*cw, y, dlbar[i]);
 	}
 //ZOID
 
 // draw the input prompt, user text, and cursor if desired
 	Con_DrawInput ();
+	Con_EndFont ();
 }
 
 

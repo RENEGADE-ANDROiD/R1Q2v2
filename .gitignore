@@ -1,0 +1,11 @@
+﻿/build/
+/build-*/
+build/
+build-*/
+vcpkg_installed/
+*.user
+*.suo
+CMakeUserPresets.json
+_*.bat
+
+/build-vs64/

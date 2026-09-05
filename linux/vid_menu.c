@@ -381,8 +381,14 @@ void VID_MenuDraw (void)
 	/*
 	** draw the banner
 	*/
-	re.DrawGetPicSize( &w, &h, "m_banner_video" );
-	re.DrawPic( viddef.width / 2 - w / 2, viddef.height /2 - 110, "m_banner_video" );
+	{
+		float s = SCR_GetMenuScale();
+		float ps = SCR_GetMenuPicScale();
+		re.DrawGetPicSize( &w, &h, "m_banner_video" );
+		re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
+			(int)(viddef.height / 2 - 110 * s),
+			(int)(w * ps), (int)(h * ps), "m_banner_video" );
+	}
 
 	/*
 	** move cursor to a reasonable starting position

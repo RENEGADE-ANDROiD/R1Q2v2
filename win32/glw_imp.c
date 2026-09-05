@@ -213,8 +213,11 @@ int VID_CreateWindow( int width, int height, qboolean fullscreen )
 	SetFocus( glw_state.hWnd );
 
 	//r1: hudscaling
-	width = (int)ceilf((float)width / gl_hudscale->value);
-	height = (int)ceilf((float)height / gl_hudscale->value);
+	{
+		float hs = R_EffectiveHudScale ();
+		width = (int)ceilf((float)width / hs);
+		height = (int)ceilf((float)height / hs);
+	}
 
 	//round to power of 8/2 to avoid blackbars
 	width = (width+7)&~7;
@@ -238,9 +241,36 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 
 	ri.Con_Printf( PRINT_ALL, "Initializing OpenGL display\n");
 
+	width = 0;
+	height = 0;
+
 	if (mode == -1)
 	{
-		ri.Con_Printf (PRINT_ALL, "...ignoring gl_mode, using forced width / height:");
+		if ( FLOAT_NE_ZERO(gl_forcewidth->value) && FLOAT_NE_ZERO(gl_forceheight->value) )
+		{
+			width = (int)gl_forcewidth->value;
+			height = (int)gl_forceheight->value;
+			ri.Con_Printf (PRINT_ALL, "...ignoring gl_mode, using forced width / height:");
+		}
+		else
+		{
+			DEVMODE dm;
+
+			memset( &dm, 0, sizeof(dm) );
+			dm.dmSize = sizeof(dm);
+			if ( EnumDisplaySettings( NULL, ENUM_CURRENT_SETTINGS, &dm )
+				&& dm.dmPelsWidth >= 64 && dm.dmPelsHeight >= 48 )
+			{
+				width = (int)dm.dmPelsWidth;
+				height = (int)dm.dmPelsHeight;
+				ri.Con_Printf (PRINT_ALL, "...gl_mode -1 without vid_forcewidth/height, using desktop:");
+			}
+			else
+			{
+				ri.Con_Printf( PRINT_ALL, " gl_mode -1 without vid_forcewidth/height\n" );
+				return VID_ERR_INVALID_MODE;
+			}
+		}
 	}
 	else
 	{
@@ -258,6 +288,12 @@ int GLimp_SetMode( unsigned int *pwidth, unsigned int *pheight, int mode, qboole
 
 	if (FLOAT_NE_ZERO(gl_forceheight->value))
 		height = (int)gl_forceheight->value;
+
+	if ( width < 64 || height < 48 )
+	{
+		ri.Con_Printf( PRINT_ALL, " invalid width/height %d/%d\n", width, height );
+		return VID_ERR_INVALID_MODE;
+	}
 
 	ri.Con_Printf( PRINT_ALL, " %d %d %s\n", width, height, win_fs[fullscreen] );
 
@@ -988,19 +1024,19 @@ qboolean init_regular (void)
 
 	if ( ( glw_state.hDC = GetDC( glw_state.hWnd ) ) == NULL )
 	{
-		ri.Con_Printf( PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº GetDC failed\n" );
+		ri.Con_Printf( PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ GetDC failed\n" );
 		return false;
 	}
 
 	if ( ( pixelformat = ChoosePixelFormat( glw_state.hDC, &pfd)) == 0 )
 	{
-		ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº ChoosePixelFormat failed\n");
+		ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ChoosePixelFormat failed\n");
 		return false;
 	}
 
 	if ( SetPixelFormat( glw_state.hDC, pixelformat, &pfd) == FALSE )
 	{
-		ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº SetPixelFormat failed\n");
+		ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SetPixelFormat failed\n");
 		return false;
 	}
 
@@ -1031,14 +1067,14 @@ qboolean init_regular (void)
 
 	if ( ( glw_state.hGLRC = qwglCreateContext( glw_state.hDC ) ) == 0 )
 	{
-		ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº qwglCreateContext failed\n");
+		ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ qwglCreateContext failed\n");
 
 		goto fail;
 	}
 
 	if ( !qwglMakeCurrent( glw_state.hDC, glw_state.hGLRC ) )
 	{
-		ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº qwglMakeCurrent failed\n");
+		ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ qwglMakeCurrent failed\n");
 
 		goto fail;
 	}
@@ -1121,7 +1157,7 @@ qboolean GLimp_InitGL (void)
 	** Get a DC for the specified window
 	*/
 	if ( glw_state.hDC != NULL )
-		ri.Con_Printf( PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº non-NULL DC exists\n" );
+		ri.Con_Printf( PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ non-NULL DC exists\n" );
 
 	{
 		WORD ramps[3][256];
@@ -1221,13 +1257,13 @@ qboolean GLimp_InitGL (void)
 
 		if (!pixelFormat)
 		{
-			ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº ChoosePixelFormat (%dc/%dd/%da/%ds) failed. Error %.8x.\n", (int)gl_colorbits->value, (int)gl_depthbits->value, (int)gl_alphabits->value, (int)gl_stencilbits->value, GetLastError());
+			ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ChoosePixelFormat (%dc/%dd/%da/%ds) failed. Error %.8x.\n", (int)gl_colorbits->value, (int)gl_depthbits->value, (int)gl_alphabits->value, (int)gl_stencilbits->value, GetLastError());
 			goto fail2;
 		}
 
 		if (SetPixelFormat(hDC, pixelFormat, &temppfd) == FALSE)
 		{
-			ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº SetPixelFormat (%d) failed. Error %.8x.\n", pixelFormat, GetLastError());
+			ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SetPixelFormat (%d) failed. Error %.8x.\n", pixelFormat, GetLastError());
 			goto fail2;
 		}
 
@@ -1235,14 +1271,14 @@ qboolean GLimp_InitGL (void)
 		hGLRC = qwglCreateContext(hDC);
 		if (!hGLRC)
 		{
-			ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº qwglCreateContext failed\n");
+			ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ qwglCreateContext failed\n");
 			goto fail2;
 		}
 
 		// Make the rendering context current
 		if (!(qwglMakeCurrent(hDC, hGLRC)))
 		{
-			ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº qwglMakeCurrent failed\n");
+			ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ qwglMakeCurrent failed\n");
 			goto fail2;
 		}
 
@@ -1252,7 +1288,7 @@ qboolean GLimp_InitGL (void)
 
 			if (strcmp (s, "GDI Generic") == 0)
 			{
-				ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº no hardware accelerated pixelformats matching your current settings (try editing gl_colorbits/gl_alphabits/gl_depthbits/gl_stencilbits)\n");
+				ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ no hardware accelerated pixelformats matching your current settings (try editing gl_colorbits/gl_alphabits/gl_depthbits/gl_stencilbits)\n");
 
 				// make no rendering context current
 				qwglMakeCurrent(NULL, NULL);
@@ -1379,7 +1415,7 @@ qboolean GLimp_InitGL (void)
 
 			if (wglGetPixelFormatAttribivARB(hDC, pixelFormat, 0, 25, iAttributes, iResults) == GL_FALSE)
 			{
-				ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº wglGetPixelFormatAttribivARB failed\n");
+				ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ wglGetPixelFormatAttribivARB failed\n");
 				goto fail2;
 			}
 
@@ -1419,7 +1455,7 @@ qboolean GLimp_InitGL (void)
 			//glw_state.hDC = GetDC (glw_state.hWnd);
 			if ( ( glw_state.hDC = GetDC( glw_state.hWnd ) ) == NULL )
 			{
-				ri.Con_Printf( PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº GetDC failed\n" );
+				ri.Con_Printf( PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ GetDC failed\n" );
 				return false;
 			}
 
@@ -1431,13 +1467,13 @@ qboolean GLimp_InitGL (void)
 			*/
 			if ( ( glw_state.hGLRC = qwglCreateContext( glw_state.hDC ) ) == 0 )
 			{
-				ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº qwglCreateContext failed (%d)\n", GetLastError());
+				ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ qwglCreateContext failed (%d)\n", GetLastError());
 				goto fail;
 			}
 
 			if ( !qwglMakeCurrent( glw_state.hDC, glw_state.hGLRC ) )
 			{
-				ri.Con_Printf (PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº qwglMakeCurrent failed\n");
+				ri.Con_Printf (PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ qwglMakeCurrent failed\n");
 				goto fail;
 			}
 
@@ -1448,7 +1484,7 @@ qboolean GLimp_InitGL (void)
 
 		if ( !VerifyDriver() )
 		{
-			ri.Con_Printf( PRINT_ALL, "ÇÌéíğßÉîéôÇÌ¨© Åòòïòº no hardware acceleration detected\n" );
+			ri.Con_Printf( PRINT_ALL, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ no hardware acceleration detected\n" );
 			goto fail;
 		}
 

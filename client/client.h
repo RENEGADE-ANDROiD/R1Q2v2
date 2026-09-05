@@ -680,6 +680,9 @@ void CL_Disconnect (qboolean skipdisconnect);
 void CL_Disconnect_f (void);
 void CL_GetChallengePacket (void);
 void CL_PingServers_f (void);
+void CL_RunServerPings (void);
+qboolean CL_ServerPingBusy (void);
+int CL_ConsumeServerPing (netadr_t *adr);
 void CL_Snd_Restart_f (void);
 void CL_RequestNextDownload (void);
 
@@ -759,6 +762,7 @@ void V_AddLight (vec3_t org, float intensity, float r, float g, float b);
 void V_AddLightStyle (int style, float r, float g, float b);
 
 void IN_DeactivateMouse (void);
+void IN_UpdateMenuMouse (void);
 
 //
 // cl_tent.c

@@ -242,6 +242,7 @@ void GL_ScreenShot_JPG (byte *buffer)
 	if (!f)
 	{
 		ri.Con_Printf (PRINT_ALL, "Couldn't open %s for writing.\n", picname);
+		free (buffer);
 		return;
 	}
 
@@ -298,8 +299,13 @@ void GL_ScreenShot_f (void)
 #endif
 
 	buffer = malloc(vid.width*vid.height*3);
+	if (!buffer)
+	{
+		ri.Con_Printf (PRINT_ALL, "GL_ScreenShot_f: out of memory\n");
+		return;
+	}
 
-	qglReadPixels (0, 0, vid.width, vid.height, GL_RGB, GL_UNSIGNED_BYTE, buffer ); 
+	qglReadPixels (0, 0, vid.width, vid.height, GL_RGB, GL_UNSIGNED_BYTE, buffer );
 #ifdef WIN32
 	if (!strcmp (ri.Cmd_Argv(1), "jpg"))
 	{

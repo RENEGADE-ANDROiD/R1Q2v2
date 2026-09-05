@@ -2402,7 +2402,18 @@ qboolean Sys_CheckFPUStatus (void)
 	last_word = fpu_control_word;
 	return true;
 }
+#else
+/* x64 / non-x86: no x87 control-word asm; stubs keep WinMain linking. */
+void Sys_SetFPU (byte bits)
+{
+	(void)bits;
+}
+qboolean Sys_CheckFPUStatus (void)
+{
+	return true;
+}
 #endif
+
 
 /*
 ==================

@@ -2383,7 +2383,7 @@ void Qcommon_Init (int argc, char **argv)
 #endif
 
 	Com_Printf ("====== Quake2 Initialized ======\n", LOG_GENERAL);	
-	Com_Printf ("R1Q2 build " BUILD ", compiled " __DATE__ ".\n"
+	Com_Printf ("R1Q2v2 (Build: " BUILD "), compiled " __DATE__ ".\n"
 				"http://www.r1ch.net/stuff/r1q2/\n"
 				BUILDSTRING " " CPUSTRING " (%s)\n\n", LOG_GENERAL, binary_name);
 
@@ -2401,12 +2401,14 @@ void Qcommon_Init (int argc, char **argv)
 #endif
 
 #ifndef DEDICATED_ONLY
-			Cbuf_AddText ("toggleconsole\n");
+			/* Default: open main menu instead of console.
+			 * Power users can still toggleconsole; +commands skip this branch. */
+			Cbuf_AddText ("menu_main\n");
 
 			Com_Printf (
 				"Welcome to R1Q2.\n"
 				"\n"
-				"  Press <ESC> to open the menu.\n"
+				"  Main menu is open. Press <ESC> to toggle the menu.\n"
 				"  Type connect <host> to connect to a server.\n"
 				"  View the readme at http://www.r1ch.net/forum/index.php?board=8.0\n"
 				"\n", LOG_GENERAL);

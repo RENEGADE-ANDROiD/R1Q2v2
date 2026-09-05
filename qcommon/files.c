@@ -41,7 +41,7 @@ typedef struct
 	union filehandle_type
 	{
 		FILE			*handle;
-		unzFile			*zhandle;
+		unzFile			zhandle;
 	} h;
 	uint32			length;
 	uint32			refcount;
@@ -71,7 +71,7 @@ typedef struct pack_s
 	union packhandle_type
 	{
 		FILE			*handle;
-		unzFile			*zhandle;
+		unzFile			zhandle;
 	} h;
 	int				numfiles;
 	//packfile_t		*files;
@@ -551,6 +551,43 @@ void FS_WhereIs_f (void)
 }
 
 /*
+============
+FS_DumpFile_f
+
+Load a file and print size + magic bytes (verifies .pkz reads, not just index).
+============
+*/
+void FS_DumpFile_f (void)
+{
+	byte	*buf;
+	int		len;
+	int		i;
+	int		n;
+
+	if (Cmd_Argc() != 2)
+	{
+		Com_Printf ("Purpose: Load a file and show size/magic (tests .pkz reads).\n"
+					"Syntax : fs_dump <path>\n"
+					"Example: fs_dump pics/num_0.png\n", LOG_GENERAL);
+		return;
+	}
+
+	len = FS_LoadFile (Cmd_Argv(1), (void **)&buf);
+	if (len < 0 || !buf)
+	{
+		Com_Printf ("%s: load failed\n", LOG_GENERAL, Cmd_Argv(1));
+		return;
+	}
+
+	Com_Printf ("%s: loaded %d bytes, magic:", LOG_GENERAL, Cmd_Argv(1), len);
+	n = len < 8 ? len : 8;
+	for (i = 0; i < n; i++)
+		Com_Printf (" %02x", LOG_GENERAL, buf[i]);
+	Com_Printf ("\n", LOG_GENERAL);
+	FS_FreeFile (buf);
+}
+
+/*
 ===========
 FS_FOpenFile
 
@@ -770,6 +807,26 @@ int EXPORT FS_FOpenFile (const char *filename, FILE **file, handlestyle_t openHa
 					return entry->filelen;
 				}
 			}
+#ifndef NO_ZLIB
+			else if (pak->type == PAK_ZIP)
+			{
+				entry = rbfind (lowered, pak->rb);
+				if (entry)
+				{
+					entry = *(packfile_t **)entry;
+					/*
+					 * ZIP packs have no FILE* stream. Existence/length checks
+					 * succeed here; actual bytes are read via FS_LoadFile.
+					 * For HANDLE_OPEN, keep searching so a later .pak / loose
+					 * file can still satisfy stream callers — do NOT return -1
+					 * or a ZIP hit would shadow every classic open.
+					 */
+					if (openHandle == HANDLE_NONE)
+						return entry->filelen;
+					continue;
+				}
+			}
+#endif
 		}
 		else if (!fs_noextern->intvalue)
 		{
@@ -916,51 +973,176 @@ void EXPORT FS_Read (void *buffer, int len, FILE *f)
 FS_LoadFile
 
 Filename are reletive to the quake search path
-a null buffer will just return the file length without loading
+a null buffer will just return the file length without loading.
+
+Walks the search path itself so .pkz (ZIP) packs can be read; FS_FOpenFile
+only streams classic .pak / loose files via FILE*.
 ============
 */
 int EXPORT FS_LoadFile (const char *path, void /*@out@*/ /*@null@*/**buffer)
 {
-	FILE		*h;
-	byte		*buf;
-	int			len;
-	qboolean	closeHandle;
-	// look for it in the filesystem or pack files
-	//START_PERFORMANCE_TIMER;
-	//Com_Printf ("%s... ", path);
-	len = FS_FOpenFile (path, &h, buffer ? HANDLE_OPEN : HANDLE_NONE, &closeHandle);
-	//STOP_PERFORMANCE_TIMER;
+	FILE			*h;
+	byte			*buf;
+	int				len;
+	searchpath_t	*search;
+	pack_t			*pak;
+	packfile_t		*entry;
+	filelink_t		*link;
+	char			netpath[MAX_OSPATH];
+	char			lowered[MAX_QPATH];
 
-	//Com_Printf ("TOTAL SO FAR: %.5f\n", totalTime);
-
-	if (len == -1)
+	/* links first (same as FS_FOpenFile) */
+	if (!fs_noextern->intvalue)
 	{
-		if (buffer)
-			*buffer = NULL;
-		return -1;
+		for (link = fs_links ; link ; link = link->next)
+		{
+			if (!strncmp (path, link->from, link->fromlength))
+			{
+				Com_sprintf (netpath, sizeof(netpath), "%s%s", link->to, path + link->fromlength);
+				if (!buffer)
+					return Sys_FileLength (netpath);
+				h = fopen (netpath, "rb");
+				if (!h)
+				{
+					if (buffer)
+						*buffer = NULL;
+					return -1;
+				}
+				len = FS_filelength (h);
+				if (!len)
+				{
+					fclose (h);
+					Com_Printf ("WARNING: 0 byte file: %s\n", LOG_GENERAL|LOG_WARNING, path);
+					*buffer = CopyString ("", TAGMALLOC_FSLOADFILE);
+					return 0;
+				}
+				buf = Z_TagMalloc (len, TAGMALLOC_FSLOADFILE);
+				*buffer = buf;
+				current_filename = path;
+				FS_Read (buf, len, h);
+				current_filename = "unknown";
+				fclose (h);
+				return len;
+			}
+		}
 	}
-	
-	if (!buffer)
-		return len;
 
-	if (!len)
+	Q_strncpy (lowered, path, sizeof(lowered)-1);
+	fast_strlwr (lowered);
+
+	for (search = fs_searchpaths ; search ; search = search->next)
 	{
-		fclose (h);
-		Com_Printf ("WARNING: 0 byte file: %s\n", LOG_GENERAL|LOG_WARNING, path);
-		*buffer = CopyString ("", TAGMALLOC_FSLOADFILE);
-		return 0;
+		if (search->pack)
+		{
+			pak = search->pack;
+			entry = rbfind (lowered, pak->rb);
+			if (!entry)
+				continue;
+			entry = *(packfile_t **)entry;
+
+			if (!buffer)
+				return entry->filelen;
+
+			if (!entry->filelen)
+			{
+				Com_Printf ("WARNING: 0 byte file: %s\n", LOG_GENERAL|LOG_WARNING, path);
+				*buffer = CopyString ("", TAGMALLOC_FSLOADFILE);
+				return 0;
+			}
+
+			buf = Z_TagMalloc (entry->filelen, TAGMALLOC_FSLOADFILE);
+			*buffer = buf;
+
+			if (pak->type == PAK_QUAKE)
+			{
+				h = pak->h.handle;
+				if (fseek (h, entry->filepos, SEEK_SET))
+					Com_Error (ERR_FATAL, "FS_LoadFile: Couldn't seek to offset %u for %s in %s", entry->filepos, entry->name, pak->filename);
+				current_filename = path;
+				FS_Read (buf, entry->filelen, h);
+				current_filename = "unknown";
+				return entry->filelen;
+			}
+#ifndef NO_ZLIB
+			else if (pak->type == PAK_ZIP)
+			{
+				int		got;
+				qboolean	located;
+
+				/*
+				 * Prefer locate-by-name (Q2PRO-style, case-insensitive). Offset
+				 * is a fast fallback if the zip tool left odd central-dir state.
+				 */
+				located = (unzLocateFile (pak->h.zhandle, entry->name, 2) == UNZ_OK);
+				if (!located)
+					located = (unzLocateFile (pak->h.zhandle, path, 2) == UNZ_OK);
+				if (!located && unzSetOffset (pak->h.zhandle, entry->filepos) == UNZ_OK)
+					located = true;
+				if (!located)
+				{
+					Z_Free (buf);
+					*buffer = NULL;
+					Com_Printf ("FS_LoadFile: couldn't locate %s in %s\n",
+						LOG_GENERAL|LOG_WARNING, path, pak->filename);
+					return -1;
+				}
+				if (unzOpenCurrentFile (pak->h.zhandle) != UNZ_OK)
+				{
+					Z_Free (buf);
+					*buffer = NULL;
+					Com_Printf ("FS_LoadFile: unzOpenCurrentFile failed for %s in %s\n",
+						LOG_GENERAL|LOG_WARNING, path, pak->filename);
+					return -1;
+				}
+				got = unzReadCurrentFile (pak->h.zhandle, buf, entry->filelen);
+				unzCloseCurrentFile (pak->h.zhandle);
+				if (got != (int)entry->filelen)
+				{
+					Z_Free (buf);
+					*buffer = NULL;
+					Com_Printf ("FS_LoadFile: incomplete ZIP read for %s in %s (%d/%u)\n",
+						LOG_GENERAL|LOG_WARNING, path, pak->filename, got, entry->filelen);
+					return -1;
+				}
+				return entry->filelen;
+			}
+#endif
+			Com_Error (ERR_FATAL, "FS_LoadFile: unknown pack type for %s", pak->filename);
+		}
+		else if (!fs_noextern->intvalue)
+		{
+			Com_sprintf (netpath, sizeof(netpath), "%s/%s", search->filename, path);
+			if (!buffer)
+			{
+				len = Sys_FileLength (netpath);
+				if (len == -1)
+					continue;
+				return len;
+			}
+			h = fopen (netpath, "rb");
+			if (!h)
+				continue;
+			len = FS_filelength (h);
+			if (!len)
+			{
+				fclose (h);
+				Com_Printf ("WARNING: 0 byte file: %s\n", LOG_GENERAL|LOG_WARNING, path);
+				*buffer = CopyString ("", TAGMALLOC_FSLOADFILE);
+				return 0;
+			}
+			buf = Z_TagMalloc (len, TAGMALLOC_FSLOADFILE);
+			*buffer = buf;
+			current_filename = path;
+			FS_Read (buf, len, h);
+			current_filename = "unknown";
+			fclose (h);
+			return len;
+		}
 	}
 
-	buf = Z_TagMalloc(len, TAGMALLOC_FSLOADFILE);
-	*buffer = buf;
-	current_filename = path;
-	FS_Read (buf, len, h);
-	current_filename = "unknown";
-
-	if (closeHandle)
-		fclose (h);
-
-	return len;
+	if (buffer)
+		*buffer = NULL;
+	return -1;
 }
 
 
@@ -1076,8 +1258,9 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 	{
 		unzFile			f;
 		unz_global_info	zipinfo;
-		char			zipFileName[56];
+		char			zipFileName[MAX_QPATH];
 		unz_file_info	fileInfo;
+		size_t			namelen;
 
 		f = unzOpen (packfile);
 		if (!f)
@@ -1085,6 +1268,13 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 
 		if (unzGetGlobalInfo (f, &zipinfo) != UNZ_OK)
 			Com_Error (ERR_FATAL, "FS_LoadPackFile: Couldn't read .zip info from '%s'", packfile);
+
+		if (!zipinfo.number_entry)
+		{
+			unzClose (f);
+			Com_Printf ("WARNING: Empty zpackfile %s\n", LOG_GENERAL|LOG_WARNING, packfile);
+			return NULL;
+		}
 
 		info = Z_TagMalloc (zipinfo.number_entry * sizeof(*info), TAGMALLOC_FSLOADPAK);
 
@@ -1101,10 +1291,17 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 		{
 			if (unzGetCurrentFileInfo (f, &fileInfo, zipFileName, sizeof(zipFileName)-1, NULL, 0, NULL, 0) == UNZ_OK)
 			{
-				//directory, ignored
-				if (fileInfo.external_fa & 16)
+				namelen = strlen (zipFileName);
+				/* DOS dir bit, or Unix zip directory entries ending in '/' */
+				if ((fileInfo.external_fa & 16) || !namelen || zipFileName[namelen - 1] == '/')
 					continue;
+				if (namelen >= sizeof(info[i].name))
+				{
+					Com_Printf ("WARNING: Skipping long path in %s: %.64s\n", LOG_GENERAL|LOG_WARNING, packfile, zipFileName);
+					continue;
+				}
 				strcpy (info[i].name, zipFileName);
+				fast_strlwr (info[i].name);
 				info[i].filepos = unzGetOffset (f);
 				info[i].filelen = fileInfo.uncompressed_size;
 				newitem = rbsearch (info[i].name, pack->rb);
@@ -1113,7 +1310,16 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 			}
 		} while (unzGoToNextFile (f) == UNZ_OK);
 
+		if (!i)
+		{
+			unzClose (f);
+			Com_Printf ("WARNING: Empty zpackfile %s\n", LOG_GENERAL|LOG_WARNING, packfile);
+			return NULL;
+		}
+
+		Q_strncpy (pack->filename, packfile, sizeof(pack->filename)-1);
 		pack->h.zhandle = f;
+		pack->numfiles = i;
 		Com_Printf ("Added zpackfile %s (%i files)\n", LOG_GENERAL,  packfile, i);
 	}
 #endif
@@ -1268,7 +1474,8 @@ static void FS_AddGameDirectory (const char *dir)
 	}*/
 
 	FS_LoadPaks (dir, "pak");
-#ifdef _DEBUG
+#ifndef NO_ZLIB
+	/* Q2PRO-compatible ZIP packs (.pkz) — HUD replacements, HD textures, etc. */
 	FS_LoadPaks (dir, "pkz");
 #endif
 }
@@ -1691,6 +1898,7 @@ void FS_InitFilesystem (void)
 
 	//r1: search for a file
 	Cmd_AddCommand ("whereis", FS_WhereIs_f);
+	Cmd_AddCommand ("fs_dump", FS_DumpFile_f);
 
 	//r1: allow manual cache flushing
 	Cmd_AddCommand ("fsflushcache", FS_FlushCache);

@@ -34,8 +34,24 @@ typedef struct drawchars_s
 	int		x;
 	int		y;
 	int		num;
-	int		pad;
+	float	scale;
 } drawchars_t;
+
+static cvar_t *gl_fontscale;
+
+static float Draw_GetFontScale (void)
+{
+	float s;
+
+	if (!gl_fontscale)
+		gl_fontscale = ri.Cvar_Get ("gl_fontscale", "1", 0);
+	s = gl_fontscale->value;
+	if (s < 1.0f)
+		s = 1.0f;
+	if (s > 8.0f)
+		s = 8.0f;
+	return s;
+}
 
 int			defer_drawing;
 int			drawcharsindex;
@@ -92,9 +108,13 @@ void Draw_AddText (void)
 
 	for (i = 0; i < drawcharsindex; i++)
 	{
+		float s;
 		num = drawchars[i].num;
 		x = drawchars[i].x;
 		y = drawchars[i].y;
+		s = drawchars[i].scale;
+		if (s < 1.0f)
+			s = 1.0f;
 
 		row = num>>4;
 		col = num&15;
@@ -106,13 +126,13 @@ void Draw_AddText (void)
 		fcolbottom = conchars_texlimits[col];
 
 		qglTexCoord2f (fcol, frow);
-		qglVertex2i (x, y);
+		qglVertex2f ((float)x, (float)y);
 		qglTexCoord2f (fcolbottom, frow);
-		qglVertex2i (x+8, y);
+		qglVertex2f ((float)x + 8.0f * s, (float)y);
 		qglTexCoord2f (fcolbottom, frowbottom);
-		qglVertex2i (x+8, y+8);
+		qglVertex2f ((float)x + 8.0f * s, (float)y + 8.0f * s);
 		qglTexCoord2f (fcol, frowbottom);
-		qglVertex2i (x, y+8);
+		qglVertex2f ((float)x, (float)y + 8.0f * s);
 	}
 
 	qglEnd ();
@@ -157,6 +177,7 @@ void EXPORT Draw_Char (int x, int y, int num)
 		drawchars[drawcharsindex].x = x;
 		drawchars[drawcharsindex].y = y;
 		drawchars[drawcharsindex].num = num;
+		drawchars[drawcharsindex].scale = Draw_GetFontScale();
 
 		if (++drawcharsindex == MAX_DRAWCHARS)
 			ri.Sys_Error (ERR_FATAL, "drawcharsindex == MAX_DRAWCHARS");
@@ -190,16 +211,19 @@ void EXPORT Draw_Char (int x, int y, int num)
 		GL_TexEnv(GL_MODULATE);
 	}
 
-	qglBegin (GL_QUADS);
-	qglTexCoord2f (fcol, frow);
-	qglVertex2i (x, y);
-	qglTexCoord2f (fcolbottom, frow);
-	qglVertex2i (x+8, y);
-	qglTexCoord2f (fcolbottom, frowbottom);
-	qglVertex2i (x+8, y+8);
-	qglTexCoord2f (fcol, frowbottom);
-	qglVertex2i (x, y+8);
-	qglEnd ();
+	{
+		float s = Draw_GetFontScale();
+		qglBegin (GL_QUADS);
+		qglTexCoord2f (fcol, frow);
+		qglVertex2f ((float)x, (float)y);
+		qglTexCoord2f (fcolbottom, frow);
+		qglVertex2f ((float)x + 8.0f * s, (float)y);
+		qglTexCoord2f (fcolbottom, frowbottom);
+		qglVertex2f ((float)x + 8.0f * s, (float)y + 8.0f * s);
+		qglTexCoord2f (fcol, frowbottom);
+		qglVertex2f ((float)x, (float)y + 8.0f * s);
+		qglEnd ();
+	}
 	GL_CheckForError ();
 
 	if (draw_chars->has_alpha)

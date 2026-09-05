@@ -41,6 +41,20 @@ double		gldepthmin, gldepthmax;
 
 double		vid_scaled_width, vid_scaled_height;
 
+float R_EffectiveHudScale (void)
+{
+	float hs;
+
+	if (!gl_hudscale)
+		return 1.0f;
+	hs = gl_hudscale->value;
+	if (hs < 0.5f)
+		hs = 0.5f;
+	if (hs > 3.0f)
+		hs = 3.0f;
+	return hs;
+}
+
 glconfig_t gl_config;
 glstate_t  gl_state;
 
@@ -60,6 +74,7 @@ int			c_brush_polys, c_alias_polys;
 float		v_blend[4];			// final blending color
 
 void GL_Strings_f( void );
+void GL_ApplyLodBiasState (void);
 
 //
 // view origin
@@ -115,6 +130,8 @@ cvar_t	*gl_ext_point_sprite;
 cvar_t	*gl_ext_texture_filter_anisotropic;
 cvar_t	*gl_ext_texture_non_power_of_two;
 cvar_t	*gl_ext_max_anisotropy;
+cvar_t	*gl_anisotropy;
+cvar_t	*gl_texture_lodbias;
 cvar_t	*gl_ext_nv_multisample_filter_hint;
 cvar_t	*gl_ext_occlusion_query;
 
@@ -1020,6 +1037,16 @@ void R_SetupGL (void)
 	w = x2 - x;
 	h = y - y2;
 
+	/* snap near-fullscreen views to the real framebuffer to kill a 1-2px
+	 * uncleaned strip (flicker) along the bottom or right edge */
+	if (x <= 2 && y2 <= 2 && w >= (int)vid.width - 4 && h >= (int)vid.height - 4)
+	{
+		x = 0;
+		y2 = 0;
+		w = (int)vid.width;
+		h = (int)vid.height;
+	}
+
 	qglViewport (x, y2, w, h);
 
 	//
@@ -1060,6 +1087,8 @@ void R_SetupGL (void)
 	qglDisable(GL_ALPHA_TEST);
 	//qglEnable(GL_ALPHA_TEST);
 	qglEnable(GL_DEPTH_TEST);
+
+	GL_ApplyLodBiasState ();
 }
 
 /*
@@ -1086,6 +1115,8 @@ void R_Clear (void)
 				qglClearColor (ref_frand(), ref_frand(), ref_frand(), 1.0);
 				GL_CheckForError ();
 			}
+			else
+				qglClearColor (0, 0, 0, 1);
 			qglClear (GL_COLOR_BUFFER_BIT);
 			GL_CheckForError ();
 		}
@@ -1115,6 +1146,8 @@ void R_Clear (void)
 				qglClearColor (ref_frand(), ref_frand(), ref_frand(), 1.0);
 				GL_CheckForError ();
 			}
+			else
+				qglClearColor (0, 0, 0, 1);
 
 			qglClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			GL_CheckForError ();
@@ -1154,12 +1187,16 @@ void R_RenderView (refdef_t *fd)
 
 	r_newrefdef = *fd;
 
-	if (FLOAT_NE_ZERO(gl_hudscale->value))
+	/* Player-setup preview (and other NOWROLDMODEL views) already use
+	 * framebuffer pixels — do not apply gl_hudscale on top. */
+	if (FLOAT_NE_ZERO(gl_hudscale->value)
+		&& !(r_newrefdef.rdflags & RDF_NOWORLDMODEL))
 	{
-		r_newrefdef.width = (int)(r_newrefdef.width * gl_hudscale->value);
-		r_newrefdef.height = (int)(r_newrefdef.height * gl_hudscale->value);
-		r_newrefdef.x = (int)(r_newrefdef.x * gl_hudscale->value);
-		r_newrefdef.y = (int)(r_newrefdef.y * gl_hudscale->value);
+		float hs = R_EffectiveHudScale ();
+		r_newrefdef.width = (int)(r_newrefdef.width * hs);
+		r_newrefdef.height = (int)(r_newrefdef.height * hs);
+		r_newrefdef.x = (int)(r_newrefdef.x * hs);
+		r_newrefdef.y = (int)(r_newrefdef.y * hs);
 	}
 
 	if (!r_worldmodel && !( r_newrefdef.rdflags & RDF_NOWORLDMODEL ) )
@@ -1227,6 +1264,8 @@ void	R_SetGL2D (void)
 	qglDisable (GL_CULL_FACE);
 	//GLPROFqglDisable (GL_BLEND);
 	qglEnable (GL_ALPHA_TEST);
+	if (qglDisableClientState)
+		qglDisableClientState (GL_COLOR_ARRAY);
 	qglColor4fv(colorWhite);
 }
 
@@ -1351,6 +1390,7 @@ void R_Register( void )
 	gl_modulate = ri.Cvar_Get ("gl_modulate", "2", CVAR_ARCHIVE );
 	//gl_log = ri.Cvar_Get( "gl_log", "0", 0 );
 	gl_bitdepth = ri.Cvar_Get( "gl_bitdepth", "0", 0 );
+	/* Engine default set in VID_Init to desktop index; "3" only if that path skipped */
 	gl_mode = ri.Cvar_Get( "gl_mode", "3", CVAR_ARCHIVE );
 	//gl_lightmap = ri.Cvar_Get ("gl_lightmap", "0", 0);
 	gl_shadows = ri.Cvar_Get ("gl_shadows", "0", CVAR_ARCHIVE );
@@ -1363,9 +1403,9 @@ void R_Register( void )
 	gl_ztrick = ri.Cvar_Get ("gl_ztrick", "0", 0);
 	gl_finish = ri.Cvar_Get ("gl_finish", "0", CVAR_ARCHIVE);
 	gl_flush = ri.Cvar_Get ("gl_flush", "0", CVAR_ARCHIVE);
-	gl_clear = ri.Cvar_Get ("gl_clear", "0", 0);
+	gl_clear = ri.Cvar_Get ("gl_clear", "1", 0);
 	gl_cull = ri.Cvar_Get ("gl_cull", "1", 0);
-	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "1", 0);
+	gl_polyblend = ri.Cvar_Get ("gl_polyblend", "0", 0);
 	gl_flashblend = ri.Cvar_Get ("gl_flashblend", "0", 0);
 	//gl_playermip = ri.Cvar_Get ("gl_playermip", "0", 0);
 	//gl_monolightmap = ri.Cvar_Get( "gl_monolightmap", "0", 0 );
@@ -1387,9 +1427,11 @@ void R_Register( void )
 	//r1ch: my extensions
 	//gl_ext_generate_mipmap = ri.Cvar_Get ("gl_ext_generate_mipmap", "0", 0);
 	gl_ext_point_sprite = ri.Cvar_Get ("gl_ext_point_sprite", "0", 0);
-	gl_ext_texture_filter_anisotropic = ri.Cvar_Get ("gl_ext_texture_filter_anisotropic", "0", 0);
-	gl_ext_texture_non_power_of_two = ri.Cvar_Get ("gl_ext_texture_non_power_of_two", "0", 0);
-	gl_ext_max_anisotropy = ri.Cvar_Get ("gl_ext_max_anisotropy", "2", 0);
+	gl_ext_texture_filter_anisotropic = ri.Cvar_Get ("gl_ext_texture_filter_anisotropic", "1", CVAR_ARCHIVE);
+	gl_ext_texture_non_power_of_two = ri.Cvar_Get ("gl_ext_texture_non_power_of_two", "1", 0);
+	gl_ext_max_anisotropy = ri.Cvar_Get ("gl_ext_max_anisotropy", "16", CVAR_ARCHIVE);
+	gl_anisotropy = ri.Cvar_Get ("gl_anisotropy", "16", 0);
+	gl_texture_lodbias = ri.Cvar_Get ("gl_texture_lodbias", "0", CVAR_ARCHIVE);
 	gl_ext_occlusion_query = ri.Cvar_Get ("gl_ext_occlusion_query", "0", 0);
 	
 	gl_ext_nv_multisample_filter_hint = ri.Cvar_Get ("gl_ext_nv_multisample_filter_hint", "fastest", 0);
@@ -1403,7 +1445,7 @@ void R_Register( void )
 	gl_ext_samples = ri.Cvar_Get ("gl_ext_samples", "2", 0);
 	
 	gl_zfar = ri.Cvar_Get ("gl_zfar", "8192", 0);
-	gl_hudscale = ri.Cvar_Get ("gl_hudscale", "1", 0);
+	gl_hudscale = ri.Cvar_Get ("gl_hudscale", "1", CVAR_ARCHIVE);
 
 	cl_version = ri.Cvar_Get ("cl_version", REF_VERSION, CVAR_NOSET); 
 	
@@ -1411,7 +1453,7 @@ void R_Register( void )
 	gl_doublelight_entities = ri.Cvar_Get ("gl_doublelight_entities", "1", 0);
 	gl_noscrap = ri.Cvar_Get ("gl_noscrap", "1", 0);
 	gl_overbrights = ri.Cvar_Get ("gl_overbrights", "0", 0);
-	gl_linear_mipmaps = ri.Cvar_Get ("gl_linear_mipmaps", "0", 0);
+	gl_linear_mipmaps = ri.Cvar_Get ("gl_linear_mipmaps", "1", 0);
 
 	vid_forcedrefresh = ri.Cvar_Get ("vid_forcedrefresh", "0", 0);
 	vid_optimalrefresh = ri.Cvar_Get ("vid_optimalrefresh", "0", 0);
@@ -1428,7 +1470,7 @@ void R_Register( void )
 	//r1ch end my shit
 
 	gl_drawbuffer = ri.Cvar_Get( "gl_drawbuffer", "GL_BACK", 0 );
-	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "1", CVAR_ARCHIVE );
+	gl_swapinterval = ri.Cvar_Get( "gl_swapinterval", "0", CVAR_ARCHIVE );
 
 	//gl_saturatelighting = ri.Cvar_Get( "gl_saturatelighting", "0", 0 );
 
@@ -1907,8 +1949,8 @@ retryQGL:
 	GL_SetDefaultState();
 
 	//r1: setup cached screensizes
-	vid_scaled_width = vid.width / gl_hudscale->value;
-	vid_scaled_height = vid.height / gl_hudscale->value;
+	vid_scaled_width = vid.width / R_EffectiveHudScale ();
+	vid_scaled_height = vid.height / R_EffectiveHudScale ();
 
 	/*
 	** draw our stereo patterns
@@ -1988,6 +2030,64 @@ void GL_UpdateAnisotropy (void)
 			qglTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, value);
 		}
 	}
+}
+
+static float GL_EffectiveLodBias (void)
+{
+	float	bias;
+
+	bias = gl_texture_lodbias->value;
+	if (bias > 0)
+		bias = 0;
+	if (bias < -4.0f)
+		bias = -4.0f;
+
+	return bias;
+}
+
+/* Per-unit LOD bias — TexParameter alone is unreliable with multitextured walls. */
+void GL_ApplyLodBiasState (void)
+{
+	float	bias;
+
+	bias = GL_EffectiveLodBias ();
+
+	if (qglActiveTextureARB || qglSelectTextureSGIS)
+	{
+		GL_SelectTexture (GL_TEXTURE0);
+		qglTexEnvf (GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, bias);
+		GL_SelectTexture (GL_TEXTURE1);
+		qglTexEnvf (GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, bias);
+		GL_SelectTexture (GL_TEXTURE0);
+	}
+	else
+	{
+		qglTexEnvf (GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, bias);
+	}
+}
+
+void GL_UpdateLodBias (void)
+{
+	int		i;
+	image_t	*glt;
+	float	bias;
+
+	bias = GL_EffectiveLodBias ();
+
+	/* Always touch TMU0 so TexParameter hits the diffuse texture objects. */
+	if (qglActiveTextureARB || qglSelectTextureSGIS)
+		GL_SelectTexture (GL_TEXTURE0);
+
+	for (i=0, glt=gltextures ; i<numgltextures ; i++, glt++)
+	{
+		if (glt->type == it_pic)
+			continue;
+
+		GL_Bind (glt->texnum);
+		qglTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, bias);
+	}
+
+	GL_ApplyLodBiasState ();
 }
 
 
@@ -2123,10 +2223,23 @@ void EXPORT R_BeginFrame( float camera_separation )
 		gl_texturemode->modified = false;
 	}
 
+	if (gl_anisotropy->modified)
+	{
+		ri.Cvar_SetValue ("gl_ext_max_anisotropy", gl_anisotropy->value);
+		gl_anisotropy->modified = false;
+		gl_ext_max_anisotropy->modified = true;
+	}
+
 	if (gl_ext_max_anisotropy->modified && gl_config.r1gl_GL_EXT_texture_filter_anisotropic)
 	{
 		GL_UpdateAnisotropy ();
 		gl_ext_max_anisotropy->modified = false;
+	}
+
+	if (gl_texture_lodbias->modified)
+	{
+		GL_UpdateLodBias ();
+		gl_texture_lodbias->modified = false;
 	}
 
 	if (gl_ext_texture_filter_anisotropic->modified)
@@ -2157,31 +2270,26 @@ void EXPORT R_BeginFrame( float camera_separation )
 	if (gl_hudscale->modified)
 	{
 		int width, height;
+		float hs;
+
+		if (gl_hudscale->value < 0.5f)
+			ri.Cvar_Set ("gl_hudscale", "0.5");
+		else if (gl_hudscale->value > 3.0f)
+			ri.Cvar_Set ("gl_hudscale", "3.0");
 
 		gl_hudscale->modified = false;
+		hs = R_EffectiveHudScale ();
 
-		if (gl_hudscale->value < 1.0f)
-		{
-			ri.Cvar_Set ("gl_hudscale", "1.0");
-		}
-		else
-		{
-			//r1: hudscaling
-			width = (int)ceilf((float)vid.width / gl_hudscale->value);
-			height = (int)ceilf((float)vid.height / gl_hudscale->value);
+		width = (int)ceilf((float)vid.width / hs);
+		height = (int)ceilf((float)vid.height / hs);
 
-			//round to powers of 8/2 to avoid blackbars
-			width = (width+7)&~7;
-			height = (height+1)&~1;
+		width = (width+7)&~7;
+		height = (height+1)&~1;
 
-			gl_hudscale->modified = false;
+		vid_scaled_width = vid.width / hs;
+		vid_scaled_height = vid.height / hs;
 
-			vid_scaled_width = vid.width / gl_hudscale->value;
-			vid_scaled_height = vid.height / gl_hudscale->value;
-
-			// let the sound and input subsystems know about the new window
-			ri.Vid_NewWindow (width, height);
-		}
+		ri.Vid_NewWindow (width, height);
 	}
 
 #if 0

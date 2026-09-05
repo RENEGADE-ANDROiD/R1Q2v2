@@ -1107,6 +1107,32 @@ void IN_Restart_f (void)
 
 /*
 ===========
+IN_UpdateMenuMouse
+
+Sample absolute cursor in client coords for menu/console hit-testing.
+Call before draw and before mouse-activate in menu keys so clicks
+do not depend on a prior WM_MOUSEMOVE.
+===========
+*/
+void IN_UpdateMenuMouse (void)
+{
+	POINT	pt;
+
+	if (!cl_hwnd)
+		return;
+	if (!GetCursorPos (&pt))
+		return;
+	if (!ScreenToClient (cl_hwnd, &pt))
+		return;
+
+	menu_mouse_x = pt.x;
+	menu_mouse_y = pt.y;
+	menu_mouse_valid = true;
+}
+
+
+/*
+===========
 IN_MouseEvent
 ===========
 */
@@ -1114,7 +1140,10 @@ void IN_MouseEvent (int mstate)
 {
 	int		i;
 
-	if (!mouseinitialized)
+	/* Menu/console still need button edges even if startup mouse init failed */
+	if (!mouseinitialized
+		&& cls.key_dest != key_menu
+		&& cls.key_dest != key_console)
 		return;
 
 // perform button actions
@@ -1372,16 +1401,14 @@ void IN_Frame (void)
 		return;
 	}
 
+	/* Always free the cursor in menus/console so clicks hit UI
+	   (fullscreen used to keep DInput grab, which broke menu mouse). */
 	if ( !cl.refresh_prepped
 		|| cls.key_dest == key_console
 		|| cls.key_dest == key_menu)
 	{
-		// temporarily deactivate if in fullscreen
-		if (Cvar_IntValue ("vid_fullscreen") == 0)
-		{
-			IN_DeactivateMouse ();
-			return;
-		}
+		IN_DeactivateMouse ();
+		return;
 	}
 
 	IN_ActivateMouse ();

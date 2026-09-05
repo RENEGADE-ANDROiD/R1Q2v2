@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0400
 #include "resource.h"
+#include <stdlib.h>
 #include "..\client\client.h"
 #include "winquake.h"
 //#include "zmouse.h"
@@ -59,13 +60,14 @@ qboolean	reflib_active = false;
 
 HWND        cl_hwnd;            // Main window handle for life of program
 
-#define VID_NUM_MODES ( sizeof( vid_modes ) / sizeof( vid_modes[0] ) )
+/* VID_NUM_MODES: see vid_num_modes (dynamic) */
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 static qboolean s_alttab_disabled;
 
 extern	uint32	sys_msg_time;
+extern qboolean	mouseactive;
 
 /*
 ** WIN32 helper functions
@@ -538,8 +540,18 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEMOVE:
 		{
 			int	temp;
+			qboolean menu_or_console = (cls.key_dest == key_menu || cls.key_dest == key_console);
 
-			if (g_pMouse)
+			/* Always keep absolute cursor for menu/console hit-testing */
+			if (menu_or_console || uMsg == WM_MOUSEMOVE || !mouseactive)
+			{
+				menu_mouse_x = (int)(short)LOWORD(lParam);
+				menu_mouse_y = (int)(short)HIWORD(lParam);
+				menu_mouse_valid = true;
+			}
+
+			/* DirectInput owns buttons while grabbed — never skip WM path in menu/console */
+			if (g_pMouse && mouseactive && !menu_or_console)
 				break;
 
 			temp = 0;
@@ -650,35 +662,157 @@ static void VID_Front_f( void )
 }
 
 /*
-** VID_GetModeInfo
+** VID_GetModeInfo / dynamic mode list
+** Prefer EnumDisplaySettings desktop modes, seeded with common modern presets.
 */
+#define MAX_VID_MODES 128
+
 typedef struct vidmode_s
 {
 	int         width, height;
 } vidmode_t;
 
-vidmode_t vid_modes[] =
+static vidmode_t	vid_modes[MAX_VID_MODES];
+static char			vid_mode_strings[MAX_VID_MODES][32];
+static const char	*vid_mode_names[MAX_VID_MODES + 1];
+static int			vid_num_modes;
+
+static int VID_ModeCmp( const void *a, const void *b )
 {
-	{320,	240},
-	{400,	300},
-	{512,	384},
-	{640,	480},
-	{800,	600},
-	{960,	720},
-	{1024,	768},
-	{1152,	864},
-	{1280,	960},
-	{1600,	1200},
-	{2048,	1536},
-	{1280,	1024},
-	{1440,	900},
-	{1680,	1050},
-	{2560,	1920},	
-};
+	const vidmode_t *ma = (const vidmode_t *)a;
+	const vidmode_t *mb = (const vidmode_t *)b;
+
+	if ( ma->width != mb->width )
+		return ma->width - mb->width;
+	return ma->height - mb->height;
+}
+
+static void VID_RebuildModeNames( void )
+{
+	int i;
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		Com_sprintf( vid_mode_strings[i], sizeof(vid_mode_strings[i]),
+			"[%4d %4d]", vid_modes[i].width, vid_modes[i].height );
+		vid_mode_names[i] = vid_mode_strings[i];
+	}
+	vid_mode_names[vid_num_modes] = 0;
+}
+
+static void VID_AddMode( int width, int height )
+{
+	int i;
+
+	if ( width < 320 || height < 240 )
+		return;
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		if ( vid_modes[i].width == width && vid_modes[i].height == height )
+			return;
+	}
+
+	if ( vid_num_modes >= MAX_VID_MODES )
+		return;
+
+	vid_modes[vid_num_modes].width = width;
+	vid_modes[vid_num_modes].height = height;
+	vid_num_modes++;
+}
+
+void VID_InitModeList( void )
+{
+	DEVMODE	dm;
+	int		i;
+	static const int presets[][2] = {
+		{320, 240}, {640, 480}, {800, 600}, {1024, 768},
+		{1280, 720}, {1280, 800}, {1280, 1024},
+		{1366, 768}, {1440, 900}, {1600, 900}, {1680, 1050},
+		{1920, 1080}, {1920, 1200},
+		{2560, 1440}, {2560, 1600},
+		{3840, 2160},
+		{0, 0}
+	};
+
+	vid_num_modes = 0;
+
+	for ( i = 0; presets[i][0]; i++ )
+		VID_AddMode( presets[i][0], presets[i][1] );
+
+	memset( &dm, 0, sizeof(dm) );
+	dm.dmSize = sizeof(dm);
+	for ( i = 0; EnumDisplaySettings( NULL, i, &dm ); i++ )
+		VID_AddMode( (int)dm.dmPelsWidth, (int)dm.dmPelsHeight );
+
+	if ( vid_num_modes > 1 )
+		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );
+
+	VID_RebuildModeNames();
+
+	Com_Printf( "VID: %d video modes available\n", LOG_CLIENT, vid_num_modes );
+}
+
+/*
+============
+VID_GetDesktopModeIndex
+
+Return index of ENUM_CURRENT_SETTINGS width/height in vid_modes[].
+Adds the desktop resolution if it was missing from presets/enum.
+Returns -1 if EnumDisplaySettings fails.
+============
+*/
+int VID_GetDesktopModeIndex( void )
+{
+	DEVMODE	dm;
+	int		i;
+
+	if ( vid_num_modes <= 0 )
+		VID_InitModeList();
+
+	memset( &dm, 0, sizeof(dm) );
+	dm.dmSize = sizeof(dm);
+	if ( !EnumDisplaySettings( NULL, ENUM_CURRENT_SETTINGS, &dm ) )
+		return -1;
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		if ( vid_modes[i].width == (int)dm.dmPelsWidth
+			&& vid_modes[i].height == (int)dm.dmPelsHeight )
+			return i;
+	}
+
+	/* Desktop res not in list (unusual) - append, re-sort, rebuild names. */
+	VID_AddMode( (int)dm.dmPelsWidth, (int)dm.dmPelsHeight );
+	if ( vid_num_modes > 1 )
+		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );
+	VID_RebuildModeNames();
+
+	for ( i = 0; i < vid_num_modes; i++ )
+	{
+		if ( vid_modes[i].width == (int)dm.dmPelsWidth
+			&& vid_modes[i].height == (int)dm.dmPelsHeight )
+			return i;
+	}
+	return -1;
+}
+
+int VID_GetNumModes( void )
+{
+	return vid_num_modes;
+}
+
+const char **VID_GetModeNames( void )
+{
+	return vid_mode_names;
+}
 
 qboolean EXPORT VID_GetModeInfo( unsigned int *width, unsigned int *height, int mode )
 {
-	if ( mode < 0 || mode >= VID_NUM_MODES )
+	if ( vid_num_modes <= 0 )
+		VID_InitModeList();
+
+	if ( mode < 0 || mode >= vid_num_modes )
 		return false;
 
 	*width  = vid_modes[mode].width;
@@ -1150,6 +1284,21 @@ VID_Init
 */
 void VID_Init (void)
 {
+	int		desktop_mode;
+	char	mode_default[16];
+
+	VID_InitModeList();
+
+	/* Default gl_mode/sw_mode to the desktop resolution index for first-run /
+	   unset installs. If config.cfg already set the cvar, Cvar_Get keeps it. */
+	desktop_mode = VID_GetDesktopModeIndex();
+	if ( desktop_mode < 0 )
+		desktop_mode = 3; /* legacy 640x480-ish fallback if enum failed */
+	Com_sprintf( mode_default, sizeof(mode_default), "%d", desktop_mode );
+	Cvar_Get( "gl_mode", mode_default, CVAR_ARCHIVE );
+	Cvar_Get( "sw_mode", mode_default, CVAR_ARCHIVE );
+	Com_Printf( "VID: default video mode index %d (desktop match)\n", LOG_CLIENT, desktop_mode );
+
 	/* Create the video variables so we know how to start the graphics drivers */
 	vid_ref = Cvar_Get ("vid_ref", "gl", CVAR_ARCHIVE);
 	vid_xpos = Cvar_Get ("vid_xpos", "3", CVAR_ARCHIVE);

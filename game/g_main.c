@@ -107,7 +107,11 @@ Returns a pointer to the structure with all entry points
 and global variables
 =================
 */
+#if defined(__GNUC__)
 game_export_t __attribute__ ((visibility("default"), externally_visible)) *GetGameAPI (game_import_t *import)
+#else
+game_export_t *GetGameAPI (game_import_t *import)
+#endif
 {
 	gi = *import;
 

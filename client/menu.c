@@ -80,9 +80,13 @@ int		m_menudepth;
 static void M_Banner( char *name )
 {
 	int w, h;
+	float s = SCR_GetMenuScale();
+	float ps = SCR_GetMenuPicScale();
 
 	re.DrawGetPicSize (&w, &h, name );
-	re.DrawPic( viddef.width / 2 - w / 2, viddef.height / 2 - 110, name );
+	re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
+		(int)(viddef.height / 2 - 110 * s),
+		(int)(w * ps), (int)(h * ps), name );
 }
 
 static void M_PushMenu ( void (*draw) (void), const char *(*key) (int k) )
@@ -212,6 +216,18 @@ static const char *Default_MenuKey( menuframework_s *m, int key )
 	case K_MOUSE1:
 	case K_MOUSE2:
 	case K_MOUSE3:
+		IN_UpdateMenuMouse();
+		/* Only activate if the click actually hit a menu item (avoids
+		   double-click on Main->Game immediately firing Easy/StartGame). */
+		if ( !m || !Menu_UpdateCursorFromMouse( m ) )
+			return NULL;
+		item = Menu_ItemAtCursor( m );
+		if ( item && ( item->type == MTYPE_SPINCONTROL || item->type == MTYPE_SLIDER ) )
+		{
+			Menu_SlideItem( m, ( key == K_MOUSE2 ) ? -1 : 1 );
+			return menu_move_sound;
+		}
+		/* fallthrough */
 	case K_JOY1:
 	case K_JOY2:
 	case K_JOY3:
@@ -273,7 +289,11 @@ higher res screens.
 */
 static void M_DrawCharacter (int cx, int cy, int num)
 {
-	re.DrawChar ( cx + ((viddef.width - 320)>>1), cy + ((viddef.height - 240)>>1), num);
+	float s = SCR_GetMenuScale();
+	re.DrawChar(
+		(int)(cx * s) + ((viddef.width - (int)(320 * s)) >> 1),
+		(int)(cy * s) + ((viddef.height - (int)(240 * s)) >> 1),
+		num);
 }
 
 static void M_Print (int cx, int cy, char *str)
@@ -282,7 +302,7 @@ static void M_Print (int cx, int cy, char *str)
 	{
 		M_DrawCharacter (cx, cy, (*str)+128);
 		str++;
-		cx += 8;
+		cx += 8; /* virtual 320-space; M_DrawCharacter applies scale */
 	}
 }
 
@@ -330,7 +350,12 @@ static void M_DrawCursor( int x, int y, int f )
 	}
 
 	Com_sprintf( cursorname, sizeof(cursorname), "m_cursor%d", f );
-	re.DrawPic( x, y, cursorname );
+	{
+		int cw, ch;
+		float ps = SCR_GetMenuPicScale();
+		re.DrawGetPicSize( &cw, &ch, cursorname );
+		re.DrawStretchPic( x, y, (int)(cw * ps), (int)(ch * ps), cursorname );
+	}
 }
 
 static void M_DrawTextBox (int x, int y, int width, int lines)
@@ -387,52 +412,98 @@ MAIN MENU
 #define	MAIN_ITEMS	5
 
 
+
+static char *m_main_names[] =
+{
+	"m_main_game",
+	"m_main_multiplayer",
+	"m_main_options",
+	"m_main_video",
+	"m_main_quit",
+	0
+};
+
+static void M_Main_Layout( int *ystart, int *xoffset, int *widest_out )
+{
+	int i, w, h, widest = -1;
+	float s = SCR_GetMenuScale();
+	float ps = SCR_GetMenuPicScale();
+
+	for ( i = 0; m_main_names[i] != 0; i++ )
+	{
+		re.DrawGetPicSize( &w, &h, m_main_names[i] );
+		if ( w > widest )
+			widest = w;
+	}
+
+	*ystart = (int)( viddef.height / 2 - 110 * s );
+	*xoffset = (int)( ( viddef.width - widest * ps + 70 * s ) / 2 );
+	if ( widest_out )
+		*widest_out = widest;
+}
+
+static void M_Main_UpdateHoverFromMouse( void )
+{
+	int i, w, h, ystart, xoffset;
+	float s = SCR_GetMenuScale();
+	float ps = SCR_GetMenuPicScale();
+
+	if ( !menu_mouse_valid )
+		return;
+
+	M_Main_Layout( &ystart, &xoffset, NULL );
+	for ( i = 0; m_main_names[i] != 0; i++ )
+	{
+		int iy = (int)( ystart + i * 40 * s + 13 * s );
+		/* Widen X a bit beyond the pic so clicks near the cursor still hit */
+		re.DrawGetPicSize( &w, &h, m_main_names[i] );
+		if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(h * ps)
+			&& menu_mouse_x >= xoffset - (int)(8 * s)
+			&& menu_mouse_x < xoffset + (int)(w * ps) + (int)(8 * s) )
+		{
+			m_main_cursor = i;
+			break;
+		}
+	}
+}
+
+
 static void M_Main_Draw (void)
 {
 	int i;
 	int w, h;
 	int ystart;
 	int	xoffset;
-	int widest = -1;
-	int totalheight = 0;
 	char litname[80];
-	char *names[] =
+	float s = SCR_GetMenuScale();
+	float ps = SCR_GetMenuPicScale();
+
+	M_Main_Layout( &ystart, &xoffset, NULL );
+	M_Main_UpdateHoverFromMouse();
+
+	for ( i = 0; m_main_names[i] != 0; i++ )
 	{
-		"m_main_game",
-		"m_main_multiplayer",
-		"m_main_options",
-		"m_main_video",
-		"m_main_quit",
-		0
-	};
-
-	for ( i = 0; names[i] != 0; i++ )
-	{
-		re.DrawGetPicSize( &w, &h, names[i] );
-
-		if ( w > widest )
-			widest = w;
-		totalheight += ( h + 12 );
-	}
-
-	ystart = ( viddef.height / 2 - 110 );
-	xoffset = ( viddef.width - widest + 70 ) / 2;
-
-	for ( i = 0; names[i] != 0; i++ )
-	{
+		re.DrawGetPicSize( &w, &h, m_main_names[i] );
 		if ( i != m_main_cursor )
-			re.DrawPic( xoffset, ystart + i * 40 + 13, names[i] );
+			re.DrawStretchPic( xoffset, (int)(ystart + i * 40 * s + 13 * s),
+				(int)(w * ps), (int)(h * ps), m_main_names[i] );
 	}
-	strcpy( litname, names[m_main_cursor] );
+	strcpy( litname, m_main_names[m_main_cursor] );
 	strcat( litname, "_sel" );
-	re.DrawPic( xoffset, ystart + m_main_cursor * 40 + 13, litname );
+	re.DrawGetPicSize( &w, &h, litname );
+	re.DrawStretchPic( xoffset, (int)(ystart + m_main_cursor * 40 * s + 13 * s),
+		(int)(w * ps), (int)(h * ps), litname );
 
-	M_DrawCursor( xoffset - 25, ystart + m_main_cursor * 40 + 11, (int)(cls.realtime / 100)%NUM_CURSOR_FRAMES );
+	M_DrawCursor( (int)(xoffset - 25 * s), (int)(ystart + m_main_cursor * 40 * s + 11 * s),
+		(int)(cls.realtime / 100)%NUM_CURSOR_FRAMES );
 
 	re.DrawGetPicSize( &w, &h, "m_main_plaque" );
-	re.DrawPic( xoffset - 30 - w, ystart, "m_main_plaque" );
+	re.DrawStretchPic( (int)(xoffset - 30 * s - w * ps), ystart,
+		(int)(w * ps), (int)(h * ps), "m_main_plaque" );
 
-	re.DrawPic( xoffset - 30 - w, ystart + h + 5, "m_main_logo" );
+	re.DrawGetPicSize( &w, &h, "m_main_logo" );
+	re.DrawStretchPic( (int)(xoffset - 30 * s - w * ps), (int)(ystart + h * ps + 5 * s),
+		(int)(w * ps), (int)(h * ps), "m_main_logo" );
 }
 
 
@@ -458,6 +529,10 @@ static const char *M_Main_Key (int key)
 			m_main_cursor = MAIN_ITEMS - 1;
 		return sound;
 
+	case K_MOUSE1:
+		IN_UpdateMenuMouse();
+		M_Main_UpdateHoverFromMouse();
+		/* fallthrough */
 	case K_KP_ENTER:
 	case K_ENTER:
 		m_entersound = true;
@@ -532,7 +607,6 @@ static void StartNetworkServerFunc( void *unused )
 
 static void Multiplayer_MenuInit( void )
 {
-	s_multiplayer_menu.x = (int)(viddef.width * 0.50f) - 64;
 	s_multiplayer_menu.nitems = 0;
 
 	s_join_network_server_action.generic.type	= MTYPE_ACTION;
@@ -563,6 +637,9 @@ static void Multiplayer_MenuInit( void )
 	Menu_SetStatusBar( &s_multiplayer_menu, NULL );
 
 	Menu_Center( &s_multiplayer_menu );
+	/* Left-justified rows: center ~21-char labels under the banner. */
+	s_multiplayer_menu.x = (int)(viddef.width * 0.50f)
+		- (int)(44 * SCR_GetMenuScale());
 }
 
 static const char *Multiplayer_MenuKey( int key )
@@ -689,38 +766,56 @@ static void M_FindKeysForCommand (char *command, int *twokeys)
 
 static void KeyCursorDrawFunc( menuframework_s *menu )
 {
-	if ( bind_grab )
-		re.DrawChar( menu->x, menu->y + menu->cursor * 9, '=' );
+	int		x, y;
+	float	s = SCR_GetMenuScale();
+	menucommon_s *item = (menucommon_s *)Menu_ItemAtCursor( menu );
+
+	x = menu->x;
+	if ( item )
+		y = menu->y + (int)(item->y * s);
 	else
-		re.DrawChar( menu->x, menu->y + menu->cursor * 9, 12 + ( ( int ) ( Sys_Milliseconds() / 250 ) & 1 ) );
+		y = menu->y + (int)(menu->cursor * 10 * s);
+
+	if ( bind_grab )
+		re.DrawChar( x, y, '=' );
+	else
+		re.DrawChar( x, y, 12 + ( ( int ) ( Sys_Milliseconds() / 250 ) & 1 ) );
 }
 
 static void DrawKeyBindingFunc( void *self )
 {
 	int keys[2];
 	menuaction_s *a = ( menuaction_s * ) self;
+	float s = SCR_GetMenuScale();
+	int x, y, lx;
+
+	x = a->generic.parent->x + (int)(16 * s);
+	y = a->generic.parent->y + (int)(a->generic.y * s);
+	lx = a->generic.parent->x + (int)(-16 * s);
+
+	if ( a->generic.name )
+		Menu_DrawStringR2LDark( lx, y, a->generic.name );
 
 	M_FindKeysForCommand( bindnames[a->generic.localdata[0]][0], keys);
 		
 	if (keys[0] == -1)
 	{
-		Menu_DrawString( a->generic.x + a->generic.parent->x + 16, a->generic.y + a->generic.parent->y, "???" );
+		Menu_DrawString( x, y, "???" );
 	}
 	else
 	{
-		int x;
+		int w;
 		const char *name;
 
 		name = Key_KeynumToString (keys[0]);
+		Menu_DrawString( x, y, name );
 
-		Menu_DrawString( a->generic.x + a->generic.parent->x + 16, a->generic.y + a->generic.parent->y, name );
-
-		x = (int)strlen(name) * 8;
+		w = (int)strlen(name) * (int)(8 * s);
 
 		if (keys[1] != -1)
 		{
-			Menu_DrawString( a->generic.x + a->generic.parent->x + 24 + x, a->generic.y + a->generic.parent->y, "or" );
-			Menu_DrawString( a->generic.x + a->generic.parent->x + 48 + x, a->generic.y + a->generic.parent->y, Key_KeynumToString (keys[1]) );
+			Menu_DrawString( x + w + (int)(8 * s), y, "or" );
+			Menu_DrawString( x + w + (int)(24 * s), y, Key_KeynumToString (keys[1]) );
 		}
 	}
 }
@@ -760,7 +855,7 @@ static void Keys_MenuInit( void )
 	s_keys_change_weapon_action.generic.type	= MTYPE_ACTION;
 	s_keys_change_weapon_action.generic.flags  = QMF_GRAYED;
 	s_keys_change_weapon_action.generic.x		= 0;
-	s_keys_change_weapon_action.generic.y		= y += 9;
+	s_keys_change_weapon_action.generic.y		= y += 10;
 	s_keys_change_weapon_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_change_weapon_action.generic.localdata[0] = ++i;
 	s_keys_change_weapon_action.generic.name	= bindnames[s_keys_change_weapon_action.generic.localdata[0]][1];
@@ -768,7 +863,7 @@ static void Keys_MenuInit( void )
 	s_keys_walk_forward_action.generic.type	= MTYPE_ACTION;
 	s_keys_walk_forward_action.generic.flags  = QMF_GRAYED;
 	s_keys_walk_forward_action.generic.x		= 0;
-	s_keys_walk_forward_action.generic.y		= y += 9;
+	s_keys_walk_forward_action.generic.y		= y += 10;
 	s_keys_walk_forward_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_walk_forward_action.generic.localdata[0] = ++i;
 	s_keys_walk_forward_action.generic.name	= bindnames[s_keys_walk_forward_action.generic.localdata[0]][1];
@@ -776,7 +871,7 @@ static void Keys_MenuInit( void )
 	s_keys_backpedal_action.generic.type	= MTYPE_ACTION;
 	s_keys_backpedal_action.generic.flags  = QMF_GRAYED;
 	s_keys_backpedal_action.generic.x		= 0;
-	s_keys_backpedal_action.generic.y		= y += 9;
+	s_keys_backpedal_action.generic.y		= y += 10;
 	s_keys_backpedal_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_backpedal_action.generic.localdata[0] = ++i;
 	s_keys_backpedal_action.generic.name	= bindnames[s_keys_backpedal_action.generic.localdata[0]][1];
@@ -784,7 +879,7 @@ static void Keys_MenuInit( void )
 	s_keys_turn_left_action.generic.type	= MTYPE_ACTION;
 	s_keys_turn_left_action.generic.flags  = QMF_GRAYED;
 	s_keys_turn_left_action.generic.x		= 0;
-	s_keys_turn_left_action.generic.y		= y += 9;
+	s_keys_turn_left_action.generic.y		= y += 10;
 	s_keys_turn_left_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_turn_left_action.generic.localdata[0] = ++i;
 	s_keys_turn_left_action.generic.name	= bindnames[s_keys_turn_left_action.generic.localdata[0]][1];
@@ -792,7 +887,7 @@ static void Keys_MenuInit( void )
 	s_keys_turn_right_action.generic.type	= MTYPE_ACTION;
 	s_keys_turn_right_action.generic.flags  = QMF_GRAYED;
 	s_keys_turn_right_action.generic.x		= 0;
-	s_keys_turn_right_action.generic.y		= y += 9;
+	s_keys_turn_right_action.generic.y		= y += 10;
 	s_keys_turn_right_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_turn_right_action.generic.localdata[0] = ++i;
 	s_keys_turn_right_action.generic.name	= bindnames[s_keys_turn_right_action.generic.localdata[0]][1];
@@ -800,7 +895,7 @@ static void Keys_MenuInit( void )
 	s_keys_run_action.generic.type	= MTYPE_ACTION;
 	s_keys_run_action.generic.flags  = QMF_GRAYED;
 	s_keys_run_action.generic.x		= 0;
-	s_keys_run_action.generic.y		= y += 9;
+	s_keys_run_action.generic.y		= y += 10;
 	s_keys_run_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_run_action.generic.localdata[0] = ++i;
 	s_keys_run_action.generic.name	= bindnames[s_keys_run_action.generic.localdata[0]][1];
@@ -808,7 +903,7 @@ static void Keys_MenuInit( void )
 	s_keys_step_left_action.generic.type	= MTYPE_ACTION;
 	s_keys_step_left_action.generic.flags  = QMF_GRAYED;
 	s_keys_step_left_action.generic.x		= 0;
-	s_keys_step_left_action.generic.y		= y += 9;
+	s_keys_step_left_action.generic.y		= y += 10;
 	s_keys_step_left_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_step_left_action.generic.localdata[0] = ++i;
 	s_keys_step_left_action.generic.name	= bindnames[s_keys_step_left_action.generic.localdata[0]][1];
@@ -816,7 +911,7 @@ static void Keys_MenuInit( void )
 	s_keys_step_right_action.generic.type	= MTYPE_ACTION;
 	s_keys_step_right_action.generic.flags  = QMF_GRAYED;
 	s_keys_step_right_action.generic.x		= 0;
-	s_keys_step_right_action.generic.y		= y += 9;
+	s_keys_step_right_action.generic.y		= y += 10;
 	s_keys_step_right_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_step_right_action.generic.localdata[0] = ++i;
 	s_keys_step_right_action.generic.name	= bindnames[s_keys_step_right_action.generic.localdata[0]][1];
@@ -824,7 +919,7 @@ static void Keys_MenuInit( void )
 	s_keys_sidestep_action.generic.type	= MTYPE_ACTION;
 	s_keys_sidestep_action.generic.flags  = QMF_GRAYED;
 	s_keys_sidestep_action.generic.x		= 0;
-	s_keys_sidestep_action.generic.y		= y += 9;
+	s_keys_sidestep_action.generic.y		= y += 10;
 	s_keys_sidestep_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_sidestep_action.generic.localdata[0] = ++i;
 	s_keys_sidestep_action.generic.name	= bindnames[s_keys_sidestep_action.generic.localdata[0]][1];
@@ -832,7 +927,7 @@ static void Keys_MenuInit( void )
 	s_keys_look_up_action.generic.type	= MTYPE_ACTION;
 	s_keys_look_up_action.generic.flags  = QMF_GRAYED;
 	s_keys_look_up_action.generic.x		= 0;
-	s_keys_look_up_action.generic.y		= y += 9;
+	s_keys_look_up_action.generic.y		= y += 10;
 	s_keys_look_up_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_look_up_action.generic.localdata[0] = ++i;
 	s_keys_look_up_action.generic.name	= bindnames[s_keys_look_up_action.generic.localdata[0]][1];
@@ -840,7 +935,7 @@ static void Keys_MenuInit( void )
 	s_keys_look_down_action.generic.type	= MTYPE_ACTION;
 	s_keys_look_down_action.generic.flags  = QMF_GRAYED;
 	s_keys_look_down_action.generic.x		= 0;
-	s_keys_look_down_action.generic.y		= y += 9;
+	s_keys_look_down_action.generic.y		= y += 10;
 	s_keys_look_down_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_look_down_action.generic.localdata[0] = ++i;
 	s_keys_look_down_action.generic.name	= bindnames[s_keys_look_down_action.generic.localdata[0]][1];
@@ -848,7 +943,7 @@ static void Keys_MenuInit( void )
 	s_keys_center_view_action.generic.type	= MTYPE_ACTION;
 	s_keys_center_view_action.generic.flags  = QMF_GRAYED;
 	s_keys_center_view_action.generic.x		= 0;
-	s_keys_center_view_action.generic.y		= y += 9;
+	s_keys_center_view_action.generic.y		= y += 10;
 	s_keys_center_view_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_center_view_action.generic.localdata[0] = ++i;
 	s_keys_center_view_action.generic.name	= bindnames[s_keys_center_view_action.generic.localdata[0]][1];
@@ -856,7 +951,7 @@ static void Keys_MenuInit( void )
 	s_keys_mouse_look_action.generic.type	= MTYPE_ACTION;
 	s_keys_mouse_look_action.generic.flags  = QMF_GRAYED;
 	s_keys_mouse_look_action.generic.x		= 0;
-	s_keys_mouse_look_action.generic.y		= y += 9;
+	s_keys_mouse_look_action.generic.y		= y += 10;
 	s_keys_mouse_look_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_mouse_look_action.generic.localdata[0] = ++i;
 	s_keys_mouse_look_action.generic.name	= bindnames[s_keys_mouse_look_action.generic.localdata[0]][1];
@@ -864,7 +959,7 @@ static void Keys_MenuInit( void )
 	s_keys_keyboard_look_action.generic.type	= MTYPE_ACTION;
 	s_keys_keyboard_look_action.generic.flags  = QMF_GRAYED;
 	s_keys_keyboard_look_action.generic.x		= 0;
-	s_keys_keyboard_look_action.generic.y		= y += 9;
+	s_keys_keyboard_look_action.generic.y		= y += 10;
 	s_keys_keyboard_look_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_keyboard_look_action.generic.localdata[0] = ++i;
 	s_keys_keyboard_look_action.generic.name	= bindnames[s_keys_keyboard_look_action.generic.localdata[0]][1];
@@ -872,7 +967,7 @@ static void Keys_MenuInit( void )
 	s_keys_move_up_action.generic.type	= MTYPE_ACTION;
 	s_keys_move_up_action.generic.flags  = QMF_GRAYED;
 	s_keys_move_up_action.generic.x		= 0;
-	s_keys_move_up_action.generic.y		= y += 9;
+	s_keys_move_up_action.generic.y		= y += 10;
 	s_keys_move_up_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_move_up_action.generic.localdata[0] = ++i;
 	s_keys_move_up_action.generic.name	= bindnames[s_keys_move_up_action.generic.localdata[0]][1];
@@ -880,7 +975,7 @@ static void Keys_MenuInit( void )
 	s_keys_move_down_action.generic.type	= MTYPE_ACTION;
 	s_keys_move_down_action.generic.flags  = QMF_GRAYED;
 	s_keys_move_down_action.generic.x		= 0;
-	s_keys_move_down_action.generic.y		= y += 9;
+	s_keys_move_down_action.generic.y		= y += 10;
 	s_keys_move_down_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_move_down_action.generic.localdata[0] = ++i;
 	s_keys_move_down_action.generic.name	= bindnames[s_keys_move_down_action.generic.localdata[0]][1];
@@ -888,7 +983,7 @@ static void Keys_MenuInit( void )
 	s_keys_inventory_action.generic.type	= MTYPE_ACTION;
 	s_keys_inventory_action.generic.flags  = QMF_GRAYED;
 	s_keys_inventory_action.generic.x		= 0;
-	s_keys_inventory_action.generic.y		= y += 9;
+	s_keys_inventory_action.generic.y		= y += 10;
 	s_keys_inventory_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_inventory_action.generic.localdata[0] = ++i;
 	s_keys_inventory_action.generic.name	= bindnames[s_keys_inventory_action.generic.localdata[0]][1];
@@ -896,7 +991,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_use_action.generic.type	= MTYPE_ACTION;
 	s_keys_inv_use_action.generic.flags  = QMF_GRAYED;
 	s_keys_inv_use_action.generic.x		= 0;
-	s_keys_inv_use_action.generic.y		= y += 9;
+	s_keys_inv_use_action.generic.y		= y += 10;
 	s_keys_inv_use_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_inv_use_action.generic.localdata[0] = ++i;
 	s_keys_inv_use_action.generic.name	= bindnames[s_keys_inv_use_action.generic.localdata[0]][1];
@@ -904,7 +999,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_drop_action.generic.type	= MTYPE_ACTION;
 	s_keys_inv_drop_action.generic.flags  = QMF_GRAYED;
 	s_keys_inv_drop_action.generic.x		= 0;
-	s_keys_inv_drop_action.generic.y		= y += 9;
+	s_keys_inv_drop_action.generic.y		= y += 10;
 	s_keys_inv_drop_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_inv_drop_action.generic.localdata[0] = ++i;
 	s_keys_inv_drop_action.generic.name	= bindnames[s_keys_inv_drop_action.generic.localdata[0]][1];
@@ -912,7 +1007,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_prev_action.generic.type	= MTYPE_ACTION;
 	s_keys_inv_prev_action.generic.flags  = QMF_GRAYED;
 	s_keys_inv_prev_action.generic.x		= 0;
-	s_keys_inv_prev_action.generic.y		= y += 9;
+	s_keys_inv_prev_action.generic.y		= y += 10;
 	s_keys_inv_prev_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_inv_prev_action.generic.localdata[0] = ++i;
 	s_keys_inv_prev_action.generic.name	= bindnames[s_keys_inv_prev_action.generic.localdata[0]][1];
@@ -920,7 +1015,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_next_action.generic.type	= MTYPE_ACTION;
 	s_keys_inv_next_action.generic.flags  = QMF_GRAYED;
 	s_keys_inv_next_action.generic.x		= 0;
-	s_keys_inv_next_action.generic.y		= y += 9;
+	s_keys_inv_next_action.generic.y		= y += 10;
 	s_keys_inv_next_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_inv_next_action.generic.localdata[0] = ++i;
 	s_keys_inv_next_action.generic.name	= bindnames[s_keys_inv_next_action.generic.localdata[0]][1];
@@ -928,7 +1023,7 @@ static void Keys_MenuInit( void )
 	s_keys_help_computer_action.generic.type	= MTYPE_ACTION;
 	s_keys_help_computer_action.generic.flags  = QMF_GRAYED;
 	s_keys_help_computer_action.generic.x		= 0;
-	s_keys_help_computer_action.generic.y		= y += 9;
+	s_keys_help_computer_action.generic.y		= y += 10;
 	s_keys_help_computer_action.generic.ownerdraw = DrawKeyBindingFunc;
 	s_keys_help_computer_action.generic.localdata[0] = ++i;
 	s_keys_help_computer_action.generic.name	= bindnames[s_keys_help_computer_action.generic.localdata[0]][1];
@@ -1034,7 +1129,7 @@ static menulist_s		s_r1q2_winxp;
 #endif
 
 static menulist_s		s_r1q2_defer;
-static menulist_s		s_r1q2_async;
+static menulist_s		s_r1q2_q2promove;
 static menulist_s		s_r1q2_autorecord;
 static menulist_s		s_r1q2_xaniarail;
 
@@ -1095,9 +1190,11 @@ static void DeferFunc (void *unused)
 	Cvar_SetValue ("cl_defermodels", (float)s_r1q2_defer.curvalue);
 }
 
-static void AsyncFunc (void *unused)
+static void Q2ProMoveFunc (void *unused)
 {
-	Cvar_SetValue ("cl_async", (float)s_r1q2_async.curvalue);
+	/* Enabled = sync physics (classic / Q2Pro-style jump feel).
+	   Disabled = stock R1Q2 async net/render split (cl_async 1). */
+	Cvar_SetValue ("cl_async", s_r1q2_q2promove.curvalue ? 0.0f : 1.0f);
 }
 
 static void AutoFunc (void *unused)
@@ -1145,9 +1242,9 @@ static void R1Q2_MenuInit (void)
 	** configure controls menu and menu items
 	*/
 	s_r1q2_options_menu.x = viddef.width / 2;
-	s_r1q2_options_menu.y = viddef.height / 2 - 58;
-
+	s_r1q2_options_menu.y = viddef.height / 2 - (int)(58 * SCR_GetMenuScale());
 	s_r1q2_options_menu.nitems = 0;
+	s_r1q2_options_menu.cursor = 0;
 
 	s_r1q2_warning.generic.type = MTYPE_SEPARATOR;
 	s_r1q2_warning.generic.name = "WARNING: Settings here will not be saved. Any settings";
@@ -1185,13 +1282,15 @@ static void R1Q2_MenuInit (void)
 	s_r1q2_defer.itemnames = yesno_names;
 	s_r1q2_defer.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_defermodels"));
 
-	s_r1q2_async.generic.type = MTYPE_SPINCONTROL;
-	s_r1q2_async.generic.x	= 0;
-	s_r1q2_async.generic.y	= 70;
-	s_r1q2_async.generic.name	= "asynchronous net/fps";
-	s_r1q2_async.generic.callback = AsyncFunc;
-	s_r1q2_async.itemnames = yesno_names;
-	s_r1q2_async.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_async"));
+	s_r1q2_q2promove.generic.type = MTYPE_SPINCONTROL;
+	s_r1q2_q2promove.generic.x	= 0;
+	s_r1q2_q2promove.generic.y	= 70;
+	s_r1q2_q2promove.generic.name	= "Q2Pro movement";
+	s_r1q2_q2promove.generic.callback = Q2ProMoveFunc;
+	s_r1q2_q2promove.generic.statusbar = "sync physics for classic jumps (cl_async 0); off = R1Q2 async";
+	s_r1q2_q2promove.itemnames = yesno_names;
+	/* cl_async 1 (default) = R1Q2 async; show Q2Pro movement as disabled */
+	s_r1q2_q2promove.curvalue = Cvar_VariableValue ("cl_async") ? 0 : 1;
 
 	s_r1q2_autorecord.generic.type = MTYPE_SPINCONTROL;
 	s_r1q2_autorecord.generic.x	= 0;
@@ -1255,7 +1354,7 @@ static void R1Q2_MenuInit (void)
 #endif
 
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_defer );
-	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_async );
+	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_q2promove );
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_autorecord );
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_xaniarail );
 }
@@ -1263,7 +1362,7 @@ static void R1Q2_MenuInit (void)
 static void R1Q2_MenuDraw (void)
 {
 	M_Banner ("m_banner_options");
-	Menu_AdjustCursor( &s_r1q2_options_menu, 2 );
+	Menu_AdjustCursor( &s_r1q2_options_menu, 1 );
 	Menu_Draw( &s_r1q2_options_menu );
 }
 
@@ -2166,7 +2265,7 @@ static menuseparator_s	s_blankline;
 
 static void StartGame( void )
 {
-	if (!CM_MapWillLoad ("base1"))
+	if (!CM_MapWillLoad ("maps/base1.bsp"))
 	{
 		Com_Printf ("ERROR: Your Quake II installation is missing the single player data, you cannot start a single player game.\n", LOG_GENERAL);
 		M_PopMenu ();
@@ -2228,8 +2327,8 @@ static void Game_MenuInit( void )
 		0
 	};*/
 
-	s_game_menu.x = (int)(viddef.width * 0.50f);
 	s_game_menu.nitems = 0;
+	s_game_menu.cursor = 0;
 
 	s_easy_game_action.generic.type	= MTYPE_ACTION;
 	s_easy_game_action.generic.flags  = QMF_LEFT_JUSTIFY;
@@ -2285,6 +2384,9 @@ static void Game_MenuInit( void )
 	Menu_AddItem( &s_game_menu, ( void * ) &s_credits_action );
 
 	Menu_Center( &s_game_menu );
+	/* Left-justified difficulty/load rows under the banner. */
+	s_game_menu.x = (int)(viddef.width * 0.50f)
+		- (int)(8 * SCR_GetMenuScale());
 }
 
 static void Game_MenuDraw( void )
@@ -2487,59 +2589,491 @@ static void M_Menu_SaveGame_f (void)
 /*
 =============================================================================
 
-JOIN SERVER MENU
+JOIN SERVER MENU (LAN + internet master; address book is separate)
 
 =============================================================================
 */
-#define MAX_LOCAL_SERVERS 8
+#define MAX_LOCAL_SERVERS		512
+#define JOIN_ADDRESSBOOK_SLOTS	16
+#define SERVER_SLOTS_VISIBLE	12
+
+#define JOIN_SERVER_FIRST_SLOT	4	/* book, refresh, bookmark, title, then rows */
+#define JOIN_ROW_PITCH			12	/* virtual Y step between server rows (was 10) */
+#define JOIN_LIST_SCALE			1.2f	/* list text a bit larger than menu chrome */
+#define JOIN_DBLCLICK_MS		400
 
 static menuframework_s	s_joinserver_menu;
 static menuseparator_s	s_joinserver_server_title;
 static menuaction_s		s_joinserver_search_action;
 static menuaction_s		s_joinserver_address_book_action;
-static menuaction_s		s_joinserver_server_actions[MAX_LOCAL_SERVERS];
+static menuaction_s		s_joinserver_bookmark_action;
+static menuaction_s		s_joinserver_server_actions[SERVER_SLOTS_VISIBLE];
 
 int		m_num_servers;
-#define	NO_SERVER_STRING	"<no server>"
 
-// user readable information
 static char local_server_names[MAX_LOCAL_SERVERS][80];
+static char local_server_empty[SERVER_SLOTS_VISIBLE][80];
+static char s_bookmark_statusbar[80];
 
-// network address
 static netadr_t local_server_netadr[MAX_LOCAL_SERVERS];
+static int		local_server_ping[MAX_LOCAL_SERVERS];
+static int		local_server_nplayers[MAX_LOCAL_SERVERS];
+static qboolean	local_server_isfav[MAX_LOCAL_SERVERS];
+static int		m_serverlist_start_time;
+static int		m_server_page;
+static int		m_slots_visible = SERVER_SLOTS_VISIBLE;
+static qboolean	m_searching;
+static int		m_search_idle_time;
+static int		m_join_click_slot = -1;
+static int		m_join_click_time;
+
+static void JoinServer_RowDraw (void *self)
+{
+	menuaction_s	*a = (menuaction_s *)self;
+	float			s = SCR_GetMenuScale();
+	float			ls = s * JOIN_LIST_SCALE;
+	int				x, y;
+	int				idx;
+	int				i;
+	int				step;
+	int				row_h;
+	const char		*text;
+	qboolean		selected;
+
+	x = a->generic.parent->x + (int)(a->generic.x * s);
+	y = a->generic.parent->y + (int)(a->generic.y * s);
+	idx = a->generic.localdata[0];
+	if (idx >= 0 && idx < m_num_servers)
+		text = local_server_names[idx];
+	else
+		text = a->generic.name;
+	if (!text || !text[0])
+		return;
+
+	selected = false;
+	if (a->generic.parent)
+	{
+		for (i = 0; i < a->generic.parent->nitems; i++)
+		{
+			if (a->generic.parent->items[i] == a)
+			{
+				selected = (a->generic.parent->cursor == i);
+				break;
+			}
+		}
+	}
+
+	step = (int)(8 * ls + 0.5f);
+	if (step < 8)
+		step = 8;
+	row_h = (int)(8 * ls + 0.5f);
+	if (selected)
+		re.DrawFill (x - (int)(4 * s), y - 1, step * 44 + (int)(8 * s), row_h + 2, 8);
+
+	Cvar_SetValue ("gl_fontscale", ls);
+	for (i = 0; text[i]; i++)
+		re.DrawChar (x + i * step, y, selected ? (text[i] + 128) : text[i]);
+	Cvar_SetValue ("gl_fontscale", s);
+}
+
+static void JoinServer_HeaderDraw (void *self)
+{
+	menuseparator_s	*sep = (menuseparator_s *)self;
+	float			s = SCR_GetMenuScale();
+	float			ls = s * JOIN_LIST_SCALE;
+	int				x, y;
+	int				i;
+	int				step;
+	const char		*hdr = " #  hostname           map      pl   ms";
+
+	x = sep->generic.parent->x + (int)(sep->generic.x * s);
+	y = sep->generic.parent->y + (int)(sep->generic.y * s);
+	step = (int)(8 * ls + 0.5f);
+	if (step < 8)
+		step = 8;
+	Cvar_SetValue ("gl_fontscale", ls);
+	for (i = 0; hdr[i]; i++)
+		re.DrawChar (x + i * step, y, hdr[i] + 128);
+	Cvar_SetValue ("gl_fontscale", s);
+}
+
+static int		m_visible_index[SERVER_SLOTS_VISIBLE];
+static int		m_last_server_slot = -1;
+
+static void JoinServer_RebuildVisible (void);
+static void JoinServer_SortByPlayers (void);
+static void JoinServer_Renumber (void);
+static void JoinServer_ToggleFavoriteSelected (void);
+static qboolean JoinServer_AdrIsFavorite (netadr_t *adr);
+static qboolean JoinServer_AddFavoriteAdr (const char *addr);
+static qboolean JoinServer_RemoveFavoriteAdr (const char *addr);
+
+static void JoinServer_Swap (int a, int b)
+{
+	netadr_t	tadr;
+	int			ti;
+	qboolean	tb;
+	char		tname[80];
+
+	tadr = local_server_netadr[a];
+	local_server_netadr[a] = local_server_netadr[b];
+	local_server_netadr[b] = tadr;
+
+	ti = local_server_ping[a];
+	local_server_ping[a] = local_server_ping[b];
+	local_server_ping[b] = ti;
+
+	ti = local_server_nplayers[a];
+	local_server_nplayers[a] = local_server_nplayers[b];
+	local_server_nplayers[b] = ti;
+
+	tb = local_server_isfav[a];
+	local_server_isfav[a] = local_server_isfav[b];
+	local_server_isfav[b] = tb;
+
+	memcpy (tname, local_server_names[a], sizeof(tname));
+	memcpy (local_server_names[a], local_server_names[b], sizeof(local_server_names[a]));
+	memcpy (local_server_names[b], tname, sizeof(local_server_names[b]));
+}
+
+static void JoinServer_Renumber (void)
+{
+	int		i;
+	char	num[4];
+
+	for (i = 0; i < m_num_servers; i++)
+	{
+		if (!local_server_names[i][0])
+			continue;
+		Com_sprintf (num, sizeof(num), "%2d", i + 1);
+		local_server_names[i][0] = num[0];
+		local_server_names[i][1] = num[1];
+	}
+}
+
+static void JoinServer_SortByPlayers (void)
+{
+	int		i, j;
+
+	/* Most populated first; equal population → lower ping first. */
+	for (i = 1; i < m_num_servers; i++)
+	{
+		for (j = i; j > 0; j--)
+		{
+			if (local_server_nplayers[j] > local_server_nplayers[j - 1]
+				|| (local_server_nplayers[j] == local_server_nplayers[j - 1]
+					&& local_server_ping[j] < local_server_ping[j - 1]))
+				JoinServer_Swap (j, j - 1);
+			else
+				break;
+		}
+	}
+	JoinServer_Renumber ();
+}
+
+static qboolean JoinServer_AdrIsFavorite (netadr_t *adr)
+{
+	int			i;
+	netadr_t	tmp;
+	char		name[16];
+	const char	*s;
+
+	for (i = 0; i < JOIN_ADDRESSBOOK_SLOTS; i++)
+	{
+		Com_sprintf (name, sizeof(name), "adr%i", i);
+		s = Cvar_VariableString (name);
+		if (!s || !s[0])
+			continue;
+		if (!NET_StringToAdr (s, &tmp))
+			continue;
+		if (!tmp.port)
+			tmp.port = ShortSwap (PORT_SERVER);
+		if (NET_CompareAdr (&tmp, adr))
+			return true;
+	}
+	return false;
+}
+
+static qboolean JoinServer_AddFavoriteAdr (const char *addr)
+{
+	int			i;
+	netadr_t	adr;
+	char		name[16];
+	char		*canon;
+	const char	*s;
+
+	if (!addr || !addr[0])
+		return false;
+	if (!NET_StringToAdr (addr, &adr))
+	{
+		Com_Printf ("Bad favorite address: %s\n", LOG_CLIENT, addr);
+		return false;
+	}
+	if (!adr.port)
+		adr.port = ShortSwap (PORT_SERVER);
+
+	canon = NET_AdrToString (&adr);
+	for (i = 0; i < JOIN_ADDRESSBOOK_SLOTS; i++)
+	{
+		Com_sprintf (name, sizeof(name), "adr%i", i);
+		s = Cvar_VariableString (name);
+		if (s && s[0])
+		{
+			netadr_t	have;
+			if (NET_StringToAdr (s, &have))
+			{
+				if (!have.port)
+					have.port = ShortSwap (PORT_SERVER);
+				if (NET_CompareAdr (&have, &adr))
+					return false;
+			}
+			continue;
+		}
+		Cvar_FullSet (name, canon, CVAR_ARCHIVE);
+		return true;
+	}
+	Com_Printf ("Address book full (%d). Open Address Book to edit.\n", LOG_CLIENT, JOIN_ADDRESSBOOK_SLOTS);
+	return false;
+}
+
+static qboolean JoinServer_RemoveFavoriteAdr (const char *addr)
+{
+	int			i;
+	netadr_t	want, have;
+	char		name[16];
+	const char	*s;
+
+	if (!addr || !addr[0])
+		return false;
+	if (!NET_StringToAdr (addr, &want))
+		return false;
+	if (!want.port)
+		want.port = ShortSwap (PORT_SERVER);
+
+	for (i = 0; i < JOIN_ADDRESSBOOK_SLOTS; i++)
+	{
+		Com_sprintf (name, sizeof(name), "adr%i", i);
+		s = Cvar_VariableString (name);
+		if (!s || !s[0])
+			continue;
+		if (!NET_StringToAdr (s, &have))
+			continue;
+		if (!have.port)
+			have.port = ShortSwap (PORT_SERVER);
+		if (!NET_CompareAdr (&want, &have))
+			continue;
+		Cvar_Set (name, "");
+		return true;
+	}
+	return false;
+}
+
+static void JoinServer_RefreshName (int i)
+{
+	char	*src;
+
+	if (i < 0 || i >= m_num_servers)
+		return;
+
+	src = local_server_names[i];
+	/* formatted as "%2d.%c ..." - flip favorite marker */
+	if (src[0] && src[2] == '.' && (src[3] == ' ' || src[3] == '*'))
+		src[3] = local_server_isfav[i] ? '*' : ' ';
+}
+
+#define JOIN_MAX_PING			200
+
+static qboolean JoinServer_HostnameLooksLikeBots (const char *hostname)
+{
+	char	lower[64];
+	int		i;
+
+	if (!hostname || !hostname[0])
+		return false;
+
+	for (i = 0; hostname[i] && i < (int)sizeof(lower) - 1; i++)
+	{
+		if (hostname[i] >= 'A' && hostname[i] <= 'Z')
+			lower[i] = (char)(hostname[i] + ('a' - 'A'));
+		else
+			lower[i] = hostname[i];
+	}
+	lower[i] = 0;
+
+	/* Common bot-farm / botmatch naming (info replies have no bot count). */
+	if (strstr (lower, "bot"))
+		return true;
+	if (strstr (lower, "3zb"))
+		return true;
+	return false;
+}
 
 void M_AddToServerList (netadr_t adr, char *info)
 {
 	int		i;
+	char	hostname[32];
+	char	mapname[16];
+	char	players[16];
+	char	*p;
+	int		ping;
+	int		nmap;
+	int		npl;
 
 	if (m_num_servers == MAX_LOCAL_SERVERS)
 		return;
-	while ( *info == ' ' )
-		info++;
 
-	// ignore if duplicated
-	for (i=0 ; i<m_num_servers ; i++)
-		//if (!strcmp(info, local_server_names[i]))
+	while (info && *info == ' ')
+		info++;
+	if (!info || !info[0])
+		return;
+
+	for (i = 0; i < m_num_servers; i++)
+	{
 		if (NET_CompareAdr (&adr, &local_server_netadr[i]))
 			return;
+	}
+
+	hostname[0] = mapname[0] = players[0] = 0;
+
+	/* Classic SVC_Info: "%20s %8s %2i/%2i\n" */
+	if (strlen(info) >= 20)
+	{
+		memcpy (hostname, info, 20);
+		hostname[20] = 0;
+		p = hostname;
+		while (*p == ' ')
+			p++;
+		memmove (hostname, p, strlen(p) + 1);
+		p = hostname + strlen(hostname);
+		while (p > hostname && (p[-1] == ' ' || p[-1] == '\n' || p[-1] == '\r'))
+		{
+			p--;
+			*p = 0;
+		}
+
+		p = info + 20;
+		while (*p == ' ')
+			p++;
+		nmap = 0;
+		while (*p && *p != ' ' && nmap < (int)sizeof(mapname) - 1)
+			mapname[nmap++] = *p++;
+		mapname[nmap] = 0;
+
+		while (*p == ' ')
+			p++;
+		npl = 0;
+		while (*p && *p != '\n' && *p != '\r' && npl < (int)sizeof(players) - 1)
+			players[npl++] = *p++;
+		players[npl] = 0;
+	}
+
+	if (!hostname[0])
+	{
+		Q_strncpy (hostname, info, sizeof(hostname)-1);
+		p = strchr (hostname, '\n');
+		if (p)
+			*p = 0;
+	}
+	if (!mapname[0])
+		strcpy (mapname, "???");
+	if (!players[0])
+		strcpy (players, "?/?");
+
+	if (JoinServer_HostnameLooksLikeBots (hostname))
+		return;
+
+	ping = CL_ConsumeServerPing (&adr);
+	if (ping < 0)
+		ping = cls.realtime - m_serverlist_start_time;
+	if (ping < 0)
+		ping = 0;
+	if (ping > 999)
+		ping = 999;
+	if (ping > JOIN_MAX_PING)
+		return;
+
+	{
+		int	cur = 0, maxp = 0;
+		if (sscanf (players, "%d/%d", &cur, &maxp) < 1)
+			cur = 0;
+		if (cur < 0)
+			cur = 0;
+		local_server_nplayers[m_num_servers] = cur;
+	}
 
 	local_server_netadr[m_num_servers] = adr;
-	snprintf (local_server_names[m_num_servers], sizeof(local_server_names[m_num_servers])-1, "%d. %s", m_num_servers+1, info);
+	local_server_ping[m_num_servers] = ping;
+	local_server_isfav[m_num_servers] = JoinServer_AdrIsFavorite (&adr);
+
+	Com_sprintf (local_server_names[m_num_servers], sizeof(local_server_names[0]),
+		"%2d.%c %-18.18s %-8.8s %5s %4d",
+		m_num_servers + 1,
+		local_server_isfav[m_num_servers] ? '*' : ' ',
+		hostname,
+		mapname,
+		players,
+		ping);
+
 	m_num_servers++;
+	JoinServer_SortByPlayers ();
+	JoinServer_RebuildVisible ();
 }
 
+static void JoinServer_RebuildVisible (void)
+{
+	int		i;
+	int		idx;
+	int		matched;
+	int		skip;
+	int		start;
+
+	/* count matching servers for paging */
+	matched = 0;
+	for (i = 0; i < m_num_servers; i++)
+		matched++;
+
+	start = m_server_page * m_slots_visible;
+	if (start >= matched && m_server_page > 0)
+	{
+		m_server_page = (matched > 0) ? (matched - 1) / m_slots_visible : 0;
+		start = m_server_page * m_slots_visible;
+	}
+
+	skip = 0;
+	idx = 0;
+	for (i = 0; i < SERVER_SLOTS_VISIBLE; i++)
+		m_visible_index[i] = -1;
+
+	for (i = 0; i < m_num_servers && idx < m_slots_visible; i++)
+	{
+		if (skip < start)
+		{
+			skip++;
+			continue;
+		}
+		m_visible_index[idx] = i;
+		s_joinserver_server_actions[idx].generic.name = local_server_names[i];
+		s_joinserver_server_actions[idx].generic.localdata[0] = i;
+		idx++;
+	}
+
+	for (; idx < m_slots_visible; idx++)
+	{
+		local_server_empty[idx][0] = 0;
+		s_joinserver_server_actions[idx].generic.name = local_server_empty[idx];
+		s_joinserver_server_actions[idx].generic.localdata[0] = -1;
+		m_visible_index[idx] = -1;
+	}
+}
 
 static void JoinServerFunc( void *self )
 {
-	char	buffer[128];
-	int		index;
+	char			buffer[128];
+	int				index;
+	menuaction_s	*a = (menuaction_s *)self;
 
-	index = (int)(( menuaction_s * ) self - s_joinserver_server_actions);
-
-	if ( Q_stricmp( local_server_names[index], NO_SERVER_STRING ) == 0 )
-		return;
-
-	if (index >= m_num_servers)
+	index = a->generic.localdata[0];
+	if (index < 0 || index >= m_num_servers)
 		return;
 
 	Com_sprintf (buffer, sizeof(buffer), "connect %s\n", NET_AdrToString (&local_server_netadr[index]));
@@ -2547,34 +3081,55 @@ static void JoinServerFunc( void *self )
 	M_ForceMenuOff ();
 }
 
+static void JoinServer_ConnectSelected (void)
+{
+	int		slot;
+	int		index;
+
+	if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
+		slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
+	else
+		slot = m_last_server_slot;
+
+	if (slot < 0 || slot >= m_slots_visible)
+		return;
+	index = s_joinserver_server_actions[slot].generic.localdata[0];
+	if (index < 0 || index >= m_num_servers)
+		return;
+	JoinServerFunc (&s_joinserver_server_actions[slot]);
+}
+
 static void AddressBookFunc( void *self )
 {
 	M_Menu_AddressBook_f();
 }
 
-/*static void NullCursorDraw( void *self )
+static void BookmarkSelectedFunc( void *self )
 {
-}*/
+	JoinServer_ToggleFavoriteSelected ();
+}
 
 static void SearchLocalGames( void )
 {
-	int		i;
+	int			i;
 
 	m_num_servers = 0;
-	for (i=0 ; i<MAX_LOCAL_SERVERS ; i++)
-		//strcpy (local_server_names[i], NO_SERVER_STRING);
-		sprintf (local_server_names[i], "%d. %s", i+1, NO_SERVER_STRING);
+	m_server_page = 0;
+	m_searching = true;
+	m_search_idle_time = 0;
+	m_serverlist_start_time = cls.realtime;
+	for (i = 0; i < MAX_LOCAL_SERVERS; i++)
+	{
+		local_server_ping[i] = 0;
+		local_server_nplayers[i] = 0;
+		local_server_isfav[i] = false;
+		local_server_names[i][0] = 0;
+	}
 
-	M_DrawTextBox( 8, 120 - 48, 36, 3 );
-	M_Print( 16 + 16, 120 - 48 + 8,  "Searching for local servers, this" );
-	M_Print( 16 + 16, 120 - 48 + 16, "could take up to a minute, so" );
-	M_Print( 16 + 16, 120 - 48 + 24, "please be patient." );
-
-	// the text box won't show up unless we do a buffer swap
-	re.EndFrame();
-
-	// send out info packets
 	CL_PingServers_f();
+
+	m_searching = true;
+	JoinServer_RebuildVisible ();
 }
 
 static void SearchLocalGamesFunc( void *self )
@@ -2584,10 +3139,31 @@ static void SearchLocalGamesFunc( void *self )
 
 static void JoinServer_MenuInit( void )
 {
-	int i;
+	int		i;
+	int		bw, bh;
+	float	s;
+	int		slots;
+	int		y;
 
-	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - 120;
+	s = SCR_GetMenuScale();
+	re.DrawGetPicSize (&bw, &bh, "m_banner_join_server");
+
+	/* Sit the list under the banner. Do NOT Menu_Center — that was stacking
+	 * the old plaque coords on top of the new rows.
+	 * Left-justify rows are ~43 chars wide; put the block on screen center. */
+	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - (int)((43 * 8 / 2) * s * JOIN_LIST_SCALE);
+	s_joinserver_menu.y = (int)(viddef.height * 0.50f - 110 * s) + (int)(bh * SCR_GetMenuPicScale() + 8 * s);
 	s_joinserver_menu.nitems = 0;
+	s_joinserver_menu.cursor = 0;
+	m_join_click_slot = -1;
+	m_join_click_time = 0;
+
+	slots = (int)((viddef.height - s_joinserver_menu.y - 24 * s) / (JOIN_ROW_PITCH * s)) - 6;
+	if (slots < 6)
+		slots = 6;
+	if (slots > SERVER_SLOTS_VISIBLE)
+		slots = SERVER_SLOTS_VISIBLE;
+	m_slots_visible = slots;
 
 	s_joinserver_address_book_action.generic.type	= MTYPE_ACTION;
 	s_joinserver_address_book_action.generic.name	= "address book";
@@ -2595,61 +3171,259 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_address_book_action.generic.x		= 0;
 	s_joinserver_address_book_action.generic.y		= 0;
 	s_joinserver_address_book_action.generic.callback = AddressBookFunc;
+	s_joinserver_address_book_action.generic.statusbar = "favorite servers (adr0-adr15)";
 
 	s_joinserver_search_action.generic.type = MTYPE_ACTION;
-	s_joinserver_search_action.generic.name	= "refresh server list";
+	s_joinserver_search_action.generic.name	= "refresh list";
 	s_joinserver_search_action.generic.flags	= QMF_LEFT_JUSTIFY;
 	s_joinserver_search_action.generic.x	= 0;
-	s_joinserver_search_action.generic.y	= 10;
+	s_joinserver_search_action.generic.y	= 12;
 	s_joinserver_search_action.generic.callback = SearchLocalGamesFunc;
-	s_joinserver_search_action.generic.statusbar = "search for servers";
+	s_joinserver_search_action.generic.statusbar = "LAN + internet master list";
+
+	s_joinserver_bookmark_action.generic.type = MTYPE_ACTION;
+	s_joinserver_bookmark_action.generic.name = "bookmark selected";
+	s_joinserver_bookmark_action.generic.flags = QMF_LEFT_JUSTIFY;
+	s_joinserver_bookmark_action.generic.x = 0;
+	s_joinserver_bookmark_action.generic.y = 24;
+	s_joinserver_bookmark_action.generic.callback = BookmarkSelectedFunc;
+	s_joinserver_bookmark_action.generic.statusbar = "save or remove highlighted server (also F)";
 
 	s_joinserver_server_title.generic.type = MTYPE_SEPARATOR;
-	s_joinserver_server_title.generic.name = "connect to...";
-	s_joinserver_server_title.generic.x    = 80;
-	s_joinserver_server_title.generic.y	   = 30;
+	s_joinserver_server_title.generic.name = " #  hostname           map      pl   ms";
+	s_joinserver_server_title.generic.x    = 0;
+	s_joinserver_server_title.generic.y	   = 40;
+	s_joinserver_server_title.generic.ownerdraw = JoinServer_HeaderDraw;
 
-	for ( i = 0; i < MAX_LOCAL_SERVERS; i++ )
+	y = 52;
+	for ( i = 0; i < SERVER_SLOTS_VISIBLE; i++ )
 	{
+		local_server_empty[i][0] = 0;
 		s_joinserver_server_actions[i].generic.type	= MTYPE_ACTION;
-		//strcpy (local_server_names[i], NO_SERVER_STRING);
-		sprintf (local_server_names[i], "%d. %s", i+1, NO_SERVER_STRING);
-		s_joinserver_server_actions[i].generic.name	= local_server_names[i];
+		s_joinserver_server_actions[i].generic.name	= local_server_empty[i];
 		s_joinserver_server_actions[i].generic.flags	= QMF_LEFT_JUSTIFY;
 		s_joinserver_server_actions[i].generic.x		= 0;
-		s_joinserver_server_actions[i].generic.y		= 40 + i*10;
-		s_joinserver_server_actions[i].generic.callback = JoinServerFunc;
-		s_joinserver_server_actions[i].generic.statusbar = "press ENTER to connect";
+		s_joinserver_server_actions[i].generic.y		= y;
+		/* No callback: single-click selects; double-click / Enter connects. */
+		s_joinserver_server_actions[i].generic.callback = NULL;
+		s_joinserver_server_actions[i].generic.ownerdraw = JoinServer_RowDraw;
+		s_joinserver_server_actions[i].generic.statusbar = "click select  double-click/ENTER join  bookmark/F save";
+		s_joinserver_server_actions[i].generic.localdata[0] = -1;
+		m_visible_index[i] = -1;
+		if (i < m_slots_visible)
+			y += JOIN_ROW_PITCH;
 	}
 
 	Menu_AddItem( &s_joinserver_menu, &s_joinserver_address_book_action );
-	Menu_AddItem( &s_joinserver_menu, &s_joinserver_server_title );
 	Menu_AddItem( &s_joinserver_menu, &s_joinserver_search_action );
+	Menu_AddItem( &s_joinserver_menu, &s_joinserver_bookmark_action );
+	Menu_AddItem( &s_joinserver_menu, &s_joinserver_server_title );
 
-	for ( i = 0; i < MAX_LOCAL_SERVERS; i++ )
+	for ( i = 0; i < m_slots_visible; i++ )
 		Menu_AddItem( &s_joinserver_menu, &s_joinserver_server_actions[i] );
-
-	Menu_Center( &s_joinserver_menu );
 
 	SearchLocalGames();
 }
 
 static void JoinServer_MenuDraw(void)
 {
+	char	pagebuf[64];
+	int		matched;
+	int		maxpage;
+	int		charh;
+	int		x;
+	int		y;
+	float	s;
+
 	M_Banner( "m_banner_join_server" );
+	if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
+		m_last_server_slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 	Menu_Draw( &s_joinserver_menu );
+
+	matched = m_num_servers;
+	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
+	if (maxpage < 1)
+		maxpage = 1;
+
+	if (CL_ServerPingBusy ())
+	{
+		m_searching = true;
+		m_search_idle_time = 0;
+	}
+	else if (m_searching)
+	{
+		if (!m_search_idle_time)
+			m_search_idle_time = cls.realtime;
+		else if (cls.realtime - m_search_idle_time >= 2000)
+			m_searching = false;
+	}
+
+	s = SCR_GetMenuScale();
+	if (m_searching)
+		Com_sprintf (pagebuf, sizeof(pagebuf), "searching...  page %d/%d  %d listed",
+			m_server_page + 1, maxpage, matched);
+	else
+		Com_sprintf (pagebuf, sizeof(pagebuf), "page %d/%d  %d listed",
+			m_server_page + 1, maxpage, matched);
+
+	charh = (int)(8 * s);
+	y = (int)(viddef.height - 20 * s);
+	if (y + charh > viddef.height - 1)
+		y = viddef.height - 1 - charh;
+	if (y < 0)
+		y = 0;
+	x = (int)(viddef.width * 0.50f) - (int)((int)strlen(pagebuf) * 4 * s);
+	Menu_DrawString (x, y, pagebuf);
 }
 
+static void JoinServer_ToggleFavoriteSelected (void)
+{
+	int		cursor;
+	int		slot;
+	int		index;
+	char	*addr;
+
+	cursor = s_joinserver_menu.cursor;
+	/* book / refresh / bookmark / title / server rows */
+	if (cursor >= JOIN_SERVER_FIRST_SLOT)
+		slot = cursor - JOIN_SERVER_FIRST_SLOT;
+	else
+		slot = m_last_server_slot;
+
+	if (slot < 0 || slot >= m_slots_visible)
+	{
+		Q_strncpy (s_bookmark_statusbar, "highlight a server first", sizeof(s_bookmark_statusbar)-1);
+		s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
+		return;
+	}
+
+	index = s_joinserver_server_actions[slot].generic.localdata[0];
+	if (index < 0 || index >= m_num_servers)
+	{
+		Q_strncpy (s_bookmark_statusbar, "highlight a server first", sizeof(s_bookmark_statusbar)-1);
+		s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
+		return;
+	}
+
+	addr = NET_AdrToString (&local_server_netadr[index]);
+	if (local_server_isfav[index])
+	{
+		JoinServer_RemoveFavoriteAdr (addr);
+		local_server_isfav[index] = false;
+		Com_sprintf (s_bookmark_statusbar, sizeof(s_bookmark_statusbar),
+			"removed %s", addr);
+	}
+	else
+	{
+		if (JoinServer_AddFavoriteAdr (addr))
+		{
+			local_server_isfav[index] = true;
+			Com_sprintf (s_bookmark_statusbar, sizeof(s_bookmark_statusbar),
+				"bookmarked %s", addr);
+		}
+		else
+			return;
+	}
+
+	s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
+	JoinServer_RefreshName (index);
+	JoinServer_RebuildVisible ();
+}
 
 static const char *JoinServer_MenuKey( int key )
 {
-	//r1: join server shortcut keys
-	if (key >= '0' && key <= '9')
+	int maxpage;
+	int matched;
+
+	if (key >= '1' && key <= '9')
 	{
-		s_joinserver_menu.cursor = 2 + key - '0';
-		Menu_AdjustCursor (&s_joinserver_menu, 1);
-		Menu_SelectItem (&s_joinserver_menu);
+		int slot = key - '1';
+		if (slot < m_slots_visible)
+		{
+			s_joinserver_menu.cursor = JOIN_SERVER_FIRST_SLOT + slot;
+			Menu_AdjustCursor (&s_joinserver_menu, 1);
+			m_last_server_slot = slot;
+		}
+		return menu_move_sound;
 	}
+
+	if (key == 'f' || key == 'F' || key == K_INS)
+	{
+		JoinServer_ToggleFavoriteSelected ();
+		return menu_move_sound;
+	}
+
+	if (key == K_SPACE)
+	{
+		SearchLocalGames ();
+		return menu_move_sound;
+	}
+
+	matched = m_num_servers;
+	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
+	if (maxpage < 1)
+		maxpage = 1;
+
+	if (key == ']' || key == K_PGDN)
+	{
+		if (m_server_page + 1 < maxpage)
+		{
+			m_server_page++;
+			JoinServer_RebuildVisible ();
+		}
+		return menu_move_sound;
+	}
+
+	if (key == '[' || key == K_PGUP)
+	{
+		if (m_server_page > 0)
+		{
+			m_server_page--;
+			JoinServer_RebuildVisible ();
+		}
+		return menu_move_sound;
+	}
+
+	/* Single-click selects a server; double-click joins. Enter also joins. */
+	if (key == K_MOUSE1)
+	{
+		IN_UpdateMenuMouse ();
+		if (!Menu_UpdateCursorFromMouse (&s_joinserver_menu))
+			return NULL;
+		if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
+		{
+			int slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
+			int now = cls.realtime;
+
+			m_last_server_slot = slot;
+			if (slot == m_join_click_slot
+				&& (now - m_join_click_time) >= 0
+				&& (now - m_join_click_time) < JOIN_DBLCLICK_MS)
+			{
+				m_join_click_slot = -1;
+				JoinServer_ConnectSelected ();
+				return menu_move_sound;
+			}
+			m_join_click_slot = slot;
+			m_join_click_time = now;
+			return menu_move_sound;
+		}
+		/* Toolbar rows (address book / refresh / bookmark) still activate. */
+		Menu_SelectItem (&s_joinserver_menu);
+		return menu_move_sound;
+	}
+
+	if (key == K_ENTER || key == K_KP_ENTER)
+	{
+		if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
+		{
+			JoinServer_ConnectSelected ();
+			return menu_move_sound;
+		}
+		Menu_SelectItem (&s_joinserver_menu);
+		return menu_move_sound;
+	}
+
 	return Default_MenuKey( &s_joinserver_menu, key );
 }
 
@@ -2658,8 +3432,6 @@ static void M_Menu_JoinServer_f (void)
 	JoinServer_MenuInit();
 	M_PushMenu( JoinServer_MenuDraw, JoinServer_MenuKey );
 }
-
-
 /*
 =============================================================================
 
@@ -2826,11 +3598,15 @@ static void StartServer_MenuInit( void )
 	/*
 	** load the list of map names
 	*/
+	{
+	qboolean maps_from_fs = false;
+
 	Com_sprintf( mapsname, sizeof( mapsname ), "%s/maps.lst", FS_Gamedir() );
 	if ( ( fp = fopen( mapsname, "rb" ) ) == 0 )
 	{
 		if ( ( length = FS_LoadFile( "maps.lst", ( void ** ) &buffer ) ) == -1 )
 			Com_Error( ERR_DROP, "couldn't find maps.lst\n" );
+		maps_from_fs = true;
 	}
 	else
 	{
@@ -2842,7 +3618,19 @@ static void StartServer_MenuInit( void )
 		fseek(fp, 0, SEEK_SET);
 #endif
 		buffer = malloc( length );
-		fread( buffer, length, 1, fp );
+		if (!buffer)
+		{
+			fclose (fp);
+			Com_Error( ERR_DROP, "maps.lst: out of memory\n" );
+		}
+		if (length > 0 && fread( buffer, length, 1, fp ) != 1)
+		{
+			free (buffer);
+			fclose (fp);
+			Com_Error( ERR_DROP, "maps.lst: short read\n" );
+		}
+		fclose (fp);
+		fp = NULL;
 	}
 
 	s = buffer;
@@ -2850,8 +3638,12 @@ static void StartServer_MenuInit( void )
 	i = 0;
 	while ( i < length )
 	{
-		if ( s[i] == '\r' )
+		if ( s[i] == '\r' || s[i] == '\n' )
+		{
 			nummaps++;
+			if (s[i] == '\r' && i + 1 < length && s[i+1] == '\n')
+				i++;
+		}
 		i++;
 	}
 
@@ -2882,14 +3674,10 @@ static void StartServer_MenuInit( void )
 	}
 	mapnames[nummaps] = 0;
 
-	if ( fp != 0 )
-	{
-		fp = 0;
-		free( buffer );
-	}
-	else
-	{
+	if ( maps_from_fs )
 		FS_FreeFile( buffer );
+	else
+		free( buffer );
 	}
 
 	/*
@@ -3573,7 +4361,7 @@ ADDRESS BOOK MENU
 
 =============================================================================
 */
-#define NUM_ADDRESSBOOK_ENTRIES 9
+#define NUM_ADDRESSBOOK_ENTRIES JOIN_ADDRESSBOOK_SLOTS
 
 static menuframework_s	s_addressbook_menu;
 static menufield_s		s_addressbook_fields[NUM_ADDRESSBOOK_ENTRIES];
@@ -3583,7 +4371,7 @@ static void AddressBook_MenuInit( void )
 	int i;
 
 	s_addressbook_menu.x = viddef.width / 2 - 142;
-	s_addressbook_menu.y = viddef.height / 2 - 58;
+	s_addressbook_menu.y = viddef.height / 2 - 110;
 	s_addressbook_menu.nitems = 0;
 
 	for ( i = 0; i < NUM_ADDRESSBOOK_ENTRIES; i++ )
@@ -3599,7 +4387,7 @@ static void AddressBook_MenuInit( void )
 		s_addressbook_fields[i].generic.name = 0;
 		s_addressbook_fields[i].generic.callback = 0;
 		s_addressbook_fields[i].generic.x		= 0;
-		s_addressbook_fields[i].generic.y		= i * 18 + 0;
+		s_addressbook_fields[i].generic.y		= i * 12 + 0;
 		s_addressbook_fields[i].generic.localdata[0] = i;
 		s_addressbook_fields[i].cursor			= 0;
 		s_addressbook_fields[i].length			= 60;
@@ -3969,8 +4757,11 @@ static qboolean PlayerConfig_MenuInit( void )
 		}
 	}
 
-	s_player_config_menu.x = viddef.width / 2 - 95; 
-	s_player_config_menu.y = viddef.height / 2 - 97;
+	{
+		float scale = SCR_GetMenuScale();
+		s_player_config_menu.x = viddef.width / 2 - (int)(95 * scale);
+		s_player_config_menu.y = viddef.height / 2 - (int)(97 * scale);
+	}
 	s_player_config_menu.nitems = 0;
 
 	s_player_name_field.generic.type = MTYPE_FIELD;
@@ -4072,13 +4863,27 @@ static void PlayerConfig_MenuDraw( void )
 {
 	refdef_t refdef;
 	char scratch[MAX_QPATH];
+	float scale = SCR_GetMenuScale();
+	int ox, oy, cell;
+	int vx, vy, vw, vh;
 
 	memset( &refdef, 0, sizeof( refdef ) );
 
+	/*
+	** Preview must share the same pixel origin as M_DrawCharacter (scaled
+	** 320x240 letterbox). Snap size to the scaled 8x8 cell grid so the
+	** conchar frame and GL clear/scissor share edges (avoids a 1px black seam).
+	*/
+	ox = (viddef.width - (int)(320 * scale)) >> 1;
+	oy = (viddef.height - (int)(240 * scale)) >> 1;
+	cell = (int)(8 * scale + 0.5f);
+	if (cell < 8)
+		cell = 8;
+
 	refdef.x = viddef.width / 2;
-	refdef.y = viddef.height / 2 - 72;
-	refdef.width = 144;
-	refdef.height = 168;
+	refdef.y = viddef.height / 2 - 9 * cell;	/* was 72px ≈ 9*8 */
+	refdef.width = 18 * cell;			/* was 144 */
+	refdef.height = 21 * cell;			/* was 168 */
 	refdef.fov_x = 40;
 	refdef.fov_y = CalcFov( refdef.fov_x, refdef.width, refdef.height );
 	refdef.time = cls.realtime*0.001f;
@@ -4086,7 +4891,6 @@ static void PlayerConfig_MenuDraw( void )
 	if ( s_pmi[s_player_model_box.curvalue].skindisplaynames )
 	{
 		static int yaw;
-		//int maxframe = 29;
 		entity_t entity;
 
 		memset( &entity, 0, sizeof( entity ) );
@@ -4104,7 +4908,6 @@ static void PlayerConfig_MenuDraw( void )
 		entity.oldframe = 0;
 		entity.backlerp = 0.0;
 		entity.angles[1] = (float)yaw;
-		yaw++;
 		if ( ++yaw > 360 )
 			yaw -= 360;
 
@@ -4116,15 +4919,29 @@ static void PlayerConfig_MenuDraw( void )
 
 		Menu_Draw( &s_player_config_menu );
 
-		M_DrawTextBox( (int)(( refdef.x ) * ( 320.0F / viddef.width ) - 8), (int)(( viddef.height / 2 ) * ( 240.0F / viddef.height) - 77), refdef.width / 8, refdef.height / 8 );
-		refdef.height += 4;
+		/* Pixel refdef → virtual coords expected by M_DrawCharacter */
+		vx = (int)((refdef.x - ox) / scale + 0.5f) - 8;
+		vy = (int)((refdef.y - oy) / scale + 0.5f) - 8;
+		vw = refdef.width / cell;
+		vh = refdef.height / cell;
+		M_DrawTextBox( vx, vy, vw, vh );
+
+		/* Extend into bottom border like stock Q2, but scaled */
+		refdef.height += cell / 2;
+		if (refdef.height < cell)
+			refdef.height = cell;
 
 		re.RenderFrame( &refdef );
 
 		Com_sprintf( scratch, sizeof( scratch ), "/players/%s/%s_i.pcx", 
 			s_pmi[s_player_model_box.curvalue].directory,
 			s_pmi[s_player_model_box.curvalue].skindisplaynames[s_player_skin_box.curvalue] );
-		re.DrawPic( s_player_config_menu.x - 40, refdef.y, scratch );
+		{
+			int iw, ih;
+			re.DrawGetPicSize( &iw, &ih, scratch );
+			re.DrawStretchPic( s_player_config_menu.x - (int)(40 * scale), refdef.y,
+				(int)(iw * scale), (int)(ih * scale), scratch );
+		}
 	}
 }
 
@@ -4228,6 +5045,8 @@ M_Draw
 */
 void M_Draw (void)
 {
+	float scale;
+
 	if (cls.key_dest != key_menu)
 		return;
 
@@ -4242,7 +5061,15 @@ void M_Draw (void)
 #endif
 		re.DrawFadeScreen ();
 
+	scale = SCR_GetMenuScale();
+	Cvar_SetValue( "gl_fontscale", scale );
+
+	/* Fresh absolute cursor before hover hit-tests in draw funcs */
+	IN_UpdateMenuMouse();
+
 	m_drawfunc ();
+
+	Cvar_SetValue( "gl_fontscale", 1 );
 
 	// delay playing the enter sound until after the
 	// menu has been drawn, to avoid delay while

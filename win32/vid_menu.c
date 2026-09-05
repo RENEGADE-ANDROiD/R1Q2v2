@@ -39,6 +39,15 @@ static cvar_t *gl_driver;
 static cvar_t *gl_picmip;
 static cvar_t *gl_ext_palettedtexture;
 static cvar_t *gl_finish;
+static cvar_t *gl_swapinterval;
+static cvar_t *gl_modulate;
+static cvar_t *gl_ext_max_anisotropy;
+static cvar_t *gl_texture_lodbias;
+static cvar_t *scr_hudscale;
+static cvar_t *scr_hud_top;
+static cvar_t *gl_shadows;
+static cvar_t *gl_dynamic;
+static cvar_t *r_maxfps;
 
 static cvar_t *sw_mode;
 static cvar_t *sw_stipplealpha;
@@ -69,6 +78,15 @@ static menulist_s  		s_fs_box[2];
 static menulist_s  		s_stipple_box;
 static menulist_s  		s_paletted_texture_box;
 static menulist_s  		s_finish_box;
+static menulist_s		s_vsync_box;
+static menuslider_s		s_maxfps_slider;
+static menuslider_s		s_modulate_slider;
+static menuslider_s		s_sharpen_slider;
+static menuslider_s		s_hudscale_slider;
+static menulist_s		s_aniso_box;
+static menulist_s		s_hudtop_box;
+static menulist_s		s_shadows_box;
+static menulist_s		s_dynamic_box;
 static menuaction_s		s_cancel_action[2];
 static menuaction_s		s_defaults_action[2];
 
@@ -113,6 +131,36 @@ static void BrightnessCallback( void *s )
 	}
 }
 
+static void VID_ApplyFxSettings( void )
+{
+	static const float aniso_vals[] = { 1.0f, 2.0f, 4.0f, 8.0f, 16.0f };
+	int ai;
+
+	Cvar_SetValue( "gl_swapinterval", (float)s_vsync_box.curvalue );
+	Cvar_SetValue( "r_maxfps", s_maxfps_slider.curvalue * 10.0f );
+	Cvar_SetValue( "gl_picmip", 3 - (float)s_tq_slider.curvalue );
+	Cvar_SetValue( "gl_ext_palettedtexture", (float)s_paletted_texture_box.curvalue );
+	Cvar_SetValue( "gl_finish", (float)s_finish_box.curvalue );
+	Cvar_SetValue( "gl_modulate", s_modulate_slider.curvalue );
+	ai = s_aniso_box.curvalue;
+	if (ai < 0)
+		ai = 0;
+	if (ai > 4)
+		ai = 4;
+	Cvar_SetValue( "gl_ext_max_anisotropy", aniso_vals[ai] );
+	Cvar_SetValue( "gl_texture_lodbias", -s_sharpen_slider.curvalue * 0.4f );
+	Cvar_SetValue( "scr_hudscale", s_hudscale_slider.curvalue / 10.0f );
+	Cvar_SetValue( "gl_hudscale", 1.0f ); /* keep 2D layer unscaled (menus/crosshair) */
+	Cvar_SetValue( "scr_hud_top", (float)s_hudtop_box.curvalue );
+	Cvar_SetValue( "gl_shadows", (float)s_shadows_box.curvalue );
+	Cvar_SetValue( "gl_dynamic", (float)s_dynamic_box.curvalue );
+}
+
+static void VidFxCallback( void *unused )
+{
+	VID_ApplyFxSettings();
+}
+
 static void ResetDefaults( void *unused )
 {
 	VID_MenuInit();
@@ -136,10 +184,8 @@ static void ApplyChanges( void *unused )
 
 	Cvar_SetValue( "vid_gamma", gamma );
 	Cvar_SetValue( "sw_stipplealpha", (float)s_stipple_box.curvalue );
-	Cvar_SetValue( "gl_picmip", 3 - (float)s_tq_slider.curvalue );
 	Cvar_SetValue( "vid_fullscreen", (float)s_fs_box[s_current_menu_index].curvalue );
-	Cvar_SetValue( "gl_ext_palettedtexture", (float)s_paletted_texture_box.curvalue );
-	Cvar_SetValue( "gl_finish", (float)s_finish_box.curvalue );
+	VID_ApplyFxSettings();
 	Cvar_SetValue( "sw_mode", (float)s_mode_list[SOFTWARE_MENU].curvalue );
 	Cvar_SetValue( "gl_mode", (float)s_mode_list[OPENGL_MENU].curvalue );
 
@@ -217,25 +263,9 @@ static void CancelChanges( void *unused )
 */
 void EXPORT VID_MenuInit( void )
 {
-	static const char *resolutions[] = 
-	{
-		"[320 240  ]",
-		"[400 300  ]",
-		"[512 384  ]",
-		"[640 480  ]",
-		"[800 600  ]",
-		"[960 720  ]",
-		"[1024 768 ]",
-		"[1152 864 ]",
-		"[1280 960 ]",
-		"[1600 1200]",
-		"[2048 1536]",
-		"[1280 1024]",
-		"[1440 900 ]",
-		"[1680 1050]",
-		"[2560 1920]",
-		0
-	};
+	const char **resolutions;
+	int maxmode;
+
 
 	static const char *refs[] =
 	{
@@ -262,11 +292,17 @@ void EXPORT VID_MenuInit( void )
 	if ( !gl_picmip )
 		gl_picmip = Cvar_Get( "gl_picmip", "0", 0 );
 
-	if ( !gl_mode )
-		gl_mode = Cvar_Get( "gl_mode", "3", 0 );
-
-	if ( !sw_mode )
-		sw_mode = Cvar_Get( "sw_mode", "0", 0 );
+	{
+		int desk = VID_GetDesktopModeIndex();
+		char mode_def[16];
+		if ( desk < 0 )
+			desk = 3;
+		Com_sprintf( mode_def, sizeof(mode_def), "%d", desk );
+		if ( !gl_mode )
+			gl_mode = Cvar_Get( "gl_mode", mode_def, 0 );
+		if ( !sw_mode )
+			sw_mode = Cvar_Get( "sw_mode", mode_def, 0 );
+	}
 
 	if ( !gl_ext_palettedtexture )
 		gl_ext_palettedtexture = Cvar_Get( "gl_ext_palettedtexture", "0", CVAR_ARCHIVE );
@@ -274,18 +310,56 @@ void EXPORT VID_MenuInit( void )
 	if ( !gl_finish )
 		gl_finish = Cvar_Get( "gl_finish", "0", CVAR_ARCHIVE );
 
+	if ( !gl_swapinterval )
+		gl_swapinterval = Cvar_Get( "gl_swapinterval", "0", CVAR_ARCHIVE );
+
+	if ( !gl_modulate )
+		gl_modulate = Cvar_Get( "gl_modulate", "2", CVAR_ARCHIVE );
+
+	if ( !gl_ext_max_anisotropy )
+		gl_ext_max_anisotropy = Cvar_Get( "gl_ext_max_anisotropy", "16", CVAR_ARCHIVE );
+
+	if ( !gl_texture_lodbias )
+		gl_texture_lodbias = Cvar_Get( "gl_texture_lodbias", "0", CVAR_ARCHIVE );
+
+	if ( !scr_hudscale )
+		scr_hudscale = Cvar_Get( "scr_hudscale", "1", CVAR_ARCHIVE );
+
+	if ( !scr_hud_top )
+		scr_hud_top = Cvar_Get( "scr_hud_top", "0", CVAR_ARCHIVE );
+
+	if ( !gl_shadows )
+		gl_shadows = Cvar_Get( "gl_shadows", "0", CVAR_ARCHIVE );
+
+	if ( !gl_dynamic )
+		gl_dynamic = Cvar_Get( "gl_dynamic", "1", 0 );
+
+	if ( !r_maxfps )
+		r_maxfps = Cvar_Get( "r_maxfps", "250", CVAR_ARCHIVE );
+
 	if ( !sw_stipplealpha )
 		sw_stipplealpha = Cvar_Get( "sw_stipplealpha", "0", CVAR_ARCHIVE );
 
+	resolutions = VID_GetModeNames();
+	maxmode = VID_GetNumModes() - 1;
+	if (maxmode < 0)
+	{
+		VID_InitModeList();
+		resolutions = VID_GetModeNames();
+		maxmode = VID_GetNumModes() - 1;
+	}
+	if (maxmode < 0)
+		maxmode = 0;
+
 	s_mode_list[SOFTWARE_MENU].curvalue = sw_mode->intvalue;
-	if (s_mode_list[SOFTWARE_MENU].curvalue > 14)
-		s_mode_list[SOFTWARE_MENU].curvalue = 14;
+	if (s_mode_list[SOFTWARE_MENU].curvalue > maxmode)
+		s_mode_list[SOFTWARE_MENU].curvalue = maxmode;
 	else if (s_mode_list[SOFTWARE_MENU].curvalue < 0)
 		s_mode_list[SOFTWARE_MENU].curvalue = 0;
 
 	s_mode_list[OPENGL_MENU].curvalue = gl_mode->intvalue;
-	if (s_mode_list[OPENGL_MENU].curvalue > 14)
-		s_mode_list[OPENGL_MENU].curvalue = 14;
+	if (s_mode_list[OPENGL_MENU].curvalue > maxmode)
+		s_mode_list[OPENGL_MENU].curvalue = maxmode;
 	else if (s_mode_list[OPENGL_MENU].curvalue < 0)
 		s_mode_list[OPENGL_MENU].curvalue = 0;
 
@@ -369,13 +443,13 @@ void EXPORT VID_MenuInit( void )
 		s_defaults_action[i].generic.type = MTYPE_ACTION;
 		s_defaults_action[i].generic.name = "reset to defaults";
 		s_defaults_action[i].generic.x    = 0;
-		s_defaults_action[i].generic.y    = 90;
+		s_defaults_action[i].generic.y    = 170;
 		s_defaults_action[i].generic.callback = ResetDefaults;
 
 		s_cancel_action[i].generic.type = MTYPE_ACTION;
 		s_cancel_action[i].generic.name = "cancel";
 		s_cancel_action[i].generic.x    = 0;
-		s_cancel_action[i].generic.y    = 100;
+		s_cancel_action[i].generic.y    = 180;
 		s_cancel_action[i].generic.callback = CancelChanges;
 	}
 
@@ -388,27 +462,135 @@ void EXPORT VID_MenuInit( void )
 
 	s_tq_slider.generic.type	= MTYPE_SLIDER;
 	s_tq_slider.generic.x		= 0;
-	s_tq_slider.generic.y		= 60;
+	s_tq_slider.generic.y		= 70;
 	s_tq_slider.generic.name	= "texture quality";
+	s_tq_slider.generic.callback = VidFxCallback;
 	s_tq_slider.minvalue = 0;
 	s_tq_slider.maxvalue = 3;
 	s_tq_slider.curvalue = 3-gl_picmip->value;
 	if (s_tq_slider.curvalue < 0)
 		s_tq_slider.curvalue = 0;
 
+	s_vsync_box.generic.type = MTYPE_SPINCONTROL;
+	s_vsync_box.generic.x	= 0;
+	s_vsync_box.generic.y	= 50;
+	s_vsync_box.generic.name	= "vsync";
+	s_vsync_box.generic.callback = VidFxCallback;
+	s_vsync_box.itemnames = yesno_names;
+	s_vsync_box.curvalue = gl_swapinterval->intvalue ? 1 : 0;
+
+	s_maxfps_slider.generic.type = MTYPE_SLIDER;
+	s_maxfps_slider.generic.x = 0;
+	s_maxfps_slider.generic.y = 60;
+	s_maxfps_slider.generic.name = "max fps";
+	s_maxfps_slider.generic.callback = VidFxCallback;
+	s_maxfps_slider.minvalue = 6;
+	s_maxfps_slider.maxvalue = 30;
+	s_maxfps_slider.curvalue = r_maxfps->value / 10.0f;
+	if (s_maxfps_slider.curvalue < 6)
+		s_maxfps_slider.curvalue = 6;
+	if (s_maxfps_slider.curvalue > 30)
+		s_maxfps_slider.curvalue = 30;
+
 	s_paletted_texture_box.generic.type = MTYPE_SPINCONTROL;
 	s_paletted_texture_box.generic.x	= 0;
-	s_paletted_texture_box.generic.y	= 70;
+	s_paletted_texture_box.generic.y	= 80;
 	s_paletted_texture_box.generic.name	= "8-bit textures";
+	s_paletted_texture_box.generic.callback = VidFxCallback;
 	s_paletted_texture_box.itemnames = yesno_names;
 	s_paletted_texture_box.curvalue = gl_ext_palettedtexture->intvalue ? 1 : 0;
 
 	s_finish_box.generic.type = MTYPE_SPINCONTROL;
 	s_finish_box.generic.x	= 0;
-	s_finish_box.generic.y	= 80;
+	s_finish_box.generic.y	= 90;
 	s_finish_box.generic.name	= "sync every frame";
+	s_finish_box.generic.callback = VidFxCallback;
 	s_finish_box.curvalue = gl_finish->intvalue ? 1 : 0;
 	s_finish_box.itemnames = yesno_names;
+
+	s_modulate_slider.generic.type = MTYPE_SLIDER;
+	s_modulate_slider.generic.x = 0;
+	s_modulate_slider.generic.y = 100;
+	s_modulate_slider.generic.name = "lightmap";
+	s_modulate_slider.generic.callback = VidFxCallback;
+	s_modulate_slider.minvalue = 1;
+	s_modulate_slider.maxvalue = 5;
+	s_modulate_slider.curvalue = gl_modulate->value;
+	if (s_modulate_slider.curvalue < 1)
+		s_modulate_slider.curvalue = 1;
+	if (s_modulate_slider.curvalue > 5)
+		s_modulate_slider.curvalue = 5;
+
+	{
+		static const char *aniso_names[] = { "1", "2", "4", "8", "16", 0 };
+		float av = gl_ext_max_anisotropy->value;
+		s_aniso_box.generic.type = MTYPE_SPINCONTROL;
+		s_aniso_box.generic.x = 0;
+		s_aniso_box.generic.y = 110;
+		s_aniso_box.generic.name = "anisotropy";
+		s_aniso_box.generic.callback = VidFxCallback;
+		s_aniso_box.itemnames = aniso_names;
+		if (av >= 16)
+			s_aniso_box.curvalue = 4;
+		else if (av >= 8)
+			s_aniso_box.curvalue = 3;
+		else if (av >= 4)
+			s_aniso_box.curvalue = 2;
+		else if (av >= 2)
+			s_aniso_box.curvalue = 1;
+		else
+			s_aniso_box.curvalue = 0;
+	}
+
+	s_sharpen_slider.generic.type = MTYPE_SLIDER;
+	s_sharpen_slider.generic.x = 0;
+	s_sharpen_slider.generic.y = 120;
+	s_sharpen_slider.generic.name = "texture sharpen";
+	s_sharpen_slider.generic.callback = VidFxCallback;
+	s_sharpen_slider.minvalue = 0;
+	s_sharpen_slider.maxvalue = 10;
+	s_sharpen_slider.curvalue = -gl_texture_lodbias->value / 0.4f;
+	if (s_sharpen_slider.curvalue < 0)
+		s_sharpen_slider.curvalue = 0;
+	if (s_sharpen_slider.curvalue > 10)
+		s_sharpen_slider.curvalue = 10;
+
+	s_hudscale_slider.generic.type = MTYPE_SLIDER;
+	s_hudscale_slider.generic.x = 0;
+	s_hudscale_slider.generic.y = 130;
+	s_hudscale_slider.generic.name = "hud scale";
+	s_hudscale_slider.generic.callback = VidFxCallback;
+	s_hudscale_slider.minvalue = 5;
+	s_hudscale_slider.maxvalue = 25;
+	s_hudscale_slider.curvalue = scr_hudscale->value * 10.0f;
+	if (s_hudscale_slider.curvalue < 5)
+		s_hudscale_slider.curvalue = 5;
+	if (s_hudscale_slider.curvalue > 25)
+		s_hudscale_slider.curvalue = 25;
+
+	s_hudtop_box.generic.type = MTYPE_SPINCONTROL;
+	s_hudtop_box.generic.x = 0;
+	s_hudtop_box.generic.y = 140;
+	s_hudtop_box.generic.name = "hud at top";
+	s_hudtop_box.generic.callback = VidFxCallback;
+	s_hudtop_box.itemnames = yesno_names;
+	s_hudtop_box.curvalue = scr_hud_top->intvalue ? 1 : 0;
+
+	s_shadows_box.generic.type = MTYPE_SPINCONTROL;
+	s_shadows_box.generic.x = 0;
+	s_shadows_box.generic.y = 150;
+	s_shadows_box.generic.name = "shadows";
+	s_shadows_box.generic.callback = VidFxCallback;
+	s_shadows_box.itemnames = yesno_names;
+	s_shadows_box.curvalue = gl_shadows->intvalue ? 1 : 0;
+
+	s_dynamic_box.generic.type = MTYPE_SPINCONTROL;
+	s_dynamic_box.generic.x = 0;
+	s_dynamic_box.generic.y = 160;
+	s_dynamic_box.generic.name = "dynamic lights";
+	s_dynamic_box.generic.callback = VidFxCallback;
+	s_dynamic_box.itemnames = yesno_names;
+	s_dynamic_box.curvalue = gl_dynamic->intvalue ? 1 : 0;
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_ref_list[SOFTWARE_MENU] );
 	Menu_AddItem( &s_software_menu, ( void * ) &s_mode_list[SOFTWARE_MENU] );
@@ -422,9 +604,18 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_screensize_slider[OPENGL_MENU] );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_brightness_slider[OPENGL_MENU] );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_fs_box[OPENGL_MENU] );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_vsync_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_maxfps_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_tq_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_paletted_texture_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_finish_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_modulate_slider );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_aniso_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_sharpen_slider );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudscale_slider );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudtop_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_shadows_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_dynamic_box );
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_defaults_action[SOFTWARE_MENU] );
 	Menu_AddItem( &s_software_menu, ( void * ) &s_cancel_action[SOFTWARE_MENU] );
@@ -433,8 +624,24 @@ void EXPORT VID_MenuInit( void )
 
 	Menu_Center( &s_software_menu );
 	Menu_Center( &s_opengl_menu );
-	s_opengl_menu.x -= 8;
-	s_software_menu.x -= 8;
+
+	/*
+	** Menu_Center also vertically centers — with many FX rows that pulls the
+	** first items up under the "display" banner. Keep centered X; sit below banner.
+	*/
+	{
+		int		bw, bh;
+		float	s = SCR_GetMenuScale();
+		float	ps = SCR_GetMenuPicScale();
+		int		banner_y;
+		int		menu_y;
+
+		re.DrawGetPicSize( &bw, &bh, "m_banner_video" );
+		banner_y = (int)(viddef.height / 2 - 110 * s);
+		menu_y = banner_y + (int)(bh * ps) + (int)(8 * s);
+		s_software_menu.y = menu_y;
+		s_opengl_menu.y = menu_y;
+	}
 }
 
 /*
@@ -454,8 +661,14 @@ void VID_MenuDraw (void)
 	/*
 	** draw the banner
 	*/
-	re.DrawGetPicSize( &w, &h, "m_banner_video" );
-	re.DrawPic( viddef.width / 2 - w / 2, viddef.height /2 - 110, "m_banner_video" );
+	{
+		float s = SCR_GetMenuScale();
+		float ps = SCR_GetMenuPicScale();
+		re.DrawGetPicSize( &w, &h, "m_banner_video" );
+		re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
+			(int)(viddef.height / 2 - 110 * s),
+			(int)(w * ps), (int)(h * ps), "m_banner_video" );
+	}
 
 	/*
 	** move cursor to a reasonable starting position
@@ -503,6 +716,21 @@ const char *VID_MenuKey( int key )
 	case K_RIGHTARROW:
 		Menu_SlideItem( m, 1 );
 		break;
+	case K_MOUSE1:
+	case K_MOUSE2:
+	case K_MOUSE3:
+		IN_UpdateMenuMouse();
+		if ( !Menu_UpdateCursorFromMouse( m ) )
+			return NULL;
+		{
+			menucommon_s *item = (menucommon_s *)Menu_ItemAtCursor( m );
+			if ( item && ( item->type == MTYPE_SPINCONTROL || item->type == MTYPE_SLIDER ) )
+			{
+				Menu_SlideItem( m, ( key == K_MOUSE2 ) ? -1 : 1 );
+				break;
+			}
+		}
+		/* fallthrough */
 	case K_KP_ENTER:
 	case K_ENTER:
 		if ( !Menu_SelectItem( m ) )
