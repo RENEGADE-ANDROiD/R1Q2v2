@@ -26,9 +26,6 @@ def targets() -> list[Path]:
         if not child.is_dir() or child.name in SKIP_DIRS:
             continue
         out.append(child)
-    q2pro = Q2 / "baseq2" / "q2pro-x"
-    if q2pro.is_dir():
-        out.append(q2pro)
     return out
 
 
