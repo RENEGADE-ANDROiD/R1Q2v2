@@ -15,18 +15,25 @@ Useful client settings for **R1Q2v2 (Build 8012+)**. Defaults are engine default
 
 ## Video / display
 
+R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2PRO’s `vid_geometry`). On first run, `gl_mode` and `sw_mode` default to your **desktop resolution index** in the mode list (`VID_GetDesktopModeIndex`).
+
 | Cvar | Default | Notes |
 |------|---------|--------|
 | `vid_ref` | `r1gl` | Renderer module. Prefer `r1gl` (`ref_r1gl.dll`). |
 | `vid_fullscreen` | `0` | `1` fullscreen, `0` windowed. |
-| `gl_mode` | desktop index | Mode list index. `-1` = custom size via force width/height. |
-| `vid_forcewidth` | `0` | Custom width when `gl_mode -1` (archived; use with `vid_forceheight`). |
-| `vid_forceheight` | `0` | Custom height when `gl_mode -1` (archived). |
+| `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid values fall back to the previous mode (often 320×240 if mode `0`). |
+| `sw_mode` | desktop index | Software renderer mode index (video menu). Keep in sync with `gl_mode` if you use both paths. |
+| `vid_forcewidth` | `0` | Target width in pixels. **Archived.** When non-zero, overrides the width from `gl_mode` (including indexed modes, not only `-1`). |
+| `vid_forceheight` | `0` | Target height in pixels. **Archived.** When non-zero, overrides the height from `gl_mode`. |
 | `gl_swapinterval` | `0` | Vsync. `0` off (default), `1` on. |
 | `vid_gamma` | `1.0` | Display gamma / brightness path used by the video menu. |
 | `viewsize` | `100` | 3D view percent; below 100 letterboxes the refresh. |
 | `gl_bitdepth` | `0` | Color depth request; `0` = default. |
 | `vid_xpos` / `vid_ypos` | `3` / `22` | Window position (windowed). |
+
+**1080p preset:** Mode indices are **display-specific** (they follow `EnumDisplaySettings`). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) uses `gl_mode 17` on the author’s machine; on yours, run `vid_restart` and check the console, or pick 1920×1080 in the video menu once and note the saved `gl_mode` in `config.cfg`. Pair it with `vid_forcewidth 1920` and `vid_forceheight 1080` so resolution stays correct if the index shifts. Avoid mixing `gl_mode -1` with a saved indexed mode — that mismatch can stick you at 320×240.
+
+Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolution_cfg.py` patches a live Quake II tree; edit `MODE` at the top if your 1080p index differs.
 
 ---
 
@@ -209,6 +216,17 @@ These are often **not** written to `config.cfg` — keep them in `autoexec.cfg` 
 
 ## Quick presets
 
+1920×1080 video (adjust `gl_mode` to your display’s index; force dims as backup):
+
+```
+seta vid_ref "r1gl"
+seta vid_fullscreen "1"
+seta gl_mode "17"
+seta sw_mode "17"
+seta vid_forcewidth "1920"
+seta vid_forceheight "1080"
+```
+
 Readable menus + HUD at 1080p:
 
 ```
@@ -219,7 +237,7 @@ seta scr_hudscale "2.5"
 seta gl_hudscale "1"
 ```
 
-Shipped preset: copy [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) (and optionally [`baseq2/pretty_r1q2v2.cfg`](baseq2/pretty_r1q2v2.cfg)) into the Quake II install `baseq2` folder. Mod autoexecs `exec` that file; it must keep `gl_hudscale 1`.
+Shipped preset: copy [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) (and optionally [`baseq2/pretty_r1q2v2.cfg`](baseq2/pretty_r1q2v2.cfg)) into the Quake II install `baseq2` folder. Exec from your own `autoexec.cfg` or launch line; it must keep `gl_hudscale 1`.
 
 Smooth high FPS, no vsync, classic sync movement:
 
