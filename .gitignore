@@ -9,3 +9,18 @@ CMakeUserPresets.json
 _*.bat
 
 /build-vs64/
+
+# Visual Studio / MSVC
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+.vs/
+
+# Python
+__pycache__/
+*.pyc
+
+# Script / pak temp files
+*.tmp
+*.tmp_*
