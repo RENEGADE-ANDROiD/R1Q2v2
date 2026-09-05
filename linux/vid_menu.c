@@ -376,7 +376,7 @@ void VID_MenuDraw (void)
 	else
 		s_current_menu = &s_opengl_menu;
 
-	M_Banner( "m_banner_video" );
+	M_BannerText( "VIDEO SETTINGS" );
 
 	/*
 	** move cursor to a reasonable starting position

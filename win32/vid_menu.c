@@ -646,15 +646,14 @@ void EXPORT VID_MenuInit( void )
 	** first items up under the "display" banner. Keep centered X; sit below banner.
 	*/
 	{
-		int		bw, bh;
 		float	s = SCR_GetMenuScale();
-		float	ps = SCR_GetMenuPicScale();
 		int		banner_y;
 		int		menu_y;
+		int		bh;
 
-		re.DrawGetPicSize( &bw, &bh, "m_banner_video" );
+		bh = M_BannerTextHeight ("VIDEO SETTINGS");
 		banner_y = (int)(viddef.height / 2 - 110 * s);
-		menu_y = banner_y + (int)(bh * ps) + (int)(8 * s);
+		menu_y = banner_y + bh + (int)(8 * s);
 		s_software_menu.y = menu_y;
 		s_opengl_menu.y = menu_y;
 	}
@@ -672,7 +671,7 @@ void VID_MenuDraw (void)
 	else
 		s_current_menu = &s_opengl_menu;
 
-	M_Banner( "m_banner_video" );
+	M_BannerText( "VIDEO SETTINGS" );
 
 	/*
 	** move cursor to a reasonable starting position

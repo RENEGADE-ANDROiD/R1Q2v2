@@ -92,6 +92,60 @@ void M_Banner( char *name )
 		(int)(w * ps), (int)(h * ps), name );
 }
 
+static float M_BannerTextGlyph (const char *text)
+{
+	float	s = SCR_GetMenuScale();
+	float	glyph = 8.0f * s * 3.0f;
+	int		n;
+	float	maxw;
+
+	n = text ? (int)strlen (text) : 1;
+	if (n < 1)
+		n = 1;
+	maxw = viddef.width * 0.92f;
+	if (n * glyph > maxw)
+		glyph = maxw / (float)n;
+	if (glyph < 8.0f * s)
+		glyph = 8.0f * s;
+	if (glyph > 64.0f)
+		glyph = 64.0f;
+	return glyph;
+}
+
+int M_BannerTextHeight (const char *text)
+{
+	return (int)M_BannerTextGlyph (text);
+}
+
+void M_BannerText (const char *text)
+{
+	cvar_t	*fs;
+	float	old, glyph, scale, s;
+	int		n, i, x, y;
+
+	if (!text || !text[0])
+		return;
+
+	s = SCR_GetMenuScale();
+	n = (int)strlen (text);
+	glyph = M_BannerTextGlyph (text);
+	scale = glyph / 8.0f;
+
+	fs = Cvar_Get ("gl_fontscale", "1", 0);
+	old = fs->value;
+	fs->value = scale;
+
+	x = (int)(viddef.width / 2 - (n * glyph) / 2);
+	y = (int)(viddef.height / 2 - 110 * s);
+	for (i = 0; i < n; i++)
+	{
+		if (text[i] != ' ')
+			re.DrawChar (x + (int)(i * glyph), y, text[i]);
+	}
+
+	fs->value = old;
+}
+
 static void M_PushMenu ( void (*draw) (void), const char *(*key) (int k) )
 {
 	int		i;
