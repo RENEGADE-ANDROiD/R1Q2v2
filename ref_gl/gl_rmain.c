@@ -74,7 +74,6 @@ int			c_brush_polys, c_alias_polys;
 float		v_blend[4];			// final blending color
 
 void GL_Strings_f( void );
-void GL_ApplyLodBiasState (void);
 
 //
 // view origin
@@ -1017,6 +1016,85 @@ void MYgluPerspective( GLdouble fovy, GLdouble aspect,
 
 /*
 =============
+R_Ident4 / R_Rotate4 / R_Translate4 / R_BuildWorldMatrix
+
+OpenGL-column-major helpers matching glLoadIdentity + the classic
+glRotatef/glTranslatef view sequence. Used so we never glGetFloatv the
+modelview (pipeline stall) and so r_world_matrix matches what we load.
+=============
+*/
+static void R_Ident4 (float *m)
+{
+	m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 0;
+	m[4] = 0; m[5] = 1; m[6] = 0; m[7] = 0;
+	m[8] = 0; m[9] = 0; m[10] = 1; m[11] = 0;
+	m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
+}
+
+/* C = C * R. axis 0=X, 1=Y, 2=Z (the only axes classic R1GL uses). */
+static void R_Rotate4 (float *m, float deg, int axis)
+{
+	float	a, c, s;
+	float	r[16], t[16];
+	int		i, j;
+
+	a = deg * ((float)M_PI / 180.0f);
+	c = (float)cos(a);
+	s = (float)sin(a);
+
+	R_Ident4 (r);
+	if (axis == 0)
+	{
+		r[5] = c; r[6] = s; r[9] = -s; r[10] = c;
+	}
+	else if (axis == 1)
+	{
+		r[0] = c; r[2] = -s; r[8] = s; r[10] = c;
+	}
+	else
+	{
+		r[0] = c; r[1] = s; r[4] = -s; r[5] = c;
+	}
+
+	for (i = 0; i < 4; i++)
+	{
+		for (j = 0; j < 4; j++)
+		{
+			t[i * 4 + j] =
+				m[j] * r[i * 4] +
+				m[4 + j] * r[i * 4 + 1] +
+				m[8 + j] * r[i * 4 + 2] +
+				m[12 + j] * r[i * 4 + 3];
+		}
+	}
+
+	memcpy (m, t, sizeof(t));
+}
+
+static void R_Translate4 (float *m, float x, float y, float z)
+{
+	m[12] += m[0] * x + m[4] * y + m[8] * z;
+	m[13] += m[1] * x + m[5] * y + m[9] * z;
+	m[14] += m[2] * x + m[6] * y + m[10] * z;
+	m[15] += m[3] * x + m[7] * y + m[11] * z;
+}
+
+static void R_BuildWorldMatrix (void)
+{
+	R_Ident4 (r_world_matrix);
+	R_Rotate4 (r_world_matrix, -90, 0);
+	R_Rotate4 (r_world_matrix, 90, 2);
+	R_Rotate4 (r_world_matrix, -r_newrefdef.viewangles[2], 0);
+	R_Rotate4 (r_world_matrix, -r_newrefdef.viewangles[0], 1);
+	R_Rotate4 (r_world_matrix, -r_newrefdef.viewangles[1], 2);
+	R_Translate4 (r_world_matrix,
+		-r_newrefdef.vieworg[0],
+		-r_newrefdef.vieworg[1],
+		-r_newrefdef.vieworg[2]);
+}
+
+/*
+=============
 R_SetupGL
 =============
 */
@@ -1061,19 +1139,10 @@ void R_SetupGL (void)
 	qglCullFace(GL_FRONT);
 
 	qglMatrixMode(GL_MODELVIEW);
-    qglLoadIdentity ();
-
-    qglRotatef (-90,  1, 0, 0);	    // put Z going up
-    qglRotatef (90,  0, 0, 1);	    // put Z going up
-    qglRotatef (-r_newrefdef.viewangles[2],  1, 0, 0);
-    qglRotatef (-r_newrefdef.viewangles[0],  0, 1, 0);
-    qglRotatef (-r_newrefdef.viewangles[1],  0, 0, 1);
-    qglTranslatef (-r_newrefdef.vieworg[0],  -r_newrefdef.vieworg[1],  -r_newrefdef.vieworg[2]);
-
-//	if ( gl_state.camera_separation != 0 && gl_state.stereo_enabled )
-//		qglTranslatef ( gl_state.camera_separation, 0, 0 );
-
-	qglGetFloatv (GL_MODELVIEW_MATRIX, r_world_matrix);
+	/* CPU modelview — same rotate/translate sequence as classic R1GL, without
+	 * glGetFloatv (that readback stalls the pipeline every view). */
+	R_BuildWorldMatrix ();
+	qglLoadMatrixf (r_world_matrix);
 
 	//
 	// set drawing parms
@@ -1087,8 +1156,6 @@ void R_SetupGL (void)
 	qglDisable(GL_ALPHA_TEST);
 	//qglEnable(GL_ALPHA_TEST);
 	qglEnable(GL_DEPTH_TEST);
-
-	GL_ApplyLodBiasState ();
 }
 
 /*
@@ -1267,6 +1334,7 @@ void	R_SetGL2D (void)
 	if (qglDisableClientState)
 		qglDisableClientState (GL_COLOR_ARRAY);
 	qglColor4fv(colorWhite);
+	Draw_Reset2DState ();
 }
 
 #ifdef STEREO_SUPPORT
@@ -2195,6 +2263,13 @@ void EXPORT R_BeginFrame( float camera_separation )
 	//GLPROFqglDisable (GL_BLEND);
 	//GLPROFqglEnable (GL_ALPHA_TEST);
 	qglColor4fv(colorWhite);
+	Draw_Reset2DState ();
+
+	if (gl_defertext && gl_defertext->modified)
+	{
+		gl_defertext->modified = false;
+		defer_drawing = (int)gl_defertext->value;
+	}
 
 	//qglEnable(GL_MULTISAMPLE_ARB);
 
@@ -2336,6 +2411,25 @@ void EXPORT R_BeginFrame( float camera_separation )
 }
 
 /*
+@@@@@@@@@@@@@@@@@@@@@
+R_EndFrame
+
+Flush batched 2D text, then present. Lives here so Win32 and Linux share
+the same flush (Linux GLimp_EndFrame previously never drained deferred chars).
+@@@@@@@@@@@@@@@@@@@@@
+*/
+void EXPORT R_EndFrame (void)
+{
+	if (gl_defertext && gl_defertext->modified)
+	{
+		gl_defertext->modified = false;
+		defer_drawing = (int)gl_defertext->value;
+	}
+	Draw_FlushChars ();
+	GLimp_EndFrame ();
+}
+
+/*
 =============
 R_SetPalette
 =============
@@ -2454,6 +2548,7 @@ void EXPORT R_SetSky (char *name, float rotate, vec3_t axis);
 void EXPORT	R_EndRegistration (void);
 
 void EXPORT	R_RenderFrame (refdef_t *fd);
+void EXPORT	R_EndFrame (void);
 
 struct image_s	* EXPORT Draw_FindPic (char *name);
 
@@ -2513,7 +2608,7 @@ refexport_t EXPORT GetRefAPI (refimport_t rimp )
 
 	re.CinematicSetPalette = R_SetPalette;
 	re.BeginFrame = R_BeginFrame;
-	re.EndFrame = GLimp_EndFrame;
+	re.EndFrame = R_EndFrame;
 
 	re.AppActivate = GLimp_AppActivate;
 

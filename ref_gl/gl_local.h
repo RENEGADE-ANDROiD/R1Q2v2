@@ -312,6 +312,9 @@ extern int		usingmodifiedlightmaps;
 
 extern	int		defer_drawing;
 
+void Draw_FlushChars (void);
+void Draw_Reset2DState (void);
+
 extern	const int		gl_solid_format;
 extern	const int		gl_alpha_format;
 extern	int		gl_tex_solid_format;
@@ -333,6 +336,7 @@ void GL_MBind( GLenum target, unsigned int texnum );
 void GL_TexEnv( GLenum value );
 void GL_EnableMultitexture( qboolean enable );
 void GL_SelectTexture( GLenum );
+void GL_ApplyLodBiasState (void);
 
 void R_LightPoint (vec3_t p, vec3_t color);
 void R_PushDlights (void);

@@ -1573,24 +1573,14 @@ void GLimp_BeginFrame( void )
 ** function and instead do a call to GLimp_SwapBuffers.
 */
 
-void Draw_AddText (void);
 void EXPORT GLimp_EndFrame (void)
 {
 	static int iDrawBuffer = 0;
-
-	if (defer_drawing)
-		Draw_AddText();
 
 	if (gl_drawbuffer->modified)
 	{
 		gl_drawbuffer->modified = false;
 		iDrawBuffer = stricmp( gl_drawbuffer->string, "GL_BACK" );
-	}
-
-	if (gl_defertext->modified)
-	{
-		gl_defertext->modified = false;
-		defer_drawing = (int)gl_defertext->value;
 	}
 
 	if (iDrawBuffer == 0)

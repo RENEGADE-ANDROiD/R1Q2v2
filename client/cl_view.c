@@ -421,14 +421,23 @@ void CL_PrepRefresh (void)
 	//must be zeroed to flush out old model pointers
 	memset (&cl.clientinfo, 0, sizeof(cl.clientinfo));
 
-	for (i=0 ; i<maxclients ; i++)
 	{
-		if (!cl.configstrings[CS_PLAYERSKINS+i][0])
-			continue;
+		unsigned int last_scr = 0;
 
-		SCR_UpdateScreen ();
-		Sys_SendKeyEvents ();
-		CL_ParseClientinfo (i);
+		for (i=0 ; i<maxclients ; i++)
+		{
+			if (!cl.configstrings[CS_PLAYERSKINS+i][0])
+				continue;
+
+			/* One present per ~100ms — a SwapBuffers per player was a load hitch. */
+			if (!last_scr || (unsigned)(Sys_Milliseconds() - last_scr) >= 100)
+			{
+				SCR_UpdateScreen ();
+				last_scr = Sys_Milliseconds ();
+			}
+			Sys_SendKeyEvents ();
+			CL_ParseClientinfo (i);
+		}
 	}
 
 	Netchan_Transmit (&cls.netchan, 0, NULL);
