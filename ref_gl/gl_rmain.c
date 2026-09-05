@@ -1461,8 +1461,8 @@ void R_Register( void )
 	vid_nowgl = ri.Cvar_Get ("vid_nowgl", "0", 0);
 	vid_restore_on_switch = ri.Cvar_Get ("vid_flip_on_switch", "0", 0);
 
-	gl_forcewidth = ri.Cvar_Get ("vid_forcewidth", "0", 0);
-	gl_forceheight = ri.Cvar_Get ("vid_forceheight", "0", 0);
+	gl_forcewidth = ri.Cvar_Get ("vid_forcewidth", "0", CVAR_ARCHIVE);
+	gl_forceheight = ri.Cvar_Get ("vid_forceheight", "0", CVAR_ARCHIVE);
 
 	vid_topmost = ri.Cvar_Get ("vid_topmost", "0", 0);
 

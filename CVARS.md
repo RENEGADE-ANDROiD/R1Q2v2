@@ -20,8 +20,8 @@ Useful client settings for **R1Q2v2 (Build 8012+)**. Defaults are engine default
 | `vid_ref` | `r1gl` | Renderer module. Prefer `r1gl` (`ref_r1gl.dll`). |
 | `vid_fullscreen` | `0` | `1` fullscreen, `0` windowed. |
 | `gl_mode` | desktop index | Mode list index. `-1` = custom size via force width/height. |
-| `vid_forcewidth` | `0` | Custom width when `gl_mode -1` (must be &gt; 0). |
-| `vid_forceheight` | `0` | Custom height when `gl_mode -1` (must be &gt; 0). |
+| `vid_forcewidth` | `0` | Custom width when `gl_mode -1` (archived; use with `vid_forceheight`). |
+| `vid_forceheight` | `0` | Custom height when `gl_mode -1` (archived). |
 | `gl_swapinterval` | `0` | Vsync. `0` off (default), `1` on. |
 | `vid_gamma` | `1.0` | Display gamma / brightness path used by the video menu. |
 | `viewsize` | `100` | 3D view percent; below 100 letterboxes the refresh. |
