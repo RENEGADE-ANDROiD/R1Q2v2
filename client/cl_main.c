@@ -61,6 +61,34 @@ typedef struct ignore_s
 
 ignore_t	cl_ignores;
 
+#define MAX_IGNORES		64
+
+static int CL_IgnoreCount (void)
+{
+	ignore_t	*entry = &cl_ignores;
+	int			n = 0;
+
+	while (entry->next)
+	{
+		entry = entry->next;
+		n++;
+	}
+	return n;
+}
+
+static qboolean CL_IgnoreExists (const char *text)
+{
+	ignore_t	*entry = &cl_ignores;
+
+	while (entry->next)
+	{
+		entry = entry->next;
+		if (!Q_stricmp (entry->text, text))
+			return true;
+	}
+	return false;
+}
+
 cvar_t	*freelook;
 
 cvar_t	*adr0;
@@ -414,6 +442,96 @@ void CL_Stop_f (void)
 	Com_Printf ("Stopped demo, recorded %d bytes.\n", LOG_CLIENT, len);
 }
 
+static void CL_WriteIgnores (void)
+{
+	ignore_t	*entry;
+	FILE		*f;
+	char		path[MAX_OSPATH];
+
+	Com_sprintf (path, sizeof(path), "%s/ignore.txt", FS_Gamedir());
+	f = fopen (path, "w");
+	if (!f)
+		return;
+	entry = &cl_ignores;
+	while (entry->next)
+	{
+		entry = entry->next;
+		fprintf (f, "%s\n", entry->text);
+	}
+	fclose (f);
+}
+
+static void CL_LoadIgnores (void)
+{
+	FILE	*f;
+	char	path[MAX_OSPATH];
+	char	line[256];
+
+	Com_sprintf (path, sizeof(path), "%s/ignore.txt", FS_Gamedir());
+	f = fopen (path, "r");
+	if (!f)
+		return;
+	while (fgets (line, sizeof(line), f))
+	{
+		ignore_t	*newentry, *last;
+		size_t		n = strlen (line);
+		while (n && (line[n-1] == '\n' || line[n-1] == '\r'))
+			line[--n] = 0;
+		if (!line[0])
+			continue;
+		if (CL_IgnoreExists (line) || CL_IgnoreCount () >= MAX_IGNORES)
+			continue;
+		last = cl_ignores.next;
+		newentry = Z_TagMalloc (sizeof(*newentry), TAGMALLOC_CLIENT_IGNORE);
+		newentry->text = CopyString (line, TAGMALLOC_CLIENT_IGNORE);
+		newentry->next = last;
+		cl_ignores.next = newentry;
+	}
+	fclose (f);
+}
+
+void CL_IgnoreList_f (void)
+{
+	ignore_t	*entry = &cl_ignores;
+	int			n = 0;
+
+	while (entry->next)
+	{
+		entry = entry->next;
+		Com_Printf ("  %s\n", LOG_GENERAL, entry->text);
+		n++;
+	}
+	if (!n)
+		Com_Printf ("Ignore list empty.\n", LOG_GENERAL);
+}
+
+static void CL_DemoPause_f (void)
+{
+	if (Com_ServerState() != ss_demo)
+	{
+		Com_Printf ("Not playing a demo.\n", LOG_GENERAL);
+		return;
+	}
+	Cvar_SetValue ("paused", Cvar_VariableValue ("paused") ? 0.0f : 1.0f);
+	Com_Printf ("Demo %s.\n", LOG_GENERAL, Cvar_VariableValue ("paused") ? "paused" : "playing");
+}
+
+static void CL_DemoSpeed_f (void)
+{
+	float	s;
+
+	if (Cmd_Argc() != 2)
+	{
+		Com_Printf ("cl_demospeed is %s (0.1 - 8)\n", LOG_GENERAL, Cvar_VariableString ("cl_demospeed"));
+		return;
+	}
+	s = (float)atof (Cmd_Argv(1));
+	if (s < 0.1f) s = 0.1f;
+	if (s > 8.0f) s = 8.0f;
+	Cvar_SetValue ("cl_demospeed", s);
+	Com_Printf ("Demo speed %g\n", LOG_GENERAL, s);
+}
+
 void CL_Ignore_f (void)
 {
 	ignore_t	*list, *last, *newentry;
@@ -421,6 +539,17 @@ void CL_Ignore_f (void)
 	if (Cmd_Argc() < 2)
 	{
 		Com_Printf ("usage: ignore text\n", LOG_GENERAL);
+		return;
+	}
+
+	if (CL_IgnoreExists (Cmd_Args()))
+	{
+		Com_Printf ("Already ignoring '%s'.\n", LOG_GENERAL, Cmd_Args());
+		return;
+	}
+	if (CL_IgnoreCount () >= MAX_IGNORES)
+	{
+		Com_Printf ("Ignore list full (%d).\n", LOG_GENERAL, MAX_IGNORES);
 		return;
 	}
 
@@ -434,6 +563,7 @@ void CL_Ignore_f (void)
 	list->next = newentry;
 
 	Com_Printf ("%s added to ignore list.\n", LOG_GENERAL, newentry->text);
+	CL_WriteIgnores ();
 }
 
 qboolean CL_IgnoreMatch (const char *string)
@@ -445,7 +575,7 @@ qboolean CL_IgnoreMatch (const char *string)
 	while (entry->next)
 	{
 		entry = entry->next;
-		if (strstr (string, entry->text))
+		if (entry->text && entry->text[0] && strstr (string, entry->text))
 			return true;
 	}
 
@@ -477,6 +607,7 @@ void CL_Unignore_f (void)
 			Z_Free (entry);
 
 			Com_Printf ("Ignore '%s' removed.\n", LOG_GENERAL, match);
+			CL_WriteIgnores ();
 			return;
 		}
 		last = entry;
@@ -2965,7 +3096,7 @@ qboolean CL_LoadLoc (const char *filename)
 const char *CL_Loc_Get (vec3_t org)
 {
 	vec3_t			distance;
-	uint32			length, bestlength = 0xFFFFFFFF;
+	float			length, bestlength = 1e30f;
 	cl_location_t	*loc = &cl_locations, *best = &cl_locations;
 
 	Q_assert (cl_locations.next);
@@ -2975,7 +3106,7 @@ const char *CL_Loc_Get (vec3_t org)
 		loc = loc->next;
 
 		VectorSubtract (loc->location, org, distance);
-		length = (int)VectorLength (distance);
+		length = distance[0]*distance[0] + distance[1]*distance[1] + distance[2]*distance[2];
 
 		if (length < bestlength)
 		{
@@ -4115,7 +4246,7 @@ void CL_InitLocal (void)
 	cl_maxfps = Cvar_Get ("cl_maxfps", "60", CVAR_ARCHIVE);
 	cl_maxfps->changed = _maxfps_changed;
 
-	cl_async = Cvar_Get ("cl_async", "1", 0);
+	cl_async = Cvar_Get ("cl_async", "1", CVAR_ARCHIVE);
 	cl_async->changed = _async_changed;
 
 	cl_upspeed = Cvar_Get ("cl_upspeed", "200", 0);
@@ -4261,6 +4392,13 @@ void CL_InitLocal (void)
 
 	Cmd_AddCommand ("ignore", CL_Ignore_f);
 	Cmd_AddCommand ("unignore", CL_Unignore_f);
+	Cmd_AddCommand ("mute", CL_Ignore_f);
+	Cmd_AddCommand ("unmute", CL_Unignore_f);
+	Cmd_AddCommand ("ignorelist", CL_IgnoreList_f);
+	CL_LoadIgnores ();
+
+	Cmd_AddCommand ("demopause", CL_DemoPause_f);
+	Cmd_AddCommand ("demospeed", CL_DemoSpeed_f);
 
 	//r1: loc support
 	Cmd_AddCommand ("addloc", CL_AddLoc_f);

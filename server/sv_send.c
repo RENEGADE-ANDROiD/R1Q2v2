@@ -1201,34 +1201,70 @@ void SV_SendClientMessages (void)
 	// read the next demo message if needed
 	if (sv.demofile && sv.state == ss_demo)
 	{
+		static float	demo_acc = 0.0f;
+		static int		last_msglen = 0;
+		static byte		last_msg[MAX_MSGLEN];
+		static FILE		*demo_seen = NULL;
+		static cvar_t	*cl_demospeed = NULL;
+		qboolean		got = false;
+
+		if (sv.demofile != demo_seen)
+		{
+			demo_seen = sv.demofile;
+			demo_acc = 0.0f;
+			last_msglen = 0;
+		}
+
+		if (!cl_demospeed)
+			cl_demospeed = Cvar_Get ("cl_demospeed", "1", CVAR_ARCHIVE);
 		if (!sv_paused->intvalue)
 		{
-			// get the next message
-			r = fread (&msglen, 4, 1, sv.demofile);
-			if (r != 1)
+			float	step = cl_demospeed->value;
+			if (step < 0.1f)
+				step = 0.1f;
+			if (step > 8.0f)
+				step = 8.0f;
+			demo_acc += step;
+			while (demo_acc >= 1.0f)
 			{
-				SV_DemoCompleted ();
-				return;
-			}
-			msglen = LittleLong (msglen);
-			if (msglen == -1)
-			{
-				SV_DemoCompleted ();
-				return;
-			}
-
-			if (msglen > MAX_MSGLEN)
-				Com_Error (ERR_DROP, "SV_SendClientMessages: msglen %d > MAX_MSGLEN (%d)", msglen, MAX_MSGLEN);
-			else if (msglen == 0)
-				Com_DPrintf ("WARNING: Demo file contains zero byte message at 0x%lx, ignored.\n", ftell (sv.demofile) - 4);
-			else
-			{
-				r = fread (msgbuf, msglen, 1, sv.demofile);
+				demo_acc -= 1.0f;
+				r = fread (&msglen, 4, 1, sv.demofile);
 				if (r != 1)
 				{
 					SV_DemoCompleted ();
 					return;
 				}
+				msglen = LittleLong (msglen);
+				if (msglen == -1)
+				{
+					SV_DemoCompleted ();
+					return;
+				}
+
+				if (msglen > MAX_MSGLEN)
+					Com_Error (ERR_DROP, "SV_SendClientMessages: msglen %d > MAX_MSGLEN (%d)", msglen, MAX_MSGLEN);
+				else if (msglen == 0)
+					Com_DPrintf ("WARNING: Demo file contains zero byte message at 0x%lx, ignored.\n", ftell (sv.demofile) - 4);
+				else
+				{
+					r = fread (msgbuf, msglen, 1, sv.demofile);
+					if (r != 1)
+					{
+						SV_DemoCompleted ();
+						return;
+					}
+					if (msglen > 0 && msglen <= MAX_MSGLEN)
+					{
+						last_msglen = msglen;
+						memcpy (last_msg, msgbuf, msglen);
+					}
+				}
+				got = true;
+			}
+			if (!got && last_msglen > 0)
+			{
+				msglen = last_msglen;
+				memcpy (msgbuf, last_msg, last_msglen);
 			}
 		}
 	}

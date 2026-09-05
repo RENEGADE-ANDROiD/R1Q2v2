@@ -385,9 +385,10 @@ void VID_MenuDraw (void)
 		float s = SCR_GetMenuScale();
 		float ps = SCR_GetMenuPicScale();
 		re.DrawGetPicSize( &w, &h, "m_banner_video" );
-		re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
-			(int)(viddef.height / 2 - 110 * s),
-			(int)(w * ps), (int)(h * ps), "m_banner_video" );
+		if (w > 0 && h > 0)
+			re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
+				(int)(viddef.height / 2 - 110 * s),
+				(int)(w * ps), (int)(h * ps), "m_banner_video" );
 	}
 
 	/*

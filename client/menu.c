@@ -47,6 +47,7 @@ static 			void M_Menu_DMOptions_f (void);
 static 	void M_Menu_Video_f (void);
 static 	void M_Menu_Options_f (void);
 static 		void M_Menu_R1Q2_f (void);
+static 		void M_Menu_Crosshair_f (void);
 static 		void M_Menu_Keys_f (void);
 static 	void M_Menu_Quit_f (void);
 
@@ -84,6 +85,8 @@ static void M_Banner( char *name )
 	float ps = SCR_GetMenuPicScale();
 
 	re.DrawGetPicSize (&w, &h, name );
+	if (w <= 0 || h <= 0)
+		return;
 	re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
 		(int)(viddef.height / 2 - 110 * s),
 		(int)(w * ps), (int)(h * ps), name );
@@ -1129,12 +1132,16 @@ static menulist_s		s_r1q2_winxp;
 #endif
 
 static menulist_s		s_r1q2_defer;
-static menulist_s		s_r1q2_q2promove;
+static menulist_s		s_r1q2_syncphys;
 static menulist_s		s_r1q2_autorecord;
 static menulist_s		s_r1q2_xaniarail;
+static menulist_s		s_r1q2_adjustfov;
+static menuslider_s		s_r1q2_hudalpha_slider;
+static menulist_s		s_r1q2_locnames;
 
 static menuframework_s	s_options_menu;
 static menuaction_s		s_options_r1q2_action;
+static menuaction_s		s_options_crosshair_setup_action;
 static menuaction_s		s_options_defaults_action;
 static menuaction_s		s_options_customize_options_action;
 static menufield_s		s_options_sensitivity_slider;
@@ -1145,6 +1152,7 @@ static menulist_s		s_options_invertmouse_box;
 static menulist_s		s_options_lookspring_box;
 static menulist_s		s_options_lookstrafe_box;
 static menulist_s		s_options_crosshair_box;
+static menuslider_s		s_options_chscale_slider;
 static menuslider_s		s_options_sfxvolume_slider;
 #ifdef JOYSTICK
 static menulist_s		s_options_joystick_box;
@@ -1157,6 +1165,35 @@ static menulist_s		s_options_console_action;
 static void CrosshairFunc( void *unused )
 {
 	Cvar_SetValue( "crosshair", (float)s_options_crosshair_box.curvalue );
+}
+
+static void CrosshairScaleFunc( void *unused )
+{
+	float s = s_options_chscale_slider.curvalue * 0.1f;
+	if (s < 0.1f)
+		s = 0.1f;
+	if (s > 4.0f)
+		s = 4.0f;
+	Cvar_SetValue( "ch_scale", s );
+}
+
+static float Menu_ClampScaleSlider (float s)
+{
+	if (s < 0.1f)
+		s = 0.1f;
+	if (s > 4.0f)
+		s = 4.0f;
+	return s * 10.0f;
+}
+
+static float Menu_SliderToUnit (float cur)
+{
+	float v = cur / 10.0f;
+	if (v < 0.0f)
+		v = 0.0f;
+	if (v > 1.0f)
+		v = 1.0f;
+	return v;
 }
 
 #ifdef JOYSTICK
@@ -1190,11 +1227,26 @@ static void DeferFunc (void *unused)
 	Cvar_SetValue ("cl_defermodels", (float)s_r1q2_defer.curvalue);
 }
 
-static void Q2ProMoveFunc (void *unused)
+static void SyncPhysFunc (void *unused)
 {
-	/* Enabled = sync physics (classic / Q2Pro-style jump feel).
-	   Disabled = stock R1Q2 async net/render split (cl_async 1). */
-	Cvar_SetValue ("cl_async", s_r1q2_q2promove.curvalue ? 0.0f : 1.0f);
+	/* Enabled = lock render FPS to cl_maxfps (classic jump timing).
+	   This is NOT Q2PRO pmove. Off keeps stock R1Q2 async. */
+	Cvar_SetValue ("cl_async", s_r1q2_syncphys.curvalue ? 0.0f : 1.0f);
+}
+
+static void AdjustFovFunc (void *unused)
+{
+	Cvar_SetValue ("cl_adjustfov", (float)s_r1q2_adjustfov.curvalue);
+}
+
+static void HudAlphaFunc (void *unused)
+{
+	Cvar_SetValue ("scr_alpha", Menu_SliderToUnit (s_r1q2_hudalpha_slider.curvalue));
+}
+
+static void LocNamesFunc (void *unused)
+{
+	Cvar_SetValue ("loc_enable", (float)s_r1q2_locnames.curvalue);
 }
 
 static void AutoFunc (void *unused)
@@ -1247,12 +1299,12 @@ static void R1Q2_MenuInit (void)
 	s_r1q2_options_menu.cursor = 0;
 
 	s_r1q2_warning.generic.type = MTYPE_SEPARATOR;
-	s_r1q2_warning.generic.name = "WARNING: Settings here will not be saved. Any settings";
+	s_r1q2_warning.generic.name = "sync physics, Hor+ FOV, HUD alpha, loc names save.";
 	s_r1q2_warning.generic.x    = 160;
 	s_r1q2_warning.generic.y	 = 0;
 
 	s_r1q2_warning2.generic.type = MTYPE_SEPARATOR;
-	s_r1q2_warning2.generic.name = "that you wish to keep will need adding to a config.";
+	s_r1q2_warning2.generic.name = "Mouse / defer / demo / rail still need autoexec.cfg.";
 	s_r1q2_warning2.generic.x    = 160;
 	s_r1q2_warning2.generic.y	 = 10;
 
@@ -1282,15 +1334,15 @@ static void R1Q2_MenuInit (void)
 	s_r1q2_defer.itemnames = yesno_names;
 	s_r1q2_defer.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_defermodels"));
 
-	s_r1q2_q2promove.generic.type = MTYPE_SPINCONTROL;
-	s_r1q2_q2promove.generic.x	= 0;
-	s_r1q2_q2promove.generic.y	= 70;
-	s_r1q2_q2promove.generic.name	= "Q2Pro movement";
-	s_r1q2_q2promove.generic.callback = Q2ProMoveFunc;
-	s_r1q2_q2promove.generic.statusbar = "sync physics for classic jumps (cl_async 0); off = R1Q2 async";
-	s_r1q2_q2promove.itemnames = yesno_names;
-	/* cl_async 1 (default) = R1Q2 async; show Q2Pro movement as disabled */
-	s_r1q2_q2promove.curvalue = Cvar_VariableValue ("cl_async") ? 0 : 1;
+	s_r1q2_syncphys.generic.type = MTYPE_SPINCONTROL;
+	s_r1q2_syncphys.generic.x	= 0;
+	s_r1q2_syncphys.generic.y	= 70;
+	s_r1q2_syncphys.generic.name	= "sync physics";
+	s_r1q2_syncphys.generic.callback = SyncPhysFunc;
+	s_r1q2_syncphys.generic.statusbar = "locks render to cl_maxfps for classic jumps; off = R1Q2 async. not Q2PRO pmove";
+	s_r1q2_syncphys.itemnames = yesno_names;
+	/* cl_async 1 (default) = R1Q2 async feel; sync physics shown disabled */
+	s_r1q2_syncphys.curvalue = Cvar_VariableValue ("cl_async") ? 0 : 1;
 
 	s_r1q2_autorecord.generic.type = MTYPE_SPINCONTROL;
 	s_r1q2_autorecord.generic.x	= 0;
@@ -1307,6 +1359,38 @@ static void R1Q2_MenuInit (void)
 	s_r1q2_xaniarail.generic.callback = RailTrailFunc;
 	s_r1q2_xaniarail.itemnames = xanianames;
 	s_r1q2_xaniarail.curvalue = (int)ClampCvar (0, 5, Cvar_VariableValue ("cl_railtrail"));
+
+	s_r1q2_adjustfov.generic.type = MTYPE_SPINCONTROL;
+	s_r1q2_adjustfov.generic.x	= 0;
+	s_r1q2_adjustfov.generic.y	= 110;
+	s_r1q2_adjustfov.generic.name	= "widescreen Hor+ FOV";
+	s_r1q2_adjustfov.generic.callback = AdjustFovFunc;
+	s_r1q2_adjustfov.generic.statusbar = "keep 4:3 vertical FOV, widen on 16:9 (cl_adjustfov)";
+	s_r1q2_adjustfov.itemnames = yesno_names;
+	s_r1q2_adjustfov.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_adjustfov"));
+
+	s_r1q2_hudalpha_slider.generic.type = MTYPE_SLIDER;
+	s_r1q2_hudalpha_slider.generic.x	= 0;
+	s_r1q2_hudalpha_slider.generic.y	= 120;
+	s_r1q2_hudalpha_slider.generic.name	= "HUD alpha";
+	s_r1q2_hudalpha_slider.generic.callback = HudAlphaFunc;
+	s_r1q2_hudalpha_slider.generic.statusbar = "status bar opacity (scr_alpha, saved)";
+	s_r1q2_hudalpha_slider.minvalue = 1;
+	s_r1q2_hudalpha_slider.maxvalue = 10;
+	s_r1q2_hudalpha_slider.curvalue = Cvar_VariableValue ("scr_alpha") * 10.0f;
+	if (s_r1q2_hudalpha_slider.curvalue < 1)
+		s_r1q2_hudalpha_slider.curvalue = 1;
+	if (s_r1q2_hudalpha_slider.curvalue > 10)
+		s_r1q2_hudalpha_slider.curvalue = 10;
+
+	s_r1q2_locnames.generic.type = MTYPE_SPINCONTROL;
+	s_r1q2_locnames.generic.x	= 0;
+	s_r1q2_locnames.generic.y	= 130;
+	s_r1q2_locnames.generic.name	= "location names";
+	s_r1q2_locnames.generic.callback = LocNamesFunc;
+	s_r1q2_locnames.generic.statusbar = "draw nearest .loc name on the HUD (loc_enable)";
+	s_r1q2_locnames.itemnames = yesno_names;
+	s_r1q2_locnames.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("loc_enable"));
 
 /*
 	s_options_invertmouse_box.generic.type = MTYPE_SPINCONTROL;
@@ -1354,9 +1438,12 @@ static void R1Q2_MenuInit (void)
 #endif
 
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_defer );
-	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_q2promove );
+	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_syncphys );
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_autorecord );
 	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_xaniarail );
+	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_adjustfov );
+	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_hudalpha_slider );
+	Menu_AddItem( &s_r1q2_options_menu, ( void * ) &s_r1q2_locnames );
 }
 
 static void R1Q2_MenuDraw (void)
@@ -1380,6 +1467,194 @@ static void M_Menu_R1Q2_f (void)
 static void R1Q2OptionsMenu ( void *unused )
 {
 	M_Menu_R1Q2_f();
+}
+
+/*
+=======================================================================
+
+CROSSHAIR SETUP (color / health / per-layer scale — all CVAR_ARCHIVE)
+
+=======================================================================
+*/
+
+static menuframework_s	s_chsetup_menu;
+static menuslider_s		s_chsetup_red;
+static menuslider_s		s_chsetup_green;
+static menuslider_s		s_chsetup_blue;
+static menuslider_s		s_chsetup_alpha;
+static menulist_s		s_chsetup_health;
+static menuslider_s		s_chsetup_ch1scale;
+static menuslider_s		s_chsetup_ch2scale;
+static menuslider_s		s_chsetup_ch3scale;
+
+static void ChRedFunc (void *unused)
+{
+	Cvar_SetValue ("ch_red", Menu_SliderToUnit (s_chsetup_red.curvalue));
+}
+
+static void ChGreenFunc (void *unused)
+{
+	Cvar_SetValue ("ch_green", Menu_SliderToUnit (s_chsetup_green.curvalue));
+}
+
+static void ChBlueFunc (void *unused)
+{
+	Cvar_SetValue ("ch_blue", Menu_SliderToUnit (s_chsetup_blue.curvalue));
+}
+
+static void ChAlphaFunc (void *unused)
+{
+	Cvar_SetValue ("ch_alpha", Menu_SliderToUnit (s_chsetup_alpha.curvalue));
+}
+
+static void ChHealthFunc (void *unused)
+{
+	Cvar_SetValue ("ch_health", (float)s_chsetup_health.curvalue);
+}
+
+static void ChLayerScaleFunc (void *self)
+{
+	menuslider_s	*sl = (menuslider_s *)self;
+	float			s = sl->curvalue * 0.1f;
+
+	if (s < 0.1f)
+		s = 0.1f;
+	if (s > 4.0f)
+		s = 4.0f;
+	if (sl == &s_chsetup_ch1scale)
+		Cvar_SetValue ("ch1_scale", s);
+	else if (sl == &s_chsetup_ch2scale)
+		Cvar_SetValue ("ch2_scale", s);
+	else
+		Cvar_SetValue ("ch3_scale", s);
+}
+
+static void CrosshairSetup_MenuInit (void)
+{
+	static const char *yesno_names[] =
+	{
+		"disabled",
+		"enabled",
+		0
+	};
+
+	s_chsetup_menu.x = viddef.width / 2;
+	s_chsetup_menu.y = viddef.height / 2 - (int)(70 * SCR_GetMenuScale());
+	s_chsetup_menu.nitems = 0;
+	s_chsetup_menu.cursor = 0;
+
+	s_chsetup_red.generic.type = MTYPE_SLIDER;
+	s_chsetup_red.generic.x = 0;
+	s_chsetup_red.generic.y = 0;
+	s_chsetup_red.generic.name = "red";
+	s_chsetup_red.generic.callback = ChRedFunc;
+	s_chsetup_red.generic.statusbar = "ch_red (saved)";
+	s_chsetup_red.minvalue = 0;
+	s_chsetup_red.maxvalue = 10;
+	s_chsetup_red.curvalue = Cvar_VariableValue ("ch_red") * 10.0f;
+
+	s_chsetup_green.generic.type = MTYPE_SLIDER;
+	s_chsetup_green.generic.x = 0;
+	s_chsetup_green.generic.y = 10;
+	s_chsetup_green.generic.name = "green";
+	s_chsetup_green.generic.callback = ChGreenFunc;
+	s_chsetup_green.generic.statusbar = "ch_green (saved)";
+	s_chsetup_green.minvalue = 0;
+	s_chsetup_green.maxvalue = 10;
+	s_chsetup_green.curvalue = Cvar_VariableValue ("ch_green") * 10.0f;
+
+	s_chsetup_blue.generic.type = MTYPE_SLIDER;
+	s_chsetup_blue.generic.x = 0;
+	s_chsetup_blue.generic.y = 20;
+	s_chsetup_blue.generic.name = "blue";
+	s_chsetup_blue.generic.callback = ChBlueFunc;
+	s_chsetup_blue.generic.statusbar = "ch_blue (saved)";
+	s_chsetup_blue.minvalue = 0;
+	s_chsetup_blue.maxvalue = 10;
+	s_chsetup_blue.curvalue = Cvar_VariableValue ("ch_blue") * 10.0f;
+
+	s_chsetup_alpha.generic.type = MTYPE_SLIDER;
+	s_chsetup_alpha.generic.x = 0;
+	s_chsetup_alpha.generic.y = 30;
+	s_chsetup_alpha.generic.name = "alpha";
+	s_chsetup_alpha.generic.callback = ChAlphaFunc;
+	s_chsetup_alpha.generic.statusbar = "ch_alpha (saved)";
+	s_chsetup_alpha.minvalue = 1;
+	s_chsetup_alpha.maxvalue = 10;
+	s_chsetup_alpha.curvalue = Cvar_VariableValue ("ch_alpha") * 10.0f;
+	if (s_chsetup_alpha.curvalue < 1)
+		s_chsetup_alpha.curvalue = 1;
+
+	s_chsetup_health.generic.type = MTYPE_SPINCONTROL;
+	s_chsetup_health.generic.x = 0;
+	s_chsetup_health.generic.y = 50;
+	s_chsetup_health.generic.name = "health color";
+	s_chsetup_health.generic.callback = ChHealthFunc;
+	s_chsetup_health.generic.statusbar = "green/yellow/red from current HP (overrides RGB)";
+	s_chsetup_health.itemnames = yesno_names;
+	s_chsetup_health.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("ch_health"));
+
+	s_chsetup_ch1scale.generic.type = MTYPE_SLIDER;
+	s_chsetup_ch1scale.generic.x = 0;
+	s_chsetup_ch1scale.generic.y = 70;
+	s_chsetup_ch1scale.generic.name = "layer 1 scale";
+	s_chsetup_ch1scale.generic.callback = ChLayerScaleFunc;
+	s_chsetup_ch1scale.generic.statusbar = "ch1 overlay size vs ch_scale (saved)";
+	s_chsetup_ch1scale.minvalue = 1;
+	s_chsetup_ch1scale.maxvalue = 40;
+	s_chsetup_ch1scale.curvalue = Menu_ClampScaleSlider (Cvar_VariableValue ("ch1_scale"));
+
+	s_chsetup_ch2scale.generic.type = MTYPE_SLIDER;
+	s_chsetup_ch2scale.generic.x = 0;
+	s_chsetup_ch2scale.generic.y = 80;
+	s_chsetup_ch2scale.generic.name = "layer 2 scale";
+	s_chsetup_ch2scale.generic.callback = ChLayerScaleFunc;
+	s_chsetup_ch2scale.generic.statusbar = "ch2 overlay size vs ch_scale (saved)";
+	s_chsetup_ch2scale.minvalue = 1;
+	s_chsetup_ch2scale.maxvalue = 40;
+	s_chsetup_ch2scale.curvalue = Menu_ClampScaleSlider (Cvar_VariableValue ("ch2_scale"));
+
+	s_chsetup_ch3scale.generic.type = MTYPE_SLIDER;
+	s_chsetup_ch3scale.generic.x = 0;
+	s_chsetup_ch3scale.generic.y = 90;
+	s_chsetup_ch3scale.generic.name = "layer 3 scale";
+	s_chsetup_ch3scale.generic.callback = ChLayerScaleFunc;
+	s_chsetup_ch3scale.generic.statusbar = "ch3 overlay size vs ch_scale (saved)";
+	s_chsetup_ch3scale.minvalue = 1;
+	s_chsetup_ch3scale.maxvalue = 40;
+	s_chsetup_ch3scale.curvalue = Menu_ClampScaleSlider (Cvar_VariableValue ("ch3_scale"));
+
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_red);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_green);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_blue);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_alpha);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_health);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_ch1scale);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_ch2scale);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_ch3scale);
+}
+
+static void CrosshairSetup_MenuDraw (void)
+{
+	M_Banner ("m_banner_options");
+	Menu_AdjustCursor (&s_chsetup_menu, 1);
+	Menu_Draw (&s_chsetup_menu);
+}
+
+static const char *CrosshairSetup_MenuKey (int key)
+{
+	return Default_MenuKey (&s_chsetup_menu, key);
+}
+
+static void M_Menu_Crosshair_f (void)
+{
+	CrosshairSetup_MenuInit ();
+	M_PushMenu (CrosshairSetup_MenuDraw, CrosshairSetup_MenuKey);
+}
+
+static void CrosshairSetupMenu (void *unused)
+{
+	M_Menu_Crosshair_f ();
 }
 
 static void AlwaysRunFunc( void *unused )
@@ -1435,6 +1710,15 @@ static void ControlsSetMenuItemValues( void )
 
 	Cvar_SetValue( "crosshair", ClampCvar( 0, 3, crosshair->value ) );
 	s_options_crosshair_box.curvalue		= crosshair->intvalue;
+
+	{
+		float	chs = Cvar_VariableValue( "ch_scale" );
+		if (chs < 0.1f)
+			chs = 0.1f;
+		if (chs > 4.0f)
+			chs = 4.0f;
+		s_options_chscale_slider.curvalue = chs * 10.0f;
+	}
 
 #ifdef JOYSTICK
 	Cvar_SetValue( "in_joystick", ClampCvar( 0, 1, in_joystick->value ) );
@@ -1675,6 +1959,15 @@ static void Options_MenuInit( void )
 	s_options_crosshair_box.generic.name	= "crosshair";
 	s_options_crosshair_box.generic.callback = CrosshairFunc;
 	s_options_crosshair_box.itemnames = crosshair_names;
+
+	s_options_chscale_slider.generic.type = MTYPE_SLIDER;
+	s_options_chscale_slider.generic.x	= 0;
+	s_options_chscale_slider.generic.y	= 120;
+	s_options_chscale_slider.generic.name	= "crosshair scale";
+	s_options_chscale_slider.generic.callback = CrosshairScaleFunc;
+	s_options_chscale_slider.minvalue	= 1;	/* 0.1 */
+	s_options_chscale_slider.maxvalue	= 40;	/* 4.0 */
+	s_options_chscale_slider.curvalue	= 10;	/* 1.0 */
 /*
 	s_options_noalttab_box.generic.type = MTYPE_SPINCONTROL;
 	s_options_noalttab_box.generic.x	= 0;
@@ -1686,33 +1979,40 @@ static void Options_MenuInit( void )
 #ifdef JOYSTICK
 	s_options_joystick_box.generic.type = MTYPE_SPINCONTROL;
 	s_options_joystick_box.generic.x	= 0;
-	s_options_joystick_box.generic.y	= 120;
+	s_options_joystick_box.generic.y	= 140;
 	s_options_joystick_box.generic.name	= "use joystick";
 	s_options_joystick_box.generic.callback = JoystickFunc;
 	s_options_joystick_box.itemnames = yesno_names;
 #endif
 
+	s_options_crosshair_setup_action.generic.type = MTYPE_ACTION;
+	s_options_crosshair_setup_action.generic.x	= 0;
+	s_options_crosshair_setup_action.generic.y	= 130;
+	s_options_crosshair_setup_action.generic.name	= "crosshair setup";
+	s_options_crosshair_setup_action.generic.callback = CrosshairSetupMenu;
+	s_options_crosshair_setup_action.generic.statusbar = "color, alpha, health tint, layer scales (saved)";
+
 	s_options_r1q2_action.generic.type = MTYPE_ACTION;
 	s_options_r1q2_action.generic.x		= 0;
-	s_options_r1q2_action.generic.y		= 140;
+	s_options_r1q2_action.generic.y		= 150;
 	s_options_r1q2_action.generic.name	= PRODUCTNAMELOWER " options";
 	s_options_r1q2_action.generic.callback = R1Q2OptionsMenu;
 
 	s_options_customize_options_action.generic.type	= MTYPE_ACTION;
 	s_options_customize_options_action.generic.x		= 0;
-	s_options_customize_options_action.generic.y		= 160;
+	s_options_customize_options_action.generic.y		= 170;
 	s_options_customize_options_action.generic.name	= "customize controls";
 	s_options_customize_options_action.generic.callback = CustomizeControlsFunc;
 
 	s_options_defaults_action.generic.type	= MTYPE_ACTION;
 	s_options_defaults_action.generic.x		= 0;
-	s_options_defaults_action.generic.y		= 170;
+	s_options_defaults_action.generic.y		= 180;
 	s_options_defaults_action.generic.name	= "reset defaults";
 	s_options_defaults_action.generic.callback = ControlsResetDefaultsFunc;
 
 	s_options_console_action.generic.type	= MTYPE_ACTION;
 	s_options_console_action.generic.x		= 0;
-	s_options_console_action.generic.y		= 180;
+	s_options_console_action.generic.y		= 190;
 	s_options_console_action.generic.name	= "go to console";
 	s_options_console_action.generic.callback = ConsoleFunc;
 
@@ -1729,6 +2029,8 @@ static void Options_MenuInit( void )
 	Menu_AddItem( &s_options_menu, ( void * ) &s_options_lookstrafe_box );
 	Menu_AddItem( &s_options_menu, ( void * ) &s_options_freelook_box );
 	Menu_AddItem( &s_options_menu, ( void * ) &s_options_crosshair_box );
+	Menu_AddItem( &s_options_menu, ( void * ) &s_options_chscale_slider );
+	Menu_AddItem( &s_options_menu, ( void * ) &s_options_crosshair_setup_action );
 #ifdef JOYSTICK
 	Menu_AddItem( &s_options_menu, ( void * ) &s_options_joystick_box );
 #endif

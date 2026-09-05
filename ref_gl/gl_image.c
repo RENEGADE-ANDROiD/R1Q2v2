@@ -3190,24 +3190,38 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 	//
 	pic = NULL;
 	palette = NULL;
+	bpp = 0;
 	current_texture_filename = name;
 
 	if (!strcmp(name+len-4, ".pcx"))
 	{
 		static char png_name[MAX_QPATH];
+		qboolean	menu_art;
 
 		memcpy (png_name, name, len+1);
+
+		/* Classic menu PCX (m_banner_*, m_main_*, m_cursor*) must win over
+		 * a bad/white TGA/PNG replacement that some HD packs ship. */
+		menu_art = (type == it_pic &&
+			(strstr (name, "m_banner") || strstr (name, "m_main") || strstr (name, "m_cursor")));
 
 		if (type == it_pic && FLOAT_NE_ZERO(gl_pic_scale->value))
 		{
 			if (!GetPCXInfo (name, &global_hax_texture_x, &global_hax_texture_y))
 			{
 				global_hax_texture_x = global_hax_texture_y = 0;
-				//ri.Con_Printf (PRINT_ALL, "Missing PCX file: %s\n", name);
 			}
 		}
 
-		if (load_tga_pics)
+		if (menu_art)
+		{
+			current_texture_filename = name;
+			LoadPCX (name, &pic, &palette, &width, &height);
+			if (pic)
+				bpp = 8;
+		}
+
+		if (!pic && load_tga_pics)
 		{
 			//png_name[len-3] = 't';
 			//png_name[len-2] = 'g';
@@ -3256,7 +3270,7 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 				bpp = 32;
 			}
 		}
-		else
+		else if (bpp != 8)
 		{
 			bpp = 32;
 		}

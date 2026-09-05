@@ -45,6 +45,7 @@ static cvar_t *gl_ext_max_anisotropy;
 static cvar_t *gl_texture_lodbias;
 static cvar_t *scr_hudscale;
 static cvar_t *scr_hud_top;
+static cvar_t *scr_hudwide;
 static cvar_t *gl_shadows;
 static cvar_t *gl_dynamic;
 static cvar_t *r_maxfps;
@@ -85,6 +86,7 @@ static menuslider_s		s_sharpen_slider;
 static menuslider_s		s_hudscale_slider;
 static menulist_s		s_aniso_box;
 static menulist_s		s_hudtop_box;
+static menulist_s		s_hudwide_box;
 static menulist_s		s_shadows_box;
 static menulist_s		s_dynamic_box;
 static menuaction_s		s_cancel_action[2];
@@ -152,6 +154,7 @@ static void VID_ApplyFxSettings( void )
 	Cvar_SetValue( "scr_hudscale", s_hudscale_slider.curvalue / 10.0f );
 	Cvar_SetValue( "gl_hudscale", 1.0f ); /* keep 2D layer unscaled (menus/crosshair) */
 	Cvar_SetValue( "scr_hud_top", (float)s_hudtop_box.curvalue );
+	Cvar_SetValue( "scr_hudwide", (float)s_hudwide_box.curvalue );
 	Cvar_SetValue( "gl_shadows", (float)s_shadows_box.curvalue );
 	Cvar_SetValue( "gl_dynamic", (float)s_dynamic_box.curvalue );
 }
@@ -328,6 +331,9 @@ void EXPORT VID_MenuInit( void )
 	if ( !scr_hud_top )
 		scr_hud_top = Cvar_Get( "scr_hud_top", "0", CVAR_ARCHIVE );
 
+	if ( !scr_hudwide )
+		scr_hudwide = Cvar_Get( "scr_hudwide", "1", CVAR_ARCHIVE );
+
 	if ( !gl_shadows )
 		gl_shadows = Cvar_Get( "gl_shadows", "0", CVAR_ARCHIVE );
 
@@ -443,13 +449,13 @@ void EXPORT VID_MenuInit( void )
 		s_defaults_action[i].generic.type = MTYPE_ACTION;
 		s_defaults_action[i].generic.name = "reset to defaults";
 		s_defaults_action[i].generic.x    = 0;
-		s_defaults_action[i].generic.y    = 170;
+		s_defaults_action[i].generic.y    = 190;
 		s_defaults_action[i].generic.callback = ResetDefaults;
 
 		s_cancel_action[i].generic.type = MTYPE_ACTION;
 		s_cancel_action[i].generic.name = "cancel";
 		s_cancel_action[i].generic.x    = 0;
-		s_cancel_action[i].generic.y    = 180;
+		s_cancel_action[i].generic.y    = 200;
 		s_cancel_action[i].generic.callback = CancelChanges;
 	}
 
@@ -576,9 +582,18 @@ void EXPORT VID_MenuInit( void )
 	s_hudtop_box.itemnames = yesno_names;
 	s_hudtop_box.curvalue = scr_hud_top->intvalue ? 1 : 0;
 
+	s_hudwide_box.generic.type = MTYPE_SPINCONTROL;
+	s_hudwide_box.generic.x = 0;
+	s_hudwide_box.generic.y = 150;
+	s_hudwide_box.generic.name = "wide HUD";
+	s_hudwide_box.generic.callback = VidFxCallback;
+	s_hudwide_box.generic.statusbar = "health left, armor/weapon right on 16:9";
+	s_hudwide_box.itemnames = yesno_names;
+	s_hudwide_box.curvalue = (scr_hudwide && scr_hudwide->intvalue) ? 1 : 0;
+
 	s_shadows_box.generic.type = MTYPE_SPINCONTROL;
 	s_shadows_box.generic.x = 0;
-	s_shadows_box.generic.y = 150;
+	s_shadows_box.generic.y = 160;
 	s_shadows_box.generic.name = "shadows";
 	s_shadows_box.generic.callback = VidFxCallback;
 	s_shadows_box.itemnames = yesno_names;
@@ -586,7 +601,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_dynamic_box.generic.type = MTYPE_SPINCONTROL;
 	s_dynamic_box.generic.x = 0;
-	s_dynamic_box.generic.y = 160;
+	s_dynamic_box.generic.y = 170;
 	s_dynamic_box.generic.name = "dynamic lights";
 	s_dynamic_box.generic.callback = VidFxCallback;
 	s_dynamic_box.itemnames = yesno_names;
@@ -614,6 +629,7 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_sharpen_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudscale_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudtop_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudwide_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_shadows_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_dynamic_box );
 
@@ -665,9 +681,10 @@ void VID_MenuDraw (void)
 		float s = SCR_GetMenuScale();
 		float ps = SCR_GetMenuPicScale();
 		re.DrawGetPicSize( &w, &h, "m_banner_video" );
-		re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
-			(int)(viddef.height / 2 - 110 * s),
-			(int)(w * ps), (int)(h * ps), "m_banner_video" );
+		if (w > 0 && h > 0)
+			re.DrawStretchPic( (int)(viddef.width / 2 - (w * ps) / 2),
+				(int)(viddef.height / 2 - 110 * s),
+				(int)(w * ps), (int)(h * ps), "m_banner_video" );
 	}
 
 	/*

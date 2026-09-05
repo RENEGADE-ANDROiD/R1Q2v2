@@ -177,6 +177,8 @@ typedef struct
 	// Draw images for cinematic rendering (which can have a different palette). Note that calls
 	void	(EXPORT *DrawStretchRaw) (int x, int y, int w, int h, int cols, int rows, byte *data);
 
+	void	(EXPORT *DrawSetColor) (float r, float g, float b, float a);
+
 	/*
 	** video mode and refresh state management entry points
 	*/

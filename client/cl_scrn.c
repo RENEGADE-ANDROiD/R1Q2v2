@@ -75,9 +75,36 @@ cvar_t		*scr_chathud_highlight;
 cvar_t		*scr_chathud_highlight_char;
 cvar_t		*scr_hud_top;
 cvar_t		*scr_hudscale;
+cvar_t		*scr_hudwide;
+cvar_t		*scr_alpha;
+cvar_t		*loc_enable;
 
 /* Only set while drawing CS_STATUSBAR — keeps menus/crosshair unscaled. */
 static float	scr_hud_draw_scale = 1.0f;
+static qboolean	scr_hud_wide_xv;
+
+static qboolean SCR_HudIsWide (void)
+{
+	if (!scr_hudwide || !scr_hudwide->intvalue)
+		return false;
+	/* Only spread when the framebuffer is wider than 4:3. */
+	return (viddef.width * 3 > viddef.height * 4 + 8);
+}
+
+static int SCR_HudXv (int virt)
+{
+	int	margin;
+
+	if (!scr_hud_wide_xv || !SCR_HudIsWide ())
+		return viddef.width / 2 - 160 + virt;
+
+	margin = 8;
+	if (virt < 140)
+		return margin + virt;
+	if (virt > 180)
+		return viddef.width - 320 + virt - margin;
+	return viddef.width / 2 - 160 + virt;
+}
 
 static float SCR_HudScaleValue (void)
 {
@@ -96,11 +123,24 @@ static float SCR_HudScaleValue (void)
 static void SCR_HudPlace (int *x, int *y)
 {
 	float	hs = scr_hud_draw_scale;
+	int		mid;
 
 	if (hs == 1.0f)
 		return;
 
-	*x = viddef.width / 2 + (int)((*x - (int)(viddef.width / 2)) * hs);
+	mid = viddef.width / 2;
+	if (SCR_HudIsWide ())
+	{
+		if (*x + 48 < mid)
+			*x = (int)(*x * hs);
+		else if (*x > mid + 16)
+			*x = viddef.width - (int)((viddef.width - *x) * hs);
+		else
+			*x = mid + (int)((*x - mid) * hs);
+	}
+	else
+		*x = mid + (int)((*x - mid) * hs);
+
 	if (scr_hud_top && scr_hud_top->intvalue)
 		*y = (int)(*y * hs);
 	else
@@ -139,8 +179,11 @@ typedef struct
 
 dirty_t		scr_dirty, scr_old_dirty[2];
 
-char		crosshair_pic[8];
+char		crosshair_pic[MAX_QPATH];
 int			crosshair_width, crosshair_height;
+char		ch_layer_pic[MAX_CH_LAYERS][MAX_QPATH];
+int			ch_layer_width[MAX_CH_LAYERS];
+int			ch_layer_height[MAX_CH_LAYERS];
 
 void SCR_TimeRefresh_f (void);
 void SCR_Loading_f (void);
@@ -848,6 +891,9 @@ void SCR_Init (void)
 	scr_chathud_highlight_char = Cvar_Get ("scr_chathud_highlight_char", " ", 0);
 	scr_hud_top = Cvar_Get ("scr_hud_top", "0", CVAR_ARCHIVE);
 	scr_hudscale = Cvar_Get ("scr_hudscale", "1", CVAR_ARCHIVE);
+	scr_hudwide = Cvar_Get ("scr_hudwide", "1", CVAR_ARCHIVE);
+	scr_alpha = Cvar_Get ("scr_alpha", "1", CVAR_ARCHIVE);
+	loc_enable = Cvar_Get ("loc_enable", "1", CVAR_ARCHIVE);
 	/* Migrate old video-menu setting that scaled the whole 2D layer.
 	   Keep redirecting after init so autoexec / visual presets cannot
 	   turn whole-2D gl_hudscale back on. */
@@ -1412,6 +1458,32 @@ void SCR_TouchPics (void)
 		if (!crosshair_width)
 			crosshair_pic[0] = 0;
 	}
+	else
+	{
+		crosshair_pic[0] = 0;
+		crosshair_width = crosshair_height = 0;
+	}
+
+	{
+		cvar_t	*layers[MAX_CH_LAYERS];
+		int		li;
+
+		layers[0] = ch1;
+		layers[1] = ch2;
+		layers[2] = ch3;
+		for (li = 0; li < MAX_CH_LAYERS; li++)
+		{
+			ch_layer_pic[li][0] = 0;
+			ch_layer_width[li] = ch_layer_height[li] = 0;
+			if (!layers[li] || !layers[li]->string[0] || layers[li]->string[0] == '0')
+				continue;
+			Q_strncpy (ch_layer_pic[li], layers[li]->string, sizeof(ch_layer_pic[li])-1);
+			re.RegisterPic (ch_layer_pic[li]);
+			re.DrawGetPicSize (&ch_layer_width[li], &ch_layer_height[li], ch_layer_pic[li]);
+			if (!ch_layer_width[li])
+				ch_layer_pic[li][0] = 0;
+		}
+	}
 }
 
 /*
@@ -1451,7 +1523,7 @@ void SCR_ExecuteLayoutString (char *s)
 				if (token[1] == 'v')
 				{
 					token = COM_Parse (&s);
-					x = viddef.width/2 - 160 + atoi(token);
+					x = SCR_HudXv (atoi(token));
 					continue;
 				}
 				else if (token[1] == 'r')
@@ -1762,9 +1834,47 @@ is based on the stats array
 */
 void SCR_DrawStats (void)
 {
+	float	a;
+
+	a = (scr_alpha && scr_alpha->value > 0.0f) ? scr_alpha->value : 1.0f;
+	if (a > 1.0f)
+		a = 1.0f;
+	if (a < 0.1f)
+		a = 0.1f;
+	if (re.DrawSetColor)
+		re.DrawSetColor (1.0f, 1.0f, 1.0f, a);
 	scr_hud_draw_scale = SCR_HudScaleValue ();
+	scr_hud_wide_xv = true;
 	SCR_ExecuteLayoutString (cl.configstrings[CS_STATUSBAR]);
+	scr_hud_wide_xv = false;
 	scr_hud_draw_scale = 1.0f;
+	if (re.DrawSetColor)
+		re.DrawSetColor (1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+static void SCR_DrawLocation (void)
+{
+	const char	*name;
+	int			x, y;
+	float		s;
+
+	if (!loc_enable || !loc_enable->intvalue)
+		return;
+	if (cls.state != ca_active)
+		return;
+	name = CL_Get_Loc_Here ();
+	if (!name || !name[0])
+		return;
+	s = SCR_GetMenuScale ();
+	x = (viddef.width - (int)(strlen(name) * 8 * s)) / 2;
+	y = scr_vrect.y + scr_vrect.height - (int)(16 * s);
+	if (y < 0)
+		y = 0;
+	{
+		int i;
+		for (i = 0; name[i]; i++)
+			re.DrawChar (x + (int)(i * 8 * s), y, name[i]);
+	}
 }
 
 
@@ -1934,6 +2044,7 @@ void SCR_UpdateScreen (void)
 				SCR_DrawDebugGraph ();
 
 			SCR_DrawStats ();
+			SCR_DrawLocation ();
 			if (cl.frame.playerstate.stats[STAT_LAYOUTS] & 1)
 				SCR_DrawLayout ();
 			if (cl.frame.playerstate.stats[STAT_LAYOUTS] & 2)

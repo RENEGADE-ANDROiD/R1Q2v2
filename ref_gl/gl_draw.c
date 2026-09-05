@@ -24,6 +24,42 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 image_t		*draw_chars;
 
+static float	draw_color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+void EXPORT Draw_SetColor (float r, float g, float b, float a)
+{
+	draw_color[0] = r;
+	draw_color[1] = g;
+	draw_color[2] = b;
+	draw_color[3] = a;
+}
+
+static qboolean Draw_ColorActive (void)
+{
+	return (draw_color[0] != 1.0f || draw_color[1] != 1.0f ||
+		draw_color[2] != 1.0f || draw_color[3] != 1.0f);
+}
+
+static void Draw_BeginTint (void)
+{
+	if (!Draw_ColorActive())
+		return;
+	qglDisable (GL_ALPHA_TEST);
+	qglEnable (GL_BLEND);
+	GL_TexEnv (GL_MODULATE);
+	qglColor4f (draw_color[0], draw_color[1], draw_color[2], draw_color[3]);
+}
+
+static void Draw_EndTint (void)
+{
+	if (!Draw_ColorActive())
+		return;
+	qglColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+	GL_TexEnv (GL_REPLACE);
+	qglDisable (GL_BLEND);
+	qglEnable (GL_ALPHA_TEST);
+}
+
 extern	qboolean	scrap_dirty;
 void Scrap_Upload (void);
 
@@ -310,8 +346,12 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 		GL_CheckForError ();
 	}
 
-	/* Classic Quake II: rely on ALPHA_TEST from R_SetGL2D. Do not disable it
-	   or switch to blend — that paints index-255 neighbor RGB as solid white. */
+	/* Always punch index-255 (and image alpha) with ALPHA_TEST so a
+	 * transparent PCX cannot flatten into a solid white quad. */
+	qglEnable (GL_ALPHA_TEST);
+	GL_CheckForError ();
+
+	Draw_BeginTint ();
 	GL_Bind (gl->texnum);
 	qglBegin (GL_QUADS);
 	qglTexCoord2f (gl->sl, gl->tl);
@@ -323,6 +363,7 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 	qglTexCoord2f (gl->sl, gl->th);
 	qglVertex2i (x, y+h);
 	qglEnd ();
+	Draw_EndTint ();
 
 	GL_CheckForError ();
 
@@ -361,6 +402,10 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 	}
 
 	/* Classic Quake II: ALPHA_TEST only (see Draw_StretchPic). */
+	qglEnable (GL_ALPHA_TEST);
+	GL_CheckForError ();
+
+	Draw_BeginTint ();
 	GL_Bind (gl->texnum);
 
 	qglBegin (GL_QUADS);
@@ -373,6 +418,7 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 	qglTexCoord2f (gl->sl, gl->th);
 	qglVertex2i (x, y+gl->height);
 	qglEnd ();
+	Draw_EndTint ();
 
 	GL_CheckForError ();
 

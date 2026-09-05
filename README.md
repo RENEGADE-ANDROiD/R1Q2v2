@@ -2,7 +2,7 @@
 
 A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
-It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs) without turning this into a cheat client or a heavy effects pack.
+It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
 Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h`](build.h) each release.
 
@@ -30,6 +30,13 @@ The console and notify text scale with resolution (about 2× at 1080p). `con_sca
 
 Column menus are centered under the banner. New installs default to your desktop resolution. New Game starts a map from the main menu. Damage / powerup full-screen blends default **off** (`cl_blend 0`, `gl_polyblend 0`).
 
+### Options
+
+- **Crosshair** style (`none` / `cross` / `dot` / `angle`) and **crosshair scale** (0.1–4, saved)
+- **Crosshair setup** — color, alpha, health tint, and per-layer scales for `ch1`–`ch3` overlays (all saved)
+- Sound, mouse, always-run, invert, free look
+- **R1Q2 options** and customize controls
+
 ### Video Options
 
 OpenGL / R1GL:
@@ -41,10 +48,15 @@ OpenGL / R1GL:
 - **Lightmap** brightness
 - **Anisotropy** (1 / 2 / 4 / 8 / 16; default 16)
 - **Texture sharpen** (LOD bias on world textures; 0 = off)
-- **HUD scale** (`scr_hudscale`, about 0.5–2.5) — status bar only; menus and crosshair stay unscaled
+- **HUD scale** (`scr_hudscale`, about 0.5–2.5) — status bar only; menus stay unscaled
 - **HUD at top** (`scr_hud_top`) — flips status bar / layout `yb` to the top
+- **Wide HUD** (`scr_hudwide`, on by default) — on 16:9, health/ammo sit left and armor/weapon sit right. 4:3 stays the old centered strip. Scoreboards are unchanged.
 - **Shadows**
 - **Dynamic lights**
+
+Water and slime draw see-through (water 0.66, slime 0.84). Lava stays opaque.
+
+Widescreen Hor+ FOV (`cl_adjustfov`) and HUD opacity (`scr_alpha`) are under Options → R1Q2, not here. Both save.
 
 Escape applies driver / resolution / fullscreen. The FX toggles and sliders apply as you change them. Cancel leaves without applying the video-mode change.
 
@@ -80,9 +92,27 @@ Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lo
 
 **Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser. Favorites are stored in `baseq2/bookmarks.cfg` so they survive `exec Q2config.cfg` and gamedir switches.
 
+Chat filter: `ignore` / `mute` a name or snippet (same command). List with `ignorelist`, drop with `unignore` / `unmute`. The list is stored in `ignore.txt`.
+
+### Weapons and view
+
+MD3 view weapons load alongside stock MD2. Missing skins try the model folder, `.skin` files, and `players/*/weapon` so rail / vwep pics do not drop to the notexture. `cl_vwep` still draws other players’ guns.
+
+### Demos and locations
+
+`cl_autorecord` writes a demo when a map starts (R1Q2 options). While playing a demo: `demopause` and `demospeed 0.1`–`8`.
+
+Drop a `maps/<map>.loc` (or `locs/<map>.loc`) in the gamedir. Nearest name draws on the HUD when `loc_enable` is on. `addloc` / `saveloc` from the console.
+
+### Sound
+
+OpenAL (when the build has it) keeps your own shots on the listener so they do not drift. World sounds stay positional.
+
 ### Options → R1Q2 settings
 
-DirectInput mouse, XP mouse acceleration fix, deferred model loading, **Q2Pro movement** (sync physics / `cl_async 0` for classic jump feel; off keeps stock R1Q2 async), automatic demo record, and Xania rail trail. These are not written to `config.cfg` — put anything you want to keep in `autoexec.cfg`. Details: [CVARS.md](CVARS.md).
+DirectInput mouse, XP mouse acceleration fix, deferred model loading, **sync physics** (`cl_async 0` locks render to `cl_maxfps` for classic jump *timing* — this is **not** Q2PRO pmove; off keeps stock R1Q2 async and is the default feel), widescreen Hor+ FOV, HUD alpha, location names, automatic demo record, and Xania rail trail.
+
+**Saved to `config.cfg`:** sync physics, Hor+ FOV, HUD alpha, location names, and everything under Crosshair setup. Mouse / defer / demo / rail on this page are still session-only unless you put them in `autoexec.cfg`. Details: [CVARS.md](CVARS.md).
 
 ## Building
 
