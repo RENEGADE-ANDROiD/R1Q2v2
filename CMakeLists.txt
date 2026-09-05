@@ -6,6 +6,7 @@ project(r1q2 VERSION 8012 LANGUAGES C RC)
 
 option(R1Q2_BUILD_CLIENT "Build Win32 client (needs DirectInput/DirectSound headers)" ON)
 option(R1Q2_USE_OPENAL "Compile client with OpenAL (s_initsound 2)" ON)
+option(R1Q2_USE_CURL "Compile client HTTP downloads (libcurl / TastySpleen dlserver)" ON)
 option(R1Q2_ANTICHEAT "Compile server anticheat hooks (ANTICHEAT)" OFF)
 
 set(CMAKE_C_STANDARD 99)
@@ -24,6 +25,9 @@ find_package(PNG REQUIRED)
 find_package(JPEG REQUIRED)
 if(R1Q2_USE_OPENAL)
   find_package(OpenAL CONFIG REQUIRED)
+endif()
+if(R1Q2_USE_CURL)
+  find_package(CURL REQUIRED)
 endif()
 
 if(MSVC)
@@ -122,6 +126,9 @@ if(R1Q2_BUILD_CLIENT)
   if(R1Q2_USE_OPENAL)
     target_compile_definitions(r1q2 PRIVATE USE_OPENAL)
   endif()
+  if(R1Q2_USE_CURL)
+    target_compile_definitions(r1q2 PRIVATE USE_CURL)
+  endif()
   target_include_directories(r1q2 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/client
@@ -133,6 +140,9 @@ if(R1Q2_BUILD_CLIENT)
   )
   if(R1Q2_USE_OPENAL)
     target_link_libraries(r1q2 PRIVATE OpenAL::OpenAL)
+  endif()
+  if(R1Q2_USE_CURL)
+    target_link_libraries(r1q2 PRIVATE CURL::libcurl)
   endif()
   target_link_libraries(r1q2 PRIVATE
     ZLIB::ZLIB
@@ -158,6 +168,26 @@ if(R1Q2_BUILD_CLIENT)
         $<TARGET_FILE_DIR:r1q2>/fmt.dll
       COMMENT "Copy OpenAL32.dll + fmt.dll beside R1Q2v2.exe"
     )
+  endif()
+  if(R1Q2_USE_CURL)
+    add_custom_command(TARGET r1q2 POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:CURL::libcurl>
+        $<TARGET_FILE_DIR:r1q2>
+      COMMENT "Copy libcurl beside R1Q2v2.exe"
+    )
+    # Schannel curl still pulls zlib; copy zlib1.dll if vcpkg installed it.
+    if(DEFINED VCPKG_TARGET_TRIPLET)
+      set(_r1q2_zlib1 "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin/zlib1.dll")
+      if(EXISTS "${_r1q2_zlib1}")
+        add_custom_command(TARGET r1q2 POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_r1q2_zlib1}"
+            $<TARGET_FILE_DIR:r1q2>/zlib1.dll
+          COMMENT "Copy zlib1.dll (libcurl) beside R1Q2v2.exe"
+        )
+      endif()
+    endif()
   endif()
   set_target_properties(r1q2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

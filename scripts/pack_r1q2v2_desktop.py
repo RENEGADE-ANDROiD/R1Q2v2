@@ -24,9 +24,10 @@ BINARIES = (
     "z.dll",
     "OpenAL32.dll",
     "fmt.dll",  # OpenAL Soft (vcpkg) LoadLibrary dependency
+    "libcurl.dll",  # HTTP autodownload (TastySpleen dlserver)
 )
 
-# HRTF / speaker presets for OpenAL Soft. Do not ship Q2PRO-X als oft.ini
+# HRTF / speaker presets for OpenAL Soft. Do not ship als oft.ini
 # (binaural cvars) or 64-bit soft_oal.dll — R1Q2v2 is Win32 and loads OpenAL32.dll.
 
 # Runtime data for OpenAL Soft (HRTF + presets). Skip als oft-config (Qt GUI).
@@ -61,6 +62,7 @@ Included
 - ref_r1gl.dll, ref_gl.dll (R1GL renderer)
 - z.dll, libpng16.dll, jpeg62.dll (PNG/JPG support)
 - OpenAL32.dll + fmt.dll (OpenAL Soft; R1Q2 loads OpenAL32.dll)
+- libcurl.dll (HTTP autodownload when the server sends dlserver=)
 - oal/hrtf/, oal/presets/ (OpenAL Soft HRTF data, optional)
 - baseq2/r1q2v2_visual.cfg — 1080p-friendly defaults
 - baseq2/pretty_r1q2v2.cfg — alternate visual preset (R1-safe cvars only)
@@ -127,6 +129,13 @@ def main() -> int:
         src = find_binary(name)
         if src is None:
             missing.append(name)
+            continue
+        shutil.copy2(src, pkg / name)
+        copied.append(f"{name} <- {src.parent.name}")
+
+    for name in ("zlib1.dll",):
+        src = find_binary(name)
+        if src is None:
             continue
         shutil.copy2(src, pkg / name)
         copied.append(f"{name} <- {src.parent.name}")

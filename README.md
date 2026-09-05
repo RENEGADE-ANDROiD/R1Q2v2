@@ -14,6 +14,7 @@ Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h
    - `ref_r1gl.dll`, `ref_gl.dll`
    - `z.dll`, `libpng16.dll`, `jpeg62.dll`
    - **OpenAL (recommended):** `OpenAL32.dll` and `fmt.dll` (OpenAL Soft from vcpkg; `fmt.dll` is required next to the exe). Optional: `oal/hrtf/` + `oal/presets/`. Shipped in the [desktop tester zip](#tester-zip); R1Q2 loads `OpenAL32.dll` at runtime.
+   - **HTTP downloads:** `libcurl.dll` (and `zlib1.dll` if present) next to the exe. TastySpleen and other R1 servers send `dlserver=`; without curl you get “built without USE_CURL, bad luck.”
    - `baseq2/r1q2v2_visual.cfg` (and optionally `pretty_r1q2v2.cfg`) into the install `baseq2` folder
 3. Launch `R1Q2v2.exe`.
 
@@ -136,7 +137,7 @@ DirectInput mouse, XP mouse acceleration fix, deferred model loading, **sync phy
 
 ## Building
 
-On Windows, run `build-windows.cmd` (VS2022 Build Tools, CMake, Ninja, vcpkg). Requires **openal-soft** (in `vcpkg.json`). Output lands in `build\bin\` including `OpenAL32.dll` beside `R1Q2v2.exe`.
+On Windows, run `build-windows.cmd` (VS2022 Build Tools, CMake, Ninja, vcpkg). Requires **openal-soft** and **curl** (in `vcpkg.json`). Output lands in `build\bin\` including `OpenAL32.dll` and `libcurl.dll` beside `R1Q2v2.exe`.
 
 If CMake skips manifest packages (e.g. after editing `vcpkg.json`), delete `build/CMakeCache.txt` and reconfigure with `-DVCPKG_MANIFEST_INSTALL=ON`, or run `vcpkg install --triplet x86-windows` from the repo root before building.
 

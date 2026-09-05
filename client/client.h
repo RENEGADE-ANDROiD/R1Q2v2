@@ -35,16 +35,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef USE_CURL
-#ifdef _WIN32
-#define CURL_STATICLIB
-#define CURL_HIDDEN_SYMBOLS
-#define CURL_EXTERN_SYMBOL
-#define CURL_CALLING_CONVENTION __cdecl
-#endif
-#include <curl/curl.h>
-#endif
-
 #include "ref.h"
 
 #include "vid.h"
@@ -165,7 +155,7 @@ typedef struct dlqueue_s
 
 typedef struct dlhandle_s
 {
-	CURL		*curl;
+	void		*curl;
 	char		filePath[MAX_OSPATH];
 	FILE		*file;
 	dlqueue_t	*queueEntry;

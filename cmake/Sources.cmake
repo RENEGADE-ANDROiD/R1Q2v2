@@ -42,6 +42,7 @@ set(R1Q2_CLIENT_SOURCES
   client/cl_dll.c
   client/cl_ents.c
   client/cl_fx.c
+  client/cl_http.c
   client/cl_input.c
   client/cl_inv.c
   client/cl_main.c

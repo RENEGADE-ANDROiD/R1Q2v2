@@ -56,6 +56,6 @@ echo.
 echo Built:
 dir /b build\bin\*.exe build\bin\*.dll 2>nul
 echo.
-echo Copy build\bin\R1Q2v2.exe, ref_r1gl.dll, ref_gl.dll, gamex86.dll, OpenAL32.dll
-echo and the zlib/png/jpeg DLLs into your Quake 2 folder and launch R1Q2v2.exe
+echo Copy build\bin\R1Q2v2.exe, ref_r1gl.dll, ref_gl.dll, gamex86.dll, OpenAL32.dll,
+echo libcurl.dll, and the zlib/png/jpeg DLLs into your Quake 2 folder and launch R1Q2v2.exe
 exit /b 0

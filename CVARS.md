@@ -173,7 +173,7 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 | `cl_updaterate` | `0` | Requested update rate on R1Q2 protocol (`0` = server default). |
 | `cl_timeout` | `120` | Seconds with no packets before disconnect. |
 | `cl_instantpacket` | `1` | Send packets immediately when possible. |
-| `cl_http_downloads` | `1` | Allow HTTP downloads when the server offers them. |
+| `cl_http_downloads` | `1` | Allow HTTP downloads when the server offers them (`dlserver=`). Needs a **USE_CURL** build and `libcurl.dll` beside the exe. |
 | `allow_download` | `1` | Master UDP download switch (maps / models / sounds / players have siblings). |
 
 There is no `cl_snaps` in this tree.
