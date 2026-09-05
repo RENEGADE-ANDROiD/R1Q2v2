@@ -74,6 +74,63 @@ cvar_t		*scr_chathud_y;
 cvar_t		*scr_chathud_highlight;
 cvar_t		*scr_chathud_highlight_char;
 cvar_t		*scr_hud_top;
+cvar_t		*scr_hudscale;
+
+/* Only set while drawing CS_STATUSBAR — keeps menus/crosshair unscaled. */
+static float	scr_hud_draw_scale = 1.0f;
+
+static float SCR_HudScaleValue (void)
+{
+	float	hs;
+
+	if (!scr_hudscale)
+		return 1.0f;
+	hs = scr_hudscale->value;
+	if (hs < 0.5f)
+		hs = 0.5f;
+	if (hs > 3.0f)
+		hs = 3.0f;
+	return hs;
+}
+
+static void SCR_HudPlace (int *x, int *y)
+{
+	float	hs = scr_hud_draw_scale;
+
+	if (hs == 1.0f)
+		return;
+
+	*x = viddef.width / 2 + (int)((*x - (int)(viddef.width / 2)) * hs);
+	if (scr_hud_top && scr_hud_top->intvalue)
+		*y = (int)(*y * hs);
+	else
+		*y = viddef.height - (int)((viddef.height - *y) * hs);
+}
+
+static void SCR_HudDrawPic (int x, int y, char *name)
+{
+	int		w, h;
+	float	hs = scr_hud_draw_scale;
+
+	SCR_HudPlace (&x, &y);
+
+	if (hs == 1.0f)
+	{
+		re.DrawPic (x, y, name);
+		return;
+	}
+
+	re.DrawGetPicSize (&w, &h, name);
+	if (w < 1)
+		w = 24;
+	if (h < 1)
+		h = 24;
+	w = (int)(w * hs + 0.5f);
+	h = (int)(h * hs + 0.5f);
+	SCR_AddDirtyPoint (x, y);
+	SCR_AddDirtyPoint (x + w, y + h);
+	re.DrawStretchPic (x, y, w, h, name);
+}
 
 typedef struct
 {
@@ -780,6 +837,17 @@ void SCR_Init (void)
 	scr_chathud_highlight = Cvar_Get ("scr_chathud_highlight", "0", 0);
 	scr_chathud_highlight_char = Cvar_Get ("scr_chathud_highlight_char", " ", 0);
 	scr_hud_top = Cvar_Get ("scr_hud_top", "0", CVAR_ARCHIVE);
+	scr_hudscale = Cvar_Get ("scr_hudscale", "1", CVAR_ARCHIVE);
+	/* Migrate old video-menu setting that scaled the whole 2D layer. */
+	{
+		cvar_t	*gl_hs = Cvar_Get ("gl_hudscale", "1", CVAR_ARCHIVE);
+		if (gl_hs->value != 1.0f)
+		{
+			if (scr_hudscale->value == 1.0f)
+				Cvar_SetValue ("scr_hudscale", gl_hs->value);
+			Cvar_Set ("gl_hudscale", "1");
+		}
+	}
 
 	scr_chathud_lines->changed = SCR_Chathud_Changed;
 	scr_chathud_lines->changed (scr_chathud_lines, scr_chathud_lines->string, scr_chathud_lines->string);
@@ -1264,6 +1332,8 @@ void SCR_DrawField (int x, int y, int color, int width, int value)
 	char	num[16], *ptr;
 	int		l;
 	int		frame;
+	float	hs = scr_hud_draw_scale;
+	int		cw, ch;
 
 	if (width < 1)
 		return;
@@ -1272,14 +1342,18 @@ void SCR_DrawField (int x, int y, int color, int width, int value)
 	if (width > 5)
 		width = 5;
 
+	SCR_HudPlace (&x, &y);
+	cw = (int)(CHAR_WIDTH * hs + 0.5f);
+	ch = (int)(24 * hs + 0.5f);
+
 	SCR_AddDirtyPoint (x, y);
-	SCR_AddDirtyPoint (x+width*CHAR_WIDTH+2, y+23);
+	SCR_AddDirtyPoint (x+width*cw+2, y+ch);
 
 	Com_sprintf (num, sizeof(num), "%i", value);
 	l = (int)strlen(num);
 	if (l > width)
 		l = width;
-	x += 2 + CHAR_WIDTH*(width - l);
+	x += 2 + cw*(width - l);
 
 	ptr = num;
 	while (ptr[0] && l)
@@ -1289,8 +1363,11 @@ void SCR_DrawField (int x, int y, int color, int width, int value)
 		else
 			frame = ptr[0] -'0';
 
-		re.DrawPic (x, y, sb_nums[color][frame]);
-		x += CHAR_WIDTH;
+		if (hs == 1.0f)
+			re.DrawPic (x, y, sb_nums[color][frame]);
+		else
+			re.DrawStretchPic (x, y, cw, ch, sb_nums[color][frame]);
+		x += cw;
 		ptr++;
 		l--;
 	}
@@ -1415,7 +1492,7 @@ void SCR_ExecuteLayoutString (char *s)
 						token = COM_Parse (&s);
 						SCR_AddDirtyPoint (x, y);
 						SCR_AddDirtyPoint (x+23, y+23);
-						re.DrawPic (x, y, (char *)token);
+						SCR_HudDrawPic (x, y, (char *)token);
 					}
 					else
 					{
@@ -1435,7 +1512,7 @@ void SCR_ExecuteLayoutString (char *s)
 						{
 							SCR_AddDirtyPoint (x, y);
 							SCR_AddDirtyPoint (x+23, y+23);
-							re.DrawPic (x, y, cl.configstrings[CS_IMAGES+value]);
+							SCR_HudDrawPic (x, y, cl.configstrings[CS_IMAGES+value]);
 						}
 					}
 					continue;
@@ -1473,7 +1550,7 @@ void SCR_ExecuteLayoutString (char *s)
 							continue;	// negative number = don't show
 
 						if (cl.frame.playerstate.stats[STAT_FLASHES] & 4)
-							re.DrawPic (x, y, "field_3");
+							SCR_HudDrawPic (x, y, "field_3");
 
 						SCR_DrawField (x, y, color, width, value);
 						continue;
@@ -1490,7 +1567,7 @@ void SCR_ExecuteLayoutString (char *s)
 							color = 1;
 
 						if (cl.frame.playerstate.stats[STAT_FLASHES] & 1)
-							re.DrawPic (x, y, "field_3");
+							SCR_HudDrawPic (x, y, "field_3");
 
 						SCR_DrawField (x, y, color, width, value);
 						continue;
@@ -1504,7 +1581,7 @@ void SCR_ExecuteLayoutString (char *s)
 						color = 0;	// green
 
 						if (cl.frame.playerstate.stats[STAT_FLASHES] & 2)
-							re.DrawPic (x, y, "field_3");
+							SCR_HudDrawPic (x, y, "field_3");
 
 						SCR_DrawField (x, y, color, width, value);
 						continue;
@@ -1672,7 +1749,9 @@ is based on the stats array
 */
 void SCR_DrawStats (void)
 {
+	scr_hud_draw_scale = SCR_HudScaleValue ();
 	SCR_ExecuteLayoutString (cl.configstrings[CS_STATUSBAR]);
+	scr_hud_draw_scale = 1.0f;
 }
 
 

@@ -2,7 +2,7 @@
 
 A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
-It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons) without turning this into a cheat client or a heavy effects pack.
+It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs) without turning this into a cheat client or a heavy effects pack.
 
 Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h`](build.h) each release.
 
@@ -23,6 +23,8 @@ Click a row or use the arrow keys. Left-click / right-arrow moves a toggle or sl
 
 The console and notify text scale with resolution (about 2× at 1080p). `con_scale 0` is auto; set it to 1–6 to lock a size.
 
+Column menus are centered under the banner. New installs default to your desktop resolution. New Game starts a map from the main menu. Damage / powerup full-screen blends default **off** (`cl_blend 0`, `gl_polyblend 0`).
+
 ### Video Options
 
 OpenGL / R1GL:
@@ -34,31 +36,36 @@ OpenGL / R1GL:
 - **Lightmap** brightness
 - **Anisotropy** (1 / 2 / 4 / 8 / 16; default 16)
 - **Texture sharpen** (LOD bias on world textures; 0 = off)
-- **HUD scale** (`gl_hudscale`, about 0.5–2.5) — Video Options, under texture sharpen
-- **HUD at top** (`scr_hud_top`) — same menu; flips status bar / layout `yb` to the top
+- **HUD scale** (`scr_hudscale`, about 0.5–2.5) — status bar only; menus and crosshair stay unscaled
+- **HUD at top** (`scr_hud_top`) — flips status bar / layout `yb` to the top
 - **Shadows**
 - **Dynamic lights**
 
 Escape applies driver / resolution / fullscreen. The FX toggles and sliders apply as you change them. Cancel leaves without applying the video-mode change.
 
-New installs default to your desktop resolution. New Game starts a map from the main menu.
+Older configs that used `gl_hudscale` for HUD size are migrated to `scr_hudscale` once; `gl_hudscale` is forced back to `1` so it no longer shrinks the whole 2D layer.
 
-### High-res textures
+### Packs and high-res textures
 
-R1GL already loads drop-in replacements next to retail WALs (keep the WALs for UV size):
+**`.pak` and `.pkz`** (ZIP packs, same as [Q2PRO](https://github.com/q2pro/q2pro)) both load from `baseq2` and mod gamedirs. Later packs override earlier ones. Drop-in examples that work out of the box:
+
+- `Q3ArenaHUD.pkz` — Quake III–style status bar pics
+- `quake2-neural-upscale-textures-*.pkz` — HD wall replacements
+
+R1GL also loads loose replacements next to retail WALs (keep the WALs for UV size):
 
 ```
 baseq2/textures/<name>.png|.jpg|.tga
 baseq2/env/<skyname>rt.png   (also bk lf ft up dn; jpg/tga work too)
 ```
 
-Try order is png → jpg → tga → wal. Same-gamedir **paks beat loose files** — put overrides in a later pak or a mod gamedir. Needs `libpng16.dll` / `jpeg62.dll` next to the exe.
+Try order is png → jpg → tga → wal. Same-gamedir **packs beat loose files** — put overrides in a later `.pak`/`.pkz` or a mod gamedir. Needs `z.dll` / `libpng16.dll` / `jpeg62.dll` next to the exe.
 
-Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lodbias` (0 … -2), `gl_linear_mipmaps 1`, `gl_texture_formats "png jpg tga"`.
+Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lodbias` (0 … −4 via the sharpen slider), `gl_linear_mipmaps 1`, `gl_texture_formats "png jpg tga"`, `gl_pic_formats "png jpg tga"`.
 
 ### Multiplayer
 
-**Join Network Server** lists public games from q2servers.com, plus LAN. Empty rows stay blank while the list fills in.
+**Join Network Server** lists public games from q2servers.com, plus LAN. Empty rows stay blank while the list fills in. The list is centered under the banner.
 
 - Enter — connect
 - F — add or remove the selected server in the Address Book

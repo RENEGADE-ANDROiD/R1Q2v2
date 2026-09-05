@@ -43,7 +43,7 @@ static cvar_t *gl_swapinterval;
 static cvar_t *gl_modulate;
 static cvar_t *gl_ext_max_anisotropy;
 static cvar_t *gl_texture_lodbias;
-static cvar_t *gl_hudscale;
+static cvar_t *scr_hudscale;
 static cvar_t *scr_hud_top;
 static cvar_t *gl_shadows;
 static cvar_t *gl_dynamic;
@@ -149,7 +149,8 @@ static void VID_ApplyFxSettings( void )
 		ai = 4;
 	Cvar_SetValue( "gl_ext_max_anisotropy", aniso_vals[ai] );
 	Cvar_SetValue( "gl_texture_lodbias", -s_sharpen_slider.curvalue * 0.4f );
-	Cvar_SetValue( "gl_hudscale", s_hudscale_slider.curvalue / 10.0f );
+	Cvar_SetValue( "scr_hudscale", s_hudscale_slider.curvalue / 10.0f );
+	Cvar_SetValue( "gl_hudscale", 1.0f ); /* keep 2D layer unscaled (menus/crosshair) */
 	Cvar_SetValue( "scr_hud_top", (float)s_hudtop_box.curvalue );
 	Cvar_SetValue( "gl_shadows", (float)s_shadows_box.curvalue );
 	Cvar_SetValue( "gl_dynamic", (float)s_dynamic_box.curvalue );
@@ -321,8 +322,8 @@ void EXPORT VID_MenuInit( void )
 	if ( !gl_texture_lodbias )
 		gl_texture_lodbias = Cvar_Get( "gl_texture_lodbias", "0", CVAR_ARCHIVE );
 
-	if ( !gl_hudscale )
-		gl_hudscale = Cvar_Get( "gl_hudscale", "1", CVAR_ARCHIVE );
+	if ( !scr_hudscale )
+		scr_hudscale = Cvar_Get( "scr_hudscale", "1", CVAR_ARCHIVE );
 
 	if ( !scr_hud_top )
 		scr_hud_top = Cvar_Get( "scr_hud_top", "0", CVAR_ARCHIVE );
@@ -561,7 +562,7 @@ void EXPORT VID_MenuInit( void )
 	s_hudscale_slider.generic.callback = VidFxCallback;
 	s_hudscale_slider.minvalue = 5;
 	s_hudscale_slider.maxvalue = 25;
-	s_hudscale_slider.curvalue = gl_hudscale->value * 10.0f;
+	s_hudscale_slider.curvalue = scr_hudscale->value * 10.0f;
 	if (s_hudscale_slider.curvalue < 5)
 		s_hudscale_slider.curvalue = 5;
 	if (s_hudscale_slider.curvalue > 25)
