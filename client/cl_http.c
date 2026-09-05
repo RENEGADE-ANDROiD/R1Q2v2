@@ -140,42 +140,55 @@ seems to treat '/' and such as illegal chars and encodes almost
 the entire URL...
 ===============
 */
-static void CL_EscapeHTTPPath (const char *filePath, char *escaped)
+static void CL_EscapeHTTPPath (const char *filePath, char *escaped, size_t escapedSize)
 {
 	int		i;
 	size_t	len;
 	char	*p;
+	char	*end;
+
+	if (!escaped || escapedSize < 1)
+		return;
+
+	escaped[0] = 0;
+	if (!filePath)
+		return;
 
 	p = escaped;
+	end = escaped + escapedSize - 1;	/* leave room for NUL */
 
 	len = strlen (filePath);
-	for (i = 0; i < len; i++)
+	for (i = 0; i < (int)len; i++)
 	{
-		if (!isalnum (filePath[i]) && filePath[i] != ';' && filePath[i] != '/' &&
+		if (!isalnum ((unsigned char)filePath[i]) && filePath[i] != ';' && filePath[i] != '/' &&
 			filePath[i] != '?' && filePath[i] != ':' && filePath[i] != '@' && filePath[i] != '&' &&
 			filePath[i] != '=' && filePath[i] != '+' && filePath[i] != '$' && filePath[i] != ',' &&
 			filePath[i] != '[' && filePath[i] != ']' && filePath[i] != '-' && filePath[i] != '_' &&
 			filePath[i] != '.' && filePath[i] != '!' && filePath[i] != '~' && filePath[i] != '*' &&
 			filePath[i] != '\'' && filePath[i] != '(' && filePath[i] != ')')
 		{
-			sprintf (p, "%%%02x", filePath[i]);
+			if (p + 3 > end)
+				break;
+			Com_sprintf (p, (int)(end - p + 1), "%%%02x", (unsigned char)filePath[i]);
 			p += 3;
 		}
 		else
 		{
+			if (p >= end)
+				break;
 			*p = filePath[i];
 			p++;
 		}
 	}
-	p[0] = 0;
+	*p = 0;
 
-	//using ./ in a url is legal, but all browsers condense the path and some IDS / request
-	//filtering systems act a bit funky if http requests come in with uncondensed paths.
-	len = strlen(escaped);
+	/* using ./ in a url is legal, but all browsers condense the path and some IDS / request
+	 * filtering systems act a bit funky if http requests come in with uncondensed paths. */
+	len = strlen (escaped);
 	p = escaped;
 	while ((p = strstr (p, "./")))
 	{
-		memmove (p, p+2, len - (p - escaped) - 1);
+		memmove (p, p + 2, len - (size_t)(p - escaped) - 1);
 		len -= 2;
 	}
 }
@@ -254,14 +267,14 @@ static void CL_StartHTTPDownload (dlqueue_t *entry, dlhandle_t *dl)
 	if (len > 9 && !strcmp (entry->quakePath + len - 9, ".filelist"))
 	{
 		dl->file = NULL;
-		CL_EscapeHTTPPath (entry->quakePath, escapedFilePath);
+		CL_EscapeHTTPPath (entry->quakePath, escapedFilePath, sizeof(escapedFilePath));
 	}
 	else
 	{
 		Com_sprintf (tempFile, sizeof(tempFile), "%s/%s", cl.gamedir, entry->quakePath);
 		/* Escape path used in URL; append .tmp via Com_sprintf (no strcat overflow). */
 		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s", FS_Gamedir(), entry->quakePath);
-		CL_EscapeHTTPPath (dl->filePath, escapedFilePath);
+		CL_EscapeHTTPPath (dl->filePath, escapedFilePath, sizeof(escapedFilePath));
 		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s.tmp", FS_Gamedir(), entry->quakePath);
 
 		FS_CreatePath (dl->filePath);

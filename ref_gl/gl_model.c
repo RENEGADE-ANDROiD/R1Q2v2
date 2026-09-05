@@ -30,7 +30,7 @@ int		modfilelen;
 void Mod_LoadSpriteModel (model_t *mod, void *buffer);
 void Mod_LoadBrushModel (model_t *mod, void *buffer);
 void Mod_LoadAliasModel (model_t *mod, void *buffer);
-void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize);
+qboolean Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize);
 model_t *Mod_LoadModel (model_t *mod, qboolean crash);
 
 #include "md3.h"
@@ -321,7 +321,22 @@ model_t *Mod_ForName (char *name, qboolean crash)
 				loadmodel->extradata = Hunk_Begin (model_size->size, model_size->size);
 			else
 				loadmodel->extradata = Hunk_Begin (0x400000, 0);
-			Mod_LoadMD3Model (mod, buf, modfilelen);
+			if (!Mod_LoadMD3Model (mod, buf, modfilelen))
+			{
+				/* Optional registration (vwep etc.) must not ERR_DROP on corrupt MD3. */
+				if (loadmodel->extradata)
+				{
+					Hunk_Free (loadmodel->extradata);
+					loadmodel->extradata = NULL;
+				}
+				loadmodel->extradatasize = 0;
+				ri.FS_FreeFile (buf);
+				if (crash)
+					ri.Sys_Error (ERR_DROP, "Mod_ForName: bad MD3 %s", mod->name);
+				ri.Con_Printf (PRINT_ALL, "Mod_ForName: failed to load MD3 %s\n", mod->name);
+				mod->name[0] = 0;
+				return NULL;
+			}
 			break;
 			
 		case IDSPRITEHEADER:
@@ -1486,9 +1501,10 @@ Mod_LoadMD3Model
 
 Load Quake III MD3 (IDP3). Works for .md3 and MD3 bytes in a .md2-named file.
 Tags are ignored. Multi-mesh supported; Q3 shaders are treated as skin paths.
+Returns false on corrupt/truncated data so optional loads (crash==false) can soft-fail.
 =================
 */
-void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
+qboolean Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 {
 	dmd3header_t	hdr;
 	md3model_t		*md3;
@@ -1498,7 +1514,10 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 	int				remaining;
 
 	if (filesize < (int)sizeof(dmd3header_t))
-		ri.Sys_Error (ERR_DROP, "Mod_LoadMD3Model: %s is too small", mod->name);
+	{
+		ri.Con_Printf (PRINT_ALL, "Mod_LoadMD3Model: %s is too small\n", mod->name);
+		return false;
+	}
 
 	memcpy (&hdr, buffer, sizeof(hdr));
 	hdr.ident = LittleLong (hdr.ident);
@@ -1514,18 +1533,33 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 	hdr.ofs_end = LittleLong (hdr.ofs_end);
 
 	if (hdr.ident != IDMD3HEADER)
-		ri.Sys_Error (ERR_DROP, "Mod_LoadMD3Model: %s is not IDP3", mod->name);
+	{
+		ri.Con_Printf (PRINT_ALL, "Mod_LoadMD3Model: %s is not IDP3\n", mod->name);
+		return false;
+	}
 	if (hdr.version != MD3_VERSION)
-		ri.Sys_Error (ERR_DROP, "%s has wrong MD3 version (%i should be %i)",
+	{
+		ri.Con_Printf (PRINT_ALL, "%s has wrong MD3 version (%i should be %i)\n",
 			mod->name, hdr.version, MD3_VERSION);
+		return false;
+	}
 	if (hdr.num_frames < 1 || hdr.num_frames > MD3_MAX_FRAMES)
-		ri.Sys_Error (ERR_DROP, "%s has bad MD3 frame count %i", mod->name, hdr.num_frames);
+	{
+		ri.Con_Printf (PRINT_ALL, "%s has bad MD3 frame count %i\n", mod->name, hdr.num_frames);
+		return false;
+	}
 	if (hdr.num_meshes < 1 || hdr.num_meshes > MD3_MAX_MESHES)
-		ri.Sys_Error (ERR_DROP, "%s has bad MD3 mesh count %i", mod->name, hdr.num_meshes);
+	{
+		ri.Con_Printf (PRINT_ALL, "%s has bad MD3 mesh count %i\n", mod->name, hdr.num_meshes);
+		return false;
+	}
 	if (hdr.ofs_frames < 0 || hdr.ofs_meshes < 0 ||
 		hdr.ofs_frames + hdr.num_frames * (int)sizeof(dmd3frame_t) > filesize ||
 		hdr.ofs_meshes > filesize)
-		ri.Sys_Error (ERR_DROP, "%s has bad MD3 offsets", mod->name);
+	{
+		ri.Con_Printf (PRINT_ALL, "%s has bad MD3 offsets\n", mod->name);
+		return false;
+	}
 
 	md3 = Hunk_Alloc (sizeof(*md3));
 	memset (md3, 0, sizeof(*md3));
@@ -1565,7 +1599,10 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 		int				nskins;
 
 		if (remaining < (int)sizeof(dmd3mesh_t))
-			ri.Sys_Error (ERR_DROP, "%s truncated MD3 mesh %i", mod->name, m);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s truncated MD3 mesh %i\n", mod->name, m);
+			return false;
+		}
 
 		memcpy (&meshhdr, meshptr, sizeof(meshhdr));
 		meshhdr.ident = LittleLong (meshhdr.ident);
@@ -1581,21 +1618,39 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 		meshhdr.meshsize = LittleLong (meshhdr.meshsize);
 
 		if (meshhdr.ident != IDMD3HEADER)
-			ri.Sys_Error (ERR_DROP, "%s mesh %i bad ident", mod->name, m);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad ident\n", mod->name, m);
+			return false;
+		}
 		if (meshhdr.meshsize < (int)sizeof(dmd3mesh_t) || meshhdr.meshsize > remaining)
-			ri.Sys_Error (ERR_DROP, "%s mesh %i bad size", mod->name, m);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad size\n", mod->name, m);
+			return false;
+		}
 		if (meshhdr.num_frames != hdr.num_frames)
-			ri.Sys_Error (ERR_DROP, "%s mesh %i frame mismatch", mod->name, m);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s mesh %i frame mismatch\n", mod->name, m);
+			return false;
+		}
 		if (meshhdr.num_verts < 3 || meshhdr.num_verts > MD3_MAX_VERTS)
-			ri.Sys_Error (ERR_DROP, "%s mesh %i bad verts %i", mod->name, m, meshhdr.num_verts);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad verts %i\n", mod->name, m, meshhdr.num_verts);
+			return false;
+		}
 		if (meshhdr.num_tris < 1 || meshhdr.num_tris > MD3_MAX_TRIANGLES)
-			ri.Sys_Error (ERR_DROP, "%s mesh %i bad tris %i", mod->name, m, meshhdr.num_tris);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad tris %i\n", mod->name, m, meshhdr.num_tris);
+			return false;
+		}
 		if (meshhdr.ofs_skins < 0 || meshhdr.ofs_tcs < 0 || meshhdr.ofs_indexes < 0 || meshhdr.ofs_verts < 0 ||
 			meshhdr.ofs_skins + meshhdr.num_skins * (int)sizeof(dmd3skin_t) > meshhdr.meshsize ||
 			meshhdr.ofs_tcs + meshhdr.num_verts * (int)sizeof(dmd3coord_t) > meshhdr.meshsize ||
 			meshhdr.ofs_indexes + meshhdr.num_tris * 3 * (int)sizeof(int) > meshhdr.meshsize ||
 			meshhdr.ofs_verts + meshhdr.num_verts * hdr.num_frames * (int)sizeof(dmd3vertex_t) > meshhdr.meshsize)
-			ri.Sys_Error (ERR_DROP, "%s mesh %i bad offsets", mod->name, m);
+		{
+			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad offsets\n", mod->name, m);
+			return false;
+		}
 
 		mesh = &md3->meshes[m];
 		memset (mesh->name, 0, sizeof(mesh->name));
@@ -1639,7 +1694,10 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 		{
 			unsigned idx = (unsigned)LittleLong (idxsrc[t]);
 			if (idx >= (unsigned)mesh->num_verts)
-				ri.Sys_Error (ERR_DROP, "%s mesh %i bad index", mod->name, m);
+			{
+				ri.Con_Printf (PRINT_ALL, "%s mesh %i bad index\n", mod->name, m);
+				return false;
+			}
 			mesh->indexes[t] = idx;
 		}
 
@@ -1682,8 +1740,9 @@ void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 	mod->numframes = hdr.num_frames;
 	mod->mins[0] = mod->mins[1] = mod->mins[2] = -32;
 	mod->maxs[0] = mod->maxs[1] = mod->maxs[2] = 32;
-}
 
+	return true;
+}
 
 /*
 ==============================================================================

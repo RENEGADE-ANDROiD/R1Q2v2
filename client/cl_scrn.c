@@ -76,6 +76,7 @@ cvar_t		*scr_chathud_highlight_char;
 cvar_t		*scr_hud_top;
 cvar_t		*scr_hudscale;
 cvar_t		*scr_hudwide;
+cvar_t		*scr_layoutscale;
 cvar_t		*scr_alpha;
 cvar_t		*loc_enable;
 
@@ -83,6 +84,9 @@ cvar_t		*loc_enable;
 static float	scr_hud_draw_scale = 1.0f;
 static qboolean	scr_hud_wide_xv;
 static qboolean	scr_hud_top_active;
+
+/* Only set while drawing STAT_LAYOUTS / cl.layout (not status bar). */
+static float	scr_layout_draw_scale = 1.0f;
 
 static qboolean SCR_HudIsWide (void)
 {
@@ -127,6 +131,9 @@ static void SCR_HudPlace (int *x, int *y)
 	int		mid;
 
 	if (hs == 1.0f)
+		return;
+	/* Layout menus already map classic 320x240 coords; do not re-place. */
+	if (scr_layout_draw_scale != 1.0f)
 		return;
 
 	mid = viddef.width / 2;
@@ -857,6 +864,35 @@ float SCR_GetConsoleScale (void)
 }
 
 /*
+================
+SCR_GetLayoutScale
+
+Scale for in-game layout menus (STAT_LAYOUTS / cl.layout): Arena team
+select, help computer, scoreboards, etc. 0 = auto from resolution
+(classic 480p baseline), same idea as scr_menuscale. Does not apply
+scr_hud_top / scr_hudwide remaps.
+================
+*/
+float SCR_GetLayoutScale (void)
+{
+	float s;
+
+	if (!scr_layoutscale)
+		return 1.0f;
+
+	if (scr_layoutscale->value > 0.0f)
+		s = scr_layoutscale->value;
+	else
+		s = (float)viddef.height / 480.0f;
+
+	if (s < 1.0f)
+		s = 1.0f;
+	if (s > 6.0f)
+		s = 6.0f;
+	return s;
+}
+
+/*
 ==================
 SCR_Init
 ==================
@@ -893,6 +929,7 @@ void SCR_Init (void)
 	scr_hud_top = Cvar_Get ("scr_hud_top", "0", CVAR_ARCHIVE);
 	scr_hudscale = Cvar_Get ("scr_hudscale", "1", CVAR_ARCHIVE);
 	scr_hudwide = Cvar_Get ("scr_hudwide", "1", CVAR_ARCHIVE);
+	scr_layoutscale = Cvar_Get ("scr_layoutscale", "0", CVAR_ARCHIVE);
 	scr_alpha = Cvar_Get ("scr_alpha", "1", CVAR_ARCHIVE);
 	loc_enable = Cvar_Get ("loc_enable", "1", CVAR_ARCHIVE);
 	/* Migrate old video-menu setting that scaled the whole 2D layer.
@@ -1352,7 +1389,12 @@ void DrawHUDString (const char *string, int x, int y, int centerwidth, int xor)
 	char	line[1024];
 	int		width;
 	int		i;
+	float	ls = scr_layout_draw_scale;
+	int		cw;
 
+	cw = (int)(8.0f * ls + 0.5f);
+	if (cw < 1)
+		cw = 1;
 	margin = x;
 
 	while (*string)
@@ -1364,19 +1406,19 @@ void DrawHUDString (const char *string, int x, int y, int centerwidth, int xor)
 		line[width] = 0;
 
 		if (centerwidth)
-			x = margin + (centerwidth - width*8)/2;
+			x = margin + ((int)(centerwidth * ls + 0.5f) - width * cw) / 2;
 		else
 			x = margin;
 		for (i=0 ; i<width ; i++)
 		{
 			re.DrawChar (x, y, line[i]^xor);
-			x += 8;
+			x += cw;
 		}
 		if (*string)
 		{
 			string++;	// skip the \n
 			x = margin;
-			y += 8;
+			y += cw;
 		}
 	}
 }
@@ -1487,6 +1529,52 @@ void SCR_TouchPics (void)
 	}
 }
 
+static void SCR_LayoutDrawString (int x, int y, const char *s)
+{
+	int		step;
+	float	ls = scr_layout_draw_scale;
+
+	if (ls == 1.0f)
+	{
+		DrawString (x, y, s);
+		return;
+	}
+	if (viddef.height * scr_conlines > y)
+		return;
+	step = (int)(8.0f * ls + 0.5f);
+	if (step < 1)
+		step = 1;
+	while (*s)
+	{
+		re.DrawChar (x, y, *s);
+		x += step;
+		s++;
+	}
+}
+
+static void SCR_LayoutDrawAltString (int x, int y, const char *s)
+{
+	int		step;
+	float	ls = scr_layout_draw_scale;
+
+	if (ls == 1.0f)
+	{
+		DrawAltString (x, y, s);
+		return;
+	}
+	if (viddef.height * scr_conlines > y)
+		return;
+	step = (int)(8.0f * ls + 0.5f);
+	if (step < 1)
+		step = 1;
+	while (*s)
+	{
+		re.DrawChar (x, y, *s ^ 0x80);
+		x += step;
+		s++;
+	}
+}
+
 /*
 ================
 SCR_ExecuteLayoutString 
@@ -1501,6 +1589,8 @@ void SCR_ExecuteLayoutString (char *s)
 	int				width;
 	int				index;
 	clientinfo_t	*ci;
+	float			ls = scr_layout_draw_scale;
+	int				virt;
 
 	if (cls.state != ca_active || !cl.refresh_prepped)
 		return;
@@ -1524,19 +1614,31 @@ void SCR_ExecuteLayoutString (char *s)
 				if (token[1] == 'v')
 				{
 					token = COM_Parse (&s);
-					x = SCR_HudXv (atoi(token));
+					virt = atoi(token);
+					if (ls != 1.0f)
+						x = viddef.width / 2 - (int)(160.0f * ls + 0.5f) + (int)(virt * ls);
+					else
+						x = SCR_HudXv (virt);
 					continue;
 				}
 				else if (token[1] == 'r')
 				{
 					token = COM_Parse (&s);
-					x = viddef.width + atoi(token);
+					virt = atoi(token);
+					if (ls != 1.0f)
+						x = viddef.width + (int)(virt * ls);
+					else
+						x = viddef.width + virt;
 					continue;
 				}
 				else if (token[1] == 'l')
 				{
 					token = COM_Parse (&s);
-					x = atoi(token);
+					virt = atoi(token);
+					if (ls != 1.0f)
+						x = (int)(virt * ls);
+					else
+						x = virt;
 					continue;
 				}
 				break;
@@ -1545,26 +1647,36 @@ void SCR_ExecuteLayoutString (char *s)
 				if (token[1] == 'v')
 				{
 					token = COM_Parse (&s);
-					y = viddef.height/2 - 120 + atoi(token);
+					virt = atoi(token);
+					if (ls != 1.0f)
+						y = viddef.height / 2 - (int)(120.0f * ls + 0.5f) + (int)(virt * ls);
+					else
+						y = viddef.height/2 - 120 + virt;
 					continue;
 				}
 				else if (token[1] == 'b')
 				{
 					token = COM_Parse (&s);
+					virt = atoi(token);
 					/* yb is bottom-relative (usually negative). Flip to top for status bar only. */
 					if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
-						y = -atoi(token);
+						y = (ls != 1.0f) ? (int)(-virt * ls) : -virt;
+					else if (ls != 1.0f)
+						y = viddef.height + (int)(virt * ls);
 					else
-						y = viddef.height + atoi(token);
+						y = viddef.height + virt;
 					continue;
 				}
 				else if (token[1] == 't')
 				{
 					token = COM_Parse (&s);
+					virt = atoi(token);
 					if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
-						y = viddef.height - atoi(token);
+						y = (ls != 1.0f) ? viddef.height - (int)(virt * ls) : viddef.height - virt;
+					else if (ls != 1.0f)
+						y = (int)(virt * ls);
 					else
-						y = atoi(token);
+						y = virt;
 					continue;
 				}
 				break;
@@ -1577,7 +1689,7 @@ void SCR_ExecuteLayoutString (char *s)
 					{	// draw a pic from a name
 						token = COM_Parse (&s);
 						SCR_AddDirtyPoint (x, y);
-						SCR_AddDirtyPoint (x+23, y+23);
+						SCR_AddDirtyPoint (x + (int)(23 * ls + 0.5f), y + (int)(23 * ls + 0.5f));
 						SCR_HudDrawPic (x, y, (char *)token);
 					}
 					else
@@ -1597,7 +1709,7 @@ void SCR_ExecuteLayoutString (char *s)
 						if (cl.configstrings[CS_IMAGES+value][0])
 						{
 							SCR_AddDirtyPoint (x, y);
-							SCR_AddDirtyPoint (x+23, y+23);
+							SCR_AddDirtyPoint (x + (int)(23 * ls + 0.5f), y + (int)(23 * ls + 0.5f));
 							SCR_HudDrawPic (x, y, cl.configstrings[CS_IMAGES+value]);
 						}
 					}
@@ -1686,7 +1798,7 @@ void SCR_ExecuteLayoutString (char *s)
 					if (index < 0 || index >= MAX_CONFIGSTRINGS)
 						Com_Error (ERR_DROP, "Bad stat_string index %d whilst parsing layout string", index);
 
-					DrawString (x, y, cl.configstrings[index]);
+					SCR_LayoutDrawString (x, y, cl.configstrings[index]);
 					continue;
 				}
 
@@ -1710,13 +1822,13 @@ void SCR_ExecuteLayoutString (char *s)
 					if (token[6] == '2' && token[7] == 0)
 					{
 						token = COM_Parse (&s);
-						DrawAltString (x, y, token);
+						SCR_LayoutDrawAltString (x, y, token);
 						continue;
 					}
 					else
 					{
 						token = COM_Parse (&s);
-						DrawString (x, y, token);
+						SCR_LayoutDrawString (x, y, token);
 						continue;
 					}
 				}
@@ -1746,13 +1858,16 @@ void SCR_ExecuteLayoutString (char *s)
 				else if (!strcmp(token, "client"))
 				{	// draw a deathmatch client block
 					int		score, ping, time;
+					int		cs = (int)(8.0f * ls + 0.5f);
 
+					if (cs < 1)
+						cs = 1;
 					token = COM_Parse (&s);
-					x = viddef.width/2 - 160 + atoi(token);
+					x = viddef.width/2 - (int)(160.0f * ls + 0.5f) + (int)(atoi(token) * ls);
 					token = COM_Parse (&s);
-					y = viddef.height/2 - 120 + atoi(token);
+					y = viddef.height/2 - (int)(120.0f * ls + 0.5f) + (int)(atoi(token) * ls);
 					SCR_AddDirtyPoint (x, y);
-					SCR_AddDirtyPoint (x+159, y+31);
+					SCR_AddDirtyPoint (x + (int)(159 * ls + 0.5f), y + (int)(31 * ls + 0.5f));
 
 					token = COM_Parse (&s);
 					value = atoi(token);
@@ -1771,16 +1886,16 @@ void SCR_ExecuteLayoutString (char *s)
 					token = COM_Parse (&s);
 					time = atoi(token);
 
-					DrawAltString (x+32, y, ci->name);
-					DrawString (x+32, y+8,  "Score: ");
-					DrawAltString (x+32+7*8, y+8,  va("%i", score));
+					SCR_LayoutDrawAltString (x + (int)(32 * ls + 0.5f), y, ci->name);
+					SCR_LayoutDrawString (x + (int)(32 * ls + 0.5f), y + cs,  "Score: ");
+					SCR_LayoutDrawAltString (x + (int)(32 * ls + 0.5f) + 7 * cs, y + cs,  va("%i", score));
 
-					DrawString (x+32, y+16, va("Ping:  %ims", ping));
-					DrawString (x+32, y+24, va("Time:  %i", time));
+					SCR_LayoutDrawString (x + (int)(32 * ls + 0.5f), y + 2 * cs, va("Ping:  %ims", ping));
+					SCR_LayoutDrawString (x + (int)(32 * ls + 0.5f), y + 3 * cs, va("Time:  %i", time));
 
 					if (!ci->icon)
 						ci = &cl.baseclientinfo;
-					re.DrawPic (x, y, ci->iconname);
+					SCR_HudDrawPic (x, y, ci->iconname);
 					continue;
 				}
 				else if (!strcmp(token, "ctf"))
@@ -1789,11 +1904,11 @@ void SCR_ExecuteLayoutString (char *s)
 					char	block[80];
 
 					token = COM_Parse (&s);
-					x = viddef.width/2 - 160 + atoi(token);
+					x = viddef.width/2 - (int)(160.0f * ls + 0.5f) + (int)(atoi(token) * ls);
 					token = COM_Parse (&s);
-					y = viddef.height/2 - 120 + atoi(token);
+					y = viddef.height/2 - (int)(120.0f * ls + 0.5f) + (int)(atoi(token) * ls);
 					SCR_AddDirtyPoint (x, y);
-					SCR_AddDirtyPoint (x+159, y+31);
+					SCR_AddDirtyPoint (x + (int)(159 * ls + 0.5f), y + (int)(31 * ls + 0.5f));
 
 					token = COM_Parse (&s);
 
@@ -1815,9 +1930,9 @@ void SCR_ExecuteLayoutString (char *s)
 					sprintf(block, "%3d %3d %-12.12s", score, ping, ci->name);
 
 					if (value == cl.playernum)
-						DrawAltString (x, y, block);
+						SCR_LayoutDrawAltString (x, y, block);
 					else
-						DrawString (x, y, block);
+						SCR_LayoutDrawString (x, y, block);
 					continue;
 				}
 		}
@@ -1891,9 +2006,22 @@ SCR_DrawLayout
 
 void SCR_DrawLayout (void)
 {
+	float	s;
+
 	if (!cl.frame.playerstate.stats[STAT_LAYOUTS])
 		return;
+
+	/* Scale layout menus for resolution; never enable hud_top / hudwide. */
+	s = SCR_GetLayoutScale ();
+	scr_layout_draw_scale = s;
+	scr_hud_draw_scale = s;	/* stretch pics/fields; HudPlace skipped while layout scale set */
+	if (s != 1.0f)
+		Cvar_SetValue ("gl_fontscale", s);
 	SCR_ExecuteLayoutString (cl.layout);
+	if (s != 1.0f)
+		Cvar_SetValue ("gl_fontscale", 1);
+	scr_hud_draw_scale = 1.0f;
+	scr_layout_draw_scale = 1.0f;
 }
 
 //=======================================================

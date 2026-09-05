@@ -119,7 +119,7 @@ typedef struct {
 	md3mesh_mem_t	*meshes;
 } md3model_t;
 
-void Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize);
+qboolean Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize);
 void R_DrawAliasMD3Model (entity_t *e);
 qboolean R_CullAliasMD3Model (vec3_t bbox[8], entity_t *e);
 

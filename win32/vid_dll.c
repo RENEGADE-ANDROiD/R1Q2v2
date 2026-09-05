@@ -650,6 +650,8 @@ cause the entire video mode and refresh DLL to be reset on the next frame.
 */
 void VID_Restart_f (void)
 {
+	/* Rebuild mode list so updated vid_forcewidth/height appear. */
+	VID_InitModeList();
 	vid_ref->modified = true;
 	//vid_ref->changed (NULL, NULL, NULL);
 	VID_ReloadRefresh ();
@@ -730,8 +732,9 @@ void VID_InitModeList( void )
 		{1280, 720}, {1280, 800}, {1280, 1024},
 		{1366, 768}, {1440, 900}, {1600, 900}, {1680, 1050},
 		{1920, 1080}, {1920, 1200},
-		{2560, 1440}, {2560, 1600},
-		{3840, 2160},
+		{2560, 1080}, {2560, 1440}, {2560, 1600},
+		{3440, 1440}, {3840, 1600}, {3840, 2160},
+		{5120, 1440},
 		{0, 0}
 	};
 
@@ -744,6 +747,14 @@ void VID_InitModeList( void )
 	dm.dmSize = sizeof(dm);
 	for ( i = 0; EnumDisplaySettings( NULL, i, &dm ); i++ )
 		VID_AddMode( (int)dm.dmPelsWidth, (int)dm.dmPelsHeight );
+
+	/* Include archived force dims so custom / ultrawide sizes stay selectable. */
+	{
+		cvar_t *fw = Cvar_Get( "vid_forcewidth", "0", CVAR_ARCHIVE );
+		cvar_t *fh = Cvar_Get( "vid_forceheight", "0", CVAR_ARCHIVE );
+		if ( fw->value >= 64.0f && fh->value >= 48.0f )
+			VID_AddMode( (int)fw->value, (int)fh->value );
+	}
 
 	if ( vid_num_modes > 1 )
 		qsort( vid_modes, (size_t)vid_num_modes, sizeof(vid_modes[0]), VID_ModeCmp );

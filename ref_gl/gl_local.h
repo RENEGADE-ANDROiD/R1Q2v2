@@ -249,6 +249,7 @@ extern cvar_t	*gl_forcewidth;
 extern cvar_t	*gl_forceheight;
 
 extern cvar_t	*vid_topmost;
+extern cvar_t	*vid_borderless;
 
 extern cvar_t	*gl_particle_min_size;
 extern cvar_t	*gl_particle_max_size;

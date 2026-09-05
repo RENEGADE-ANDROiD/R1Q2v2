@@ -641,22 +641,9 @@ void EXPORT VID_MenuInit( void )
 	Menu_Center( &s_software_menu );
 	Menu_Center( &s_opengl_menu );
 
-	/*
-	** Menu_Center also vertically centers — with many FX rows that pulls the
-	** first items up under the "display" banner. Keep centered X; sit below banner.
-	*/
-	{
-		float	s = SCR_GetMenuScale();
-		int		banner_y;
-		int		menu_y;
-		int		bh;
-
-		bh = M_BannerTextHeight ("VIDEO SETTINGS");
-		banner_y = (int)(viddef.height / 2 - 110 * s);
-		menu_y = banner_y + bh + (int)(8 * s);
-		s_software_menu.y = menu_y;
-		s_opengl_menu.y = menu_y;
-	}
+	/* Menu_Center can pull first rows under the banner at high scr_menuscale. */
+	M_PlaceMenuBelowBanner( &s_software_menu, "VIDEO SETTINGS" );
+	M_PlaceMenuBelowBanner( &s_opengl_menu, "VIDEO SETTINGS" );
 }
 
 /*

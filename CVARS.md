@@ -21,9 +21,10 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 |------|---------|--------|
 | `vid_ref` | `r1gl` | Renderer module. Prefer `r1gl` (`ref_r1gl.dll`). |
 | `vid_fullscreen` | `0` | `1` fullscreen, `0` windowed. |
-| `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid values fall back to the previous mode (often 320×240 if mode `0`). |
+| `vid_borderless` | `0` | `1` = borderless windowed fullscreen (no exclusive `ChangeDisplaySettings`). **Archived.** Also used automatically when the requested size matches the current desktop mode. Prefer this on ultrawide if exclusive fullscreen fails. Alias intent: same idea as a `vid_desktopfs` flag. |
+| `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid indexed values fall back to the previous mode (often 320×240 if mode `0`). Custom `-1` stays sticky when force dims are set. |
 | `sw_mode` | desktop index | Software renderer mode index (video menu). Keep in sync with `gl_mode` if you use both paths. |
-| `vid_forcewidth` | `0` | Target width in pixels. **Archived.** When non-zero, overrides the width from `gl_mode` (including indexed modes, not only `-1`). |
+| `vid_forcewidth` | `0` | Target width in pixels. **Archived.** When non-zero, overrides the width from `gl_mode` (including indexed modes, not only `-1`). Added to the mode menu list on init / `vid_restart`. |
 | `vid_forceheight` | `0` | Target height in pixels. **Archived.** When non-zero, overrides the height from `gl_mode`. |
 | `gl_swapinterval` | `0` | Vsync. `0` off (default), `1` on. |
 | `vid_gamma` | `1.0` | Display gamma / brightness path used by the video menu. |
@@ -33,15 +34,23 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 
 **1080p preset:** Mode indices are **display-specific** (they follow `EnumDisplaySettings`). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) uses `gl_mode 17` on the author’s machine; on yours, run `vid_restart` and check the console, or pick 1920×1080 in the video menu once and note the saved `gl_mode` in `config.cfg`. Pair it with `vid_forcewidth 1920` and `vid_forceheight 1080` so resolution stays correct if the index shifts. Avoid mixing `gl_mode -1` with a saved indexed mode — that mismatch can stick you at 320×240.
 
-**Ultrawide (3440×1440 and cousins):** The video menu lists Windows-reported modes, so 3440×1440 / 2560×1080 / 3840×1600 / 5120×1440 appear if the monitor has them. For a size that is not in the list, use custom mode plus force dims (then `vid_restart`):
+**Ultrawide (3440×1440 and cousins):** Common ultrawide sizes are seeded in the mode list (and Windows-reported modes still appear). Working recipe for 3440×1440:
 
 ```
+seta vid_fullscreen "1"
+seta vid_borderless "1"
 seta gl_mode "-1"
 seta vid_forcewidth "3440"
 seta vid_forceheight "1440"
+vid_restart
 ```
 
-Non-zero `vid_forcewidth` / `vid_forceheight` **override** whatever `gl_mode` you pick — change or zero them when leaving 1080p, or the 1920×1080 backup in the shipped visual cfg will keep you at 1080p. Hor+ FOV (`cl_adjustfov 1`) and wide HUD (`scr_hudwide 1`) already apply on 21:9.
+Notes:
+- There is **no** `r_customwidth` / `r_customheight` in R1Q2v2 — use `vid_forcewidth` / `vid_forceheight` (with `gl_mode -1`).
+- If desktop is already 3440×1440, the engine uses **borderless** automatically even with `vid_borderless 0` (skips exclusive CDS).
+- If exclusive CDS fails for a non-desktop size, it falls back to borderless at the requested size (console: `falling back to borderless windowed fullscreen`) instead of the old dual-monitor `width*2` hack.
+- Non-zero `vid_forcewidth` / `vid_forceheight` **override** whatever `gl_mode` you pick — change or zero them when leaving a preset, or the 1920×1080 force dims in shipped `r1q2v2_visual.cfg` will keep you at 1080p if you `exec` that file.
+- Hor+ FOV (`cl_adjustfov 1`) and wide HUD (`scr_hudwide 1`) already apply on 21:9.
 
 Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolution_cfg.py` patches a live Quake II tree; edit `MODE` at the top if your 1080p index differs.
 
@@ -86,7 +95,8 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_menupicscale` | `1.2` | Extra scale for menu PCX art (banners, plaques) on top of menu scale (clamped 1–2). |
 | `con_scale` | `0` | Console / notify text scale. `0` = auto like menus. |
 | `scr_hudscale` | `1` | **Status bar only** (~0.5–2.5). Menus and crosshair stay unscaled. Presets must use this, not `gl_hudscale`. |
-| `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs (those keep classic coordinates). |
+| `scr_layoutscale` | `0` | **In-game layout menus only** (`STAT_LAYOUTS` / `cl.layout`: Arena team select, help, scoreboards) plus inventory. `0` = auto (~height/480, clamped 1–6). `1` = classic tiny 8px. Does **not** apply `scr_hud_top` / `scr_hudwide`. |
+| `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs. |
 | `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
 | `crosshair` | `0` | `0` none; `1`+ uses `pics/chN` (stock `ch1`…`ch3`, or higher if the pic exists). |
@@ -245,10 +255,13 @@ seta vid_forceheight "1080"
 ```
 seta vid_ref "r1gl"
 seta vid_fullscreen "1"
+seta vid_borderless "1"
 seta gl_mode "-1"
 seta vid_forcewidth "3440"
 seta vid_forceheight "1440"
 ```
+
+Clear or override force dims after `exec r1q2v2_visual.cfg` (that preset still defaults to 1920×1080).
 
 Readable menus + HUD at 1080p:
 
@@ -257,6 +270,7 @@ seta scr_menuscale "2.5"
 seta scr_menupicscale "1.2"
 seta con_scale "0"
 seta scr_hudscale "2.5"
+seta scr_layoutscale "0"
 seta gl_hudscale "1"
 ```
 
