@@ -13,7 +13,7 @@ Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h
    - `R1Q2v2.exe`, `r1q2ded.exe`, `gamex86.dll`
    - `ref_r1gl.dll`, `ref_gl.dll`
    - `z.dll`, `libpng16.dll`, `jpeg62.dll`
-   - **OpenAL files**
+   - **OpenAL (recommended):** `OpenAL32.dll` and `fmt.dll` (OpenAL Soft from vcpkg; `fmt.dll` is required next to the exe). Optional: `oal/hrtf/` + `oal/presets/`. Shipped in the [desktop tester zip](#tester-zip); R1Q2 loads `OpenAL32.dll` at runtime.
    - `baseq2/r1q2v2_visual.cfg` (and optionally `pretty_r1q2v2.cfg`) into the install `baseq2` folder
 3. Launch `R1Q2v2.exe`.
 
@@ -107,7 +107,7 @@ Drop a `maps/<map>.loc` (or `locs/<map>.loc`) in the gamedir. Nearest name draws
 
 ### Sound
 
-Builds with **`R1Q2_USE_OPENAL=ON`** (default) support OpenAL via `s_initsound 2`. R1Q2 loads **`OpenAL32.dll`** from the game folder.
+Builds with **`R1Q2_USE_OPENAL=ON`** (default) support OpenAL via `s_initsound 2`. R1Q2 loads **`OpenAL32.dll`** from the game folder (OpenAL Soft from vcpkg). That DLL also needs **`fmt.dll`** beside the exe — without it OpenAL fails to load. If OpenAL still fails, the client falls back to DirectSound.
 
 Shipped presets use OpenAL + 44 kHz:
 
@@ -126,7 +126,7 @@ Regenerate the shareable Desktop package (binaries + visual cfgs + OpenAL runtim
 py -3 scripts/pack_r1q2v2_desktop.py
 ```
 
-Output: `R1Q2v2-8012-RENEGADE-win32.zip` on your Desktop. Always includes `OpenAL32.dll`, `soft_oal.dll` (when sourced from install), `alsoft.ini`, and `oal/hrtf` + `oal/presets`.
+Output: `R1Q2v2-8012-win32.zip` on your Desktop. Always includes `OpenAL32.dll`, `fmt.dll`, and `oal/hrtf` + `oal/presets` when those folders exist.
 
 ### Options → R1Q2 settings
 

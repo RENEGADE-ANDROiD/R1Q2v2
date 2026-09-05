@@ -346,10 +346,16 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 		GL_CheckForError ();
 	}
 
-	/* Always punch index-255 (and image alpha) with ALPHA_TEST so a
-	 * transparent PCX cannot flatten into a solid white quad. */
-	qglEnable (GL_ALPHA_TEST);
-	GL_CheckForError ();
+	if (gl->has_alpha)
+	{
+		qglDisable(GL_ALPHA_TEST);
+		GL_CheckForError ();
+
+		qglEnable(GL_BLEND);
+		GL_CheckForError ();
+
+		GL_TexEnv(GL_MODULATE);
+	}
 
 	Draw_BeginTint ();
 	GL_Bind (gl->texnum);
@@ -366,6 +372,17 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 	Draw_EndTint ();
 
 	GL_CheckForError ();
+
+	if (gl->has_alpha)
+	{
+		GL_TexEnv (GL_REPLACE);
+
+		qglEnable(GL_ALPHA_TEST);
+		GL_CheckForError ();
+
+		qglDisable(GL_BLEND);
+		GL_CheckForError ();
+	}
 
 	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
 	{
@@ -401,9 +418,16 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 		GL_CheckForError ();
 	}
 
-	/* Classic Quake II: ALPHA_TEST only (see Draw_StretchPic). */
-	qglEnable (GL_ALPHA_TEST);
-	GL_CheckForError ();
+	if (gl->has_alpha)
+	{
+		qglDisable(GL_ALPHA_TEST);
+		GL_CheckForError ();
+
+		qglEnable(GL_BLEND);
+		GL_CheckForError ();
+
+		GL_TexEnv(GL_MODULATE);
+	}
 
 	Draw_BeginTint ();
 	GL_Bind (gl->texnum);
@@ -421,6 +445,15 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 	Draw_EndTint ();
 
 	GL_CheckForError ();
+
+	if (gl->has_alpha)
+	{
+		GL_TexEnv (GL_REPLACE);
+		qglEnable(GL_ALPHA_TEST);
+		GL_CheckForError ();
+		qglDisable(GL_BLEND);
+		GL_CheckForError ();
+	}
 
 	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) )  && !gl->has_alpha)
 	{

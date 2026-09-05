@@ -11,7 +11,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 Q2 = Path(r"D:\SteamLibrary\steamapps\common\Quake 2")
-ZIP_NAME = "R1Q2v2-8012-RENEGADE-win32.zip"
+ZIP_NAME = "R1Q2v2-8012-win32.zip"
 
 BINARIES = (
     "R1Q2v2.exe",
@@ -23,12 +23,11 @@ BINARIES = (
     "libpng16.dll",
     "z.dll",
     "OpenAL32.dll",
+    "fmt.dll",  # OpenAL Soft (vcpkg) LoadLibrary dependency
 )
 
-# R1Q2 loads OpenAL32.dll; Q2PRO-X ships the same OpenAL Soft build as soft_oal.dll.
-OAL_DLL_NAMES = ("OpenAL32.dll", "soft_oal.dll")
-
-OAL_ROOT_FILES = ("alsoft.ini",)
+# HRTF / speaker presets for OpenAL Soft. Do not ship Q2PRO-X als oft.ini
+# (binaural cvars) or 64-bit soft_oal.dll — R1Q2v2 is Win32 and loads OpenAL32.dll.
 
 # Runtime data for OpenAL Soft (HRTF + presets). Skip als oft-config (Qt GUI).
 OAL_DIRS = (
@@ -42,10 +41,8 @@ CFG_FILES = (
     "baseq2/pretty_r1q2v2.cfg",
 )
 
-OPTIONAL_PKZ = ("baseq2/zz_r1q2_titles.pkz",)
-
 README = """\
-R1Q2v2 (8012-RENEGADE) — Windows Win32 test build
+R1Q2v2 (8012) — Windows Win32 test build
 =================================================
 
 Requires a normal Quake II install (Steam is fine). This zip is binaries,
@@ -63,11 +60,10 @@ Included
 - R1Q2v2.exe, r1q2ded.exe, gamex86.dll
 - ref_r1gl.dll, ref_gl.dll (R1GL renderer)
 - z.dll, libpng16.dll, jpeg62.dll (PNG/JPG support)
-- OpenAL32.dll + soft_oal.dll (OpenAL Soft; R1Q2 loads OpenAL32.dll)
-- als oft.ini, oal/hrtf/, oal/presets/ (OpenAL Soft runtime data)
+- OpenAL32.dll + fmt.dll (OpenAL Soft; R1Q2 loads OpenAL32.dll)
+- oal/hrtf/, oal/presets/ (OpenAL Soft HRTF data, optional)
 - baseq2/r1q2v2_visual.cfg — 1080p-friendly defaults
 - baseq2/pretty_r1q2v2.cfg — alternate visual preset (R1-safe cvars only)
-- baseq2/zz_r1q2_titles.pkz — 2x menu title art (when present)
 
 OpenAL audio
 ------------
@@ -101,35 +97,8 @@ def find_binary(name: str) -> Path | None:
 
 
 def stage_oal(pkg: Path, q2: Path) -> list[str]:
+    """Copy OpenAL Soft HRTF/preset data. DLLs come from BINARIES (Win32 vcpkg)."""
     staged: list[str] = []
-    soft = q2 / "soft_oal.dll"
-    openal = q2 / "OpenAL32.dll"
-
-    if soft.is_file():
-        shutil.copy2(soft, pkg / "soft_oal.dll")
-        staged.append("soft_oal.dll")
-        if not openal.is_file():
-            shutil.copy2(soft, pkg / "OpenAL32.dll")
-            staged.append("OpenAL32.dll (from soft_oal.dll)")
-        else:
-            shutil.copy2(openal, pkg / "OpenAL32.dll")
-            staged.append("OpenAL32.dll")
-    elif openal.is_file():
-        shutil.copy2(openal, pkg / "OpenAL32.dll")
-        staged.append("OpenAL32.dll")
-    else:
-        vcpkg_dll = REPO / "build" / "vcpkg_installed" / "x86-windows" / "bin" / "OpenAL32.dll"
-        if vcpkg_dll.is_file():
-            shutil.copy2(vcpkg_dll, pkg / "OpenAL32.dll")
-            staged.append("OpenAL32.dll (vcpkg)")
-        else:
-            print("WARNING: no OpenAL32.dll / soft_oal.dll found", file=sys.stderr)
-
-    for name in OAL_ROOT_FILES:
-        src = q2 / name
-        if src.is_file():
-            shutil.copy2(src, pkg / name)
-            staged.append(name)
 
     for rel in OAL_DIRS:
         src_dir = q2 / rel
@@ -172,22 +141,15 @@ def main() -> int:
                 copied.append(rel)
                 break
 
-    for rel in OPTIONAL_PKZ:
-        for root in (Q2, REPO):
-            src = root / rel
-            if src.is_file():
-                dest = pkg / rel
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dest)
-                copied.append(rel)
-                break
-
     oal = stage_oal(pkg, Q2)
     (pkg / "README.txt").write_text(README, encoding="utf-8")
 
     zip_path = desktop_path()
     if zip_path.is_file():
         zip_path.unlink()
+    stale = zip_path.with_name("R1Q2v2-8012-RENEGADE-win32.zip")
+    if stale.is_file():
+        stale.unlink()
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for path in sorted(pkg.rglob("*")):
