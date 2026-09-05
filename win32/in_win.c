@@ -121,8 +121,30 @@ qboolean	in_appactive;
 
 // mouse variables
 cvar_t	*m_filter;
+cvar_t	*m_autosens;
 cvar_t	*m_winxp_fix;
 cvar_t	*m_show;
+
+static void IN_ApplyAutoSens (float *mx, float *my)
+{
+	float	base, base_y;
+
+	if (!m_autosens || !m_autosens->intvalue)
+		return;
+	if (cl.refdef.fov_x < 1.0f || cl.refdef.fov_y < 1.0f)
+		return;
+
+	if (m_autosens->value > 90.0f && m_autosens->value <= 179.0f)
+		base = m_autosens->value;
+	else
+		base = 90.0f;
+
+	base_y = (float)(atan (tan (base * M_PI / 360.0) * 0.75) * 360.0 / M_PI);
+	if (mx)
+		*mx *= cl.refdef.fov_x / base;
+	if (my)
+		*my *= cl.refdef.fov_y / base_y;
+}
 
 qboolean	mlooking;
 
@@ -706,6 +728,7 @@ void IN_ReadBufferedData( usercmd_t *cmd )
             case DIMOFS_X:
 				val = (float)(int)didod[ i ].dwData;
 				val *= sensitivity->value;
+				IN_ApplyAutoSens (&val, NULL);
 				
 				// add mouse X/Y movement to cmd
 				if ( (in_strafe.state & 1) || (lookstrafe->intvalue && mlooking ))
@@ -725,6 +748,7 @@ void IN_ReadBufferedData( usercmd_t *cmd )
             case DIMOFS_Y:
 				val = (float)(int)didod[ i ].dwData;
 				val *= sensitivity->value;
+				IN_ApplyAutoSens (NULL, &val);
 
 				if ( (mlooking || freelook->intvalue) && !(in_strafe.state & 1))
 					cl.viewangles[PITCH] += m_pitch->value * val;
@@ -895,6 +919,7 @@ void IN_ReadImmediateData (usercmd_t *cmd)
 
 	mx *= sensitivity->value;
 	my *= sensitivity->value;
+	IN_ApplyAutoSens (&mx, &my);
 
 
 #ifdef _DEBUG
@@ -1218,6 +1243,7 @@ void IN_MouseMove (usercmd_t *cmd)
 
 	mouse_x *= sensitivity->value;
 	mouse_y *= sensitivity->value;
+	IN_ApplyAutoSens (&mouse_x, &mouse_y);
 
 // add mouse X/Y movement to cmd
 	if ( (in_strafe.state & 1) || (lookstrafe->intvalue && mlooking ))
@@ -1273,6 +1299,7 @@ void IN_Init (void)
 {
 	// mouse variables
 	m_filter				= Cvar_Get ("m_filter",					"0",		0);
+	m_autosens				= Cvar_Get ("m_autosens",				"0",		0);
 
 	m_winxp_fix				= Cvar_Get ("m_fixaccel",				os_winxp ? "1" : "0",		0);
 
