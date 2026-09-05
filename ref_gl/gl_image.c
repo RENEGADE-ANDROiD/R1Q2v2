@@ -2906,7 +2906,8 @@ image_t *GL_LoadPic (const char *name, byte *pic, int width, int height, imagety
 	image->type = type;
 	//image->scrap = false;
 
-	if (type == it_skin)// && bits == 8)
+	/* Flood fill is 8-bit palette only; running it on PNG/TGA skins shreds RGBA. */
+	if (type == it_skin && bits == 8)
 		R_FloodFillSkin(pic, width, height);
 
 	// load little pics into the scrap
