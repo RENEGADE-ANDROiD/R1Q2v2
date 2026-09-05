@@ -641,7 +641,7 @@ static menuaction_s		s_player_setup_action;
 
 static void Multiplayer_MenuDraw (void)
 {
-	M_Banner( "m_banner_multiplayer" );
+	M_BannerText( "MULTIPLAYER" );
 
 	Menu_AdjustCursor( &s_multiplayer_menu, 1 );
 	Menu_Draw( &s_multiplayer_menu );
@@ -1117,6 +1117,7 @@ static void Keys_MenuInit( void )
 
 static void Keys_MenuDraw (void)
 {
+	M_BannerText( "KEYS" );
 	Menu_AdjustCursor( &s_keys_menu, 1 );
 	Menu_Draw( &s_keys_menu );
 }
@@ -1502,7 +1503,7 @@ static void R1Q2_MenuInit (void)
 
 static void R1Q2_MenuDraw (void)
 {
-	M_Banner ("m_banner_options");
+	M_BannerText( "R1Q2 OPTIONS" );
 	Menu_AdjustCursor( &s_r1q2_options_menu, 1 );
 	Menu_Draw( &s_r1q2_options_menu );
 }
@@ -1690,7 +1691,7 @@ static void CrosshairSetup_MenuInit (void)
 
 static void CrosshairSetup_MenuDraw (void)
 {
-	M_Banner ("m_banner_options");
+	M_BannerText( "CROSSHAIR" );
 	Menu_AdjustCursor (&s_chsetup_menu, 1);
 	Menu_Draw (&s_chsetup_menu);
 }
@@ -2096,7 +2097,7 @@ static void Options_MenuInit( void )
 
 static void Options_MenuDraw (void)
 {
-	M_Banner( "m_banner_options" );
+	M_BannerText( "OPTIONS" );
 	Menu_AdjustCursor( &s_options_menu, 1 );
 	Menu_Draw( &s_options_menu );
 }
@@ -2747,7 +2748,7 @@ static void Game_MenuInit( void )
 
 static void Game_MenuDraw( void )
 {
-	M_Banner( "m_banner_game" );
+	M_BannerText( "GAME" );
 	Menu_AdjustCursor( &s_game_menu, 1 );
 	Menu_Draw( &s_game_menu );
 }
@@ -2845,7 +2846,7 @@ static void LoadGame_MenuInit( void )
 
 static void LoadGame_MenuDraw( void )
 {
-	M_Banner( "m_banner_load_game" );
+	M_BannerText( "LOAD GAME" );
 //	Menu_AdjustCursor( &s_loadgame_menu, 1 );
 	Menu_Draw( &s_loadgame_menu );
 }
@@ -2888,7 +2889,7 @@ static void SaveGameCallback( void *self )
 
 static void SaveGame_MenuDraw( void )
 {
-	M_Banner( "m_banner_save_game" );
+	M_BannerText( "SAVE GAME" );
 	Menu_AdjustCursor( &s_savegame_menu, 1 );
 	Menu_Draw( &s_savegame_menu );
 }
@@ -3622,19 +3623,19 @@ static void SearchLocalGamesFunc( void *self )
 static void JoinServer_MenuInit( void )
 {
 	int		i;
-	int		bw, bh;
+	int		bh;
 	float	s;
 	int		slots;
 	int		y;
 
 	s = SCR_GetMenuScale();
-	re.DrawGetPicSize (&bw, &bh, "m_banner_join_server");
+	bh = M_BannerTextHeight ("JOIN SERVER");
 
 	/* Sit the list under the banner. Do NOT Menu_Center — that was stacking
 	 * the old plaque coords on top of the new rows.
 	 * Left-justify rows are ~43 chars wide; put the block on screen center. */
 	s_joinserver_menu.x = (int)(viddef.width * 0.50f) - (int)((43 * 8 / 2) * s * JOIN_LIST_SCALE);
-	s_joinserver_menu.y = (int)(viddef.height * 0.50f - 110 * s) + (int)(bh * SCR_GetMenuPicScale() + 8 * s);
+	s_joinserver_menu.y = (int)(viddef.height * 0.50f - 110 * s) + bh + (int)(8 * s);
 	s_joinserver_menu.nitems = 0;
 	s_joinserver_menu.cursor = 0;
 	m_join_click_slot = -1;
@@ -3722,7 +3723,7 @@ static void JoinServer_MenuDraw(void)
 	int		y;
 	float	s;
 
-	M_Banner( "m_banner_join_server" );
+	M_BannerText( "JOIN SERVER" );
 	if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
 		m_last_server_slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 	Menu_Draw( &s_joinserver_menu );
@@ -4319,6 +4320,7 @@ static void StartServer_MenuInit( void )
 
 static void StartServer_MenuDraw(void)
 {
+	M_BannerText( "START SERVER" );
 	Menu_Draw( &s_startserver_menu );
 }
 
@@ -4736,6 +4738,7 @@ static void DMOptions_MenuInit( void )
 
 static void DMOptions_MenuDraw(void)
 {
+	M_BannerText( "DM OPTIONS" );
 	Menu_Draw( &s_dmoptions_menu );
 }
 
@@ -4868,6 +4871,7 @@ static void DownloadOptions_MenuInit( void )
 
 static void DownloadOptions_MenuDraw(void)
 {
+	M_BannerText( "DOWNLOADS" );
 	Menu_Draw( &s_downloadoptions_menu );
 }
 
@@ -4945,7 +4949,7 @@ const char *AddressBook_MenuKey( int key )
 
 static void AddressBook_MenuDraw(void)
 {
-	M_Banner( "m_banner_addressbook" );
+	M_BannerText( "ADDRESS BOOK" );
 	Menu_Draw( &s_addressbook_menu );
 }
 
@@ -5394,6 +5398,8 @@ static void PlayerConfig_MenuDraw( void )
 	float scale = SCR_GetMenuScale();
 	int ox, oy, cell;
 	int vx, vy, vw, vh;
+
+	M_BannerText( "PLAYER SETUP" );
 
 	memset( &refdef, 0, sizeof( refdef ) );
 
