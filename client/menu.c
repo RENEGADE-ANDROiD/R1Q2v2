@@ -146,6 +146,30 @@ void M_BannerText (const char *text)
 	fs->value = old;
 }
 
+
+/*
+===============
+M_PlaceMenuBelowBanner
+
+After Menu_Center (or manual y), bump menu->y so the first row sits below the
+scaled M_BannerText title. No-op when already clear of the banner.
+===============
+*/
+void M_PlaceMenuBelowBanner (menuframework_s *menu, const char *banner)
+{
+	float	s;
+	int		banner_y, min_y, bh;
+
+	if (!menu || !banner || !banner[0])
+		return;
+
+	s = SCR_GetMenuScale();
+	bh = M_BannerTextHeight (banner);
+	banner_y = (int)(viddef.height / 2 - 110 * s);
+	min_y = banner_y + bh + (int)(8 * s);
+	if (menu->y < min_y)
+		menu->y = min_y;
+}
 static void M_PushMenu ( void (*draw) (void), const char *(*key) (int k) )
 {
 	int		i;
@@ -697,6 +721,7 @@ static void Multiplayer_MenuInit( void )
 	/* Left-justified rows: center ~21-char labels under the banner. */
 	s_multiplayer_menu.x = (int)(viddef.width * 0.50f)
 		- (int)(44 * SCR_GetMenuScale());
+	M_PlaceMenuBelowBanner( &s_multiplayer_menu, "MULTIPLAYER" );
 }
 
 static const char *Multiplayer_MenuKey( int key )
@@ -1113,6 +1138,7 @@ static void Keys_MenuInit( void )
 	
 	Menu_SetStatusBar( &s_keys_menu, "enter to change, backspace to clear" );
 	Menu_Center( &s_keys_menu );
+	M_PlaceMenuBelowBanner( &s_keys_menu, "KEYS" );
 }
 
 static void Keys_MenuDraw (void)
@@ -1352,6 +1378,7 @@ static void R1Q2_MenuInit (void)
 	s_r1q2_options_menu.y = viddef.height / 2 - (int)(58 * SCR_GetMenuScale());
 	s_r1q2_options_menu.nitems = 0;
 	s_r1q2_options_menu.cursor = 0;
+	M_PlaceMenuBelowBanner( &s_r1q2_options_menu, "R1Q2 OPTIONS" );
 
 	s_r1q2_warning.generic.type = MTYPE_SEPARATOR;
 	s_r1q2_warning.generic.name = "sync physics, Hor+ FOV, HUD alpha, loc names save.";
@@ -1597,6 +1624,7 @@ static void CrosshairSetup_MenuInit (void)
 	s_chsetup_menu.y = viddef.height / 2 - (int)(70 * SCR_GetMenuScale());
 	s_chsetup_menu.nitems = 0;
 	s_chsetup_menu.cursor = 0;
+	M_PlaceMenuBelowBanner( &s_chsetup_menu, "CROSSHAIR" );
 
 	s_chsetup_red.generic.type = MTYPE_SLIDER;
 	s_chsetup_red.generic.x = 0;
@@ -1928,6 +1956,7 @@ static void Options_MenuInit( void )
 	s_options_menu.x = viddef.width / 2;
 	s_options_menu.y = viddef.height / 2 - 58;
 	s_options_menu.nitems = 0;
+	M_PlaceMenuBelowBanner( &s_options_menu, "OPTIONS" );
 
 	s_options_sfxvolume_slider.generic.type	= MTYPE_SLIDER;
 	s_options_sfxvolume_slider.generic.x	= 0;
@@ -2744,6 +2773,7 @@ static void Game_MenuInit( void )
 	/* Left-justified difficulty/load rows under the banner. */
 	s_game_menu.x = (int)(viddef.width * 0.50f)
 		- (int)(8 * SCR_GetMenuScale());
+	M_PlaceMenuBelowBanner( &s_game_menu, "GAME" );
 }
 
 static void Game_MenuDraw( void )
@@ -2823,6 +2853,7 @@ static void LoadGame_MenuInit( void )
 	s_loadgame_menu.x = viddef.width / 2 - 120;
 	s_loadgame_menu.y = viddef.height / 2 - 58;
 	s_loadgame_menu.nitems = 0;
+	M_PlaceMenuBelowBanner( &s_loadgame_menu, "LOAD GAME" );
 
 	Create_Savestrings();
 
@@ -2901,6 +2932,7 @@ static void SaveGame_MenuInit( void )
 	s_savegame_menu.x = viddef.width / 2 - 120;
 	s_savegame_menu.y = viddef.height / 2 - 58;
 	s_savegame_menu.nitems = 0;
+	M_PlaceMenuBelowBanner( &s_savegame_menu, "SAVE GAME" );
 
 	Create_Savestrings();
 
@@ -4426,6 +4458,7 @@ static void StartServer_MenuInit( void )
 	Menu_AddItem( &s_startserver_menu, &s_startserver_start_action );
 
 	Menu_Center( &s_startserver_menu );
+	M_PlaceMenuBelowBanner( &s_startserver_menu, "START SERVER" );
 
 	// call this now to set proper inital state
 	RulesChangeFunc ( NULL );
@@ -4843,6 +4876,7 @@ static void DMOptions_MenuInit( void )
 //=======
 
 	Menu_Center( &s_dmoptions_menu );
+	M_PlaceMenuBelowBanner( &s_dmoptions_menu, "DM OPTIONS" );
 
 	// set the original dmflags statusbar
 	DMFlagCallback( 0 );
@@ -4976,6 +5010,7 @@ static void DownloadOptions_MenuInit( void )
 	Menu_AddItem( &s_downloadoptions_menu, &s_allow_download_sounds_box );
 
 	Menu_Center( &s_downloadoptions_menu );
+	M_PlaceMenuBelowBanner( &s_downloadoptions_menu, "DOWNLOADS" );
 
 	// skip over title
 	if (s_downloadoptions_menu.cursor == 0)
@@ -5017,6 +5052,7 @@ static void AddressBook_MenuInit( void )
 	s_addressbook_menu.x = viddef.width / 2 - 142;
 	s_addressbook_menu.y = viddef.height / 2 - 110;
 	s_addressbook_menu.nitems = 0;
+	M_PlaceMenuBelowBanner( &s_addressbook_menu, "ADDRESS BOOK" );
 
 	for ( i = 0; i < NUM_ADDRESSBOOK_ENTRIES; i++ )
 	{
@@ -5408,6 +5444,7 @@ static qboolean PlayerConfig_MenuInit( void )
 		s_player_config_menu.y = viddef.height / 2 - (int)(97 * scale);
 	}
 	s_player_config_menu.nitems = 0;
+	M_PlaceMenuBelowBanner( &s_player_config_menu, "PLAYER SETUP" );
 
 	s_player_name_field.generic.type = MTYPE_FIELD;
 	s_player_name_field.generic.name = "name";
