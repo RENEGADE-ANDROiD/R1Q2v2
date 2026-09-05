@@ -139,5 +139,7 @@ void	 Menu_DrawStringR2L( int, int, const char * );
 void	 Menu_DrawStringR2LDark( int, int, const char * );
 
 void	M_Banner( char *name );
+void	M_BannerText( const char *text );
+int		M_BannerTextHeight( const char *text );
 
 #endif
