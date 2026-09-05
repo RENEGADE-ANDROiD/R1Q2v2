@@ -33,6 +33,16 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 
 **1080p preset:** Mode indices are **display-specific** (they follow `EnumDisplaySettings`). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) uses `gl_mode 17` on the author’s machine; on yours, run `vid_restart` and check the console, or pick 1920×1080 in the video menu once and note the saved `gl_mode` in `config.cfg`. Pair it with `vid_forcewidth 1920` and `vid_forceheight 1080` so resolution stays correct if the index shifts. Avoid mixing `gl_mode -1` with a saved indexed mode — that mismatch can stick you at 320×240.
 
+**Ultrawide (3440×1440 and cousins):** The video menu lists Windows-reported modes, so 3440×1440 / 2560×1080 / 3840×1600 / 5120×1440 appear if the monitor has them. For a size that is not in the list, use custom mode plus force dims (then `vid_restart`):
+
+```
+seta gl_mode "-1"
+seta vid_forcewidth "3440"
+seta vid_forceheight "1440"
+```
+
+Non-zero `vid_forcewidth` / `vid_forceheight` **override** whatever `gl_mode` you pick — change or zero them when leaving 1080p, or the 1920×1080 backup in the shipped visual cfg will keep you at 1080p. Hor+ FOV (`cl_adjustfov 1`) and wide HUD (`scr_hudwide 1`) already apply on 21:9.
+
 Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolution_cfg.py` patches a live Quake II tree; edit `MODE` at the top if your 1080p index differs.
 
 ---
@@ -225,6 +235,16 @@ seta gl_mode "17"
 seta sw_mode "17"
 seta vid_forcewidth "1920"
 seta vid_forceheight "1080"
+```
+
+3440×1440 ultrawide (or any custom size; change the force dims):
+
+```
+seta vid_ref "r1gl"
+seta vid_fullscreen "1"
+seta gl_mode "-1"
+seta vid_forcewidth "3440"
+seta vid_forceheight "1440"
 ```
 
 Readable menus + HUD at 1080p:
