@@ -1,6 +1,6 @@
 # R1Q2v2 console variables
 
-Useful client settings for **R1Q2v2 (Build 8014+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
+Useful client settings for **R1Q2v2 (Build 8019+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
 
 ## How to use
 
@@ -32,27 +32,64 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 | `gl_bitdepth` | `0` | Color depth request; `0` = default. |
 | `vid_xpos` / `vid_ypos` | `3` / `22` | Window position (windowed). |
 
-**1080p preset:** Mode indices are **display-specific** (they follow `EnumDisplaySettings`). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) uses `gl_mode 17` on the author’s machine; on yours, run `vid_restart` and check the console, or pick 1920×1080 in the video menu once and note the saved `gl_mode` in `config.cfg`. Pair it with `vid_forcewidth 1920` and `vid_forceheight 1080` so resolution stays correct if the index shifts. Avoid mixing `gl_mode -1` with a saved indexed mode — that mismatch can stick you at 320×240.
+**Stable `gl_mode` indices (hard-coded prefix):** Modes `0`–`27` are fixed across machines. `EnumDisplaySettings` may append extra resolutions after that with **machine-specific** indices — those extras never reorder the prefix.
 
-**Ultrawide (3440×1440 and cousins):** Common ultrawide sizes are seeded in the mode list (and Windows-reported modes still appear). Working recipe for 3440×1440:
+| Index | Resolution | Notes |
+|------:|------------|--------|
+| 0 | 320×240 | Classic |
+| 1 | 640×480 | Classic |
+| 2 | 800×600 | Classic |
+| 3 | 1024×768 | Classic |
+| 4 | 1152×864 | Classic |
+| 5 | 1280×960 | Classic |
+| 6 | 1280×1024 | Classic |
+| 7 | 1600×1200 | Classic |
+| 8 | 1280×720 | 16:9 |
+| 9 | 1366×768 | 16:9 |
+| 10 | 1600×900 | 16:9 |
+| **11** | **1920×1080** | **16:9 (stable 1080p)** |
+| 12 | 2560×1440 | 16:9 |
+| 13 | 3840×2160 | 16:9 |
+| 14 | 1280×800 | 16:10 |
+| 15 | 1440×900 | 16:10 |
+| 16 | 1680×1050 | 16:10 |
+| 17 | 1920×1200 | 16:10 |
+| 18 | 2560×1600 | 16:10 |
+| 19 | 2560×1080 | Ultrawide 21:9 |
+| **20** | **3440×1440** | **Ultrawide 21:9 (stable)** |
+| 21 | 3840×1600 | Ultrawide 21:9 |
+| 22 | 5120×1440 | Ultrawide 21:9 |
+| 23 | 1920×1440 | Other |
+| 24 | 2048×1152 | Other |
+| 25 | 2880×1800 | Other |
+| 26 | 3200×1800 | Other |
+| 27 | 5120×2160 | Other |
+
+**1080p preset:** Use stable **`gl_mode 11`** (1920×1080). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) sets that index and still pairs `vid_forcewidth` / `vid_forceheight` as a backup. Prefer the indexed mode over `gl_mode -1` when the size is in the table. Avoid mixing `gl_mode -1` with a saved indexed mode — that mismatch can stick you at 320×240.
+
+**Ultrawide (3440×1440 and cousins):** Use stable **`gl_mode 20`**, or keep force dims. Working recipe for 3440×1440:
 
 ```
 seta vid_fullscreen "1"
 seta vid_borderless "1"
-seta gl_mode "-1"
+seta gl_mode "20"
+seta sw_mode "20"
 seta vid_forcewidth "3440"
 seta vid_forceheight "1440"
 vid_restart
 ```
 
+(`gl_mode -1` + force dims still works if you prefer custom-only.)
+
 Notes:
-- There is **no** `r_customwidth` / `r_customheight` in R1Q2v2 — use `vid_forcewidth` / `vid_forceheight` (with `gl_mode -1`).
+- There is **no** `r_customwidth` / `r_customheight` in R1Q2v2 — use `vid_forcewidth` / `vid_forceheight` (with `gl_mode -1` for sizes outside the table, or alongside an indexed mode as override).
 - If desktop is already 3440×1440, the engine uses **borderless** automatically even with `vid_borderless 0` (skips exclusive CDS).
 - If exclusive CDS fails for a non-desktop size, it falls back to borderless at the requested size (console: `falling back to borderless windowed fullscreen`) instead of the old dual-monitor `width*2` hack.
 - Non-zero `vid_forcewidth` / `vid_forceheight` **override** whatever `gl_mode` you pick — change or zero them when leaving a preset, or the 1920×1080 force dims in shipped `r1q2v2_visual.cfg` will keep you at 1080p if you `exec` that file.
 - Hor+ FOV (`cl_adjustfov 1`) and wide HUD (`scr_hudwide 1`) already apply on 21:9.
+- The video menu lists the hard-coded modes even when the GPU did not enumerate them; selecting may use borderless / CDS fallback.
 
-Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolution_cfg.py` patches a live Quake II tree; edit `MODE` at the top if your 1080p index differs.
+Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolution_cfg.py` patches a live Quake II tree; 1080p is now stable index **11**.
 
 ---
 
@@ -239,24 +276,25 @@ These are often **not** written to `config.cfg` — keep them in `autoexec.cfg` 
 
 ## Quick presets
 
-1920×1080 video (adjust `gl_mode` to your display’s index; force dims as backup):
+1920×1080 video (stable `gl_mode 11`; force dims as backup):
 
 ```
 seta vid_ref "r1gl"
 seta vid_fullscreen "1"
-seta gl_mode "17"
-seta sw_mode "17"
+seta gl_mode "11"
+seta sw_mode "11"
 seta vid_forcewidth "1920"
 seta vid_forceheight "1080"
 ```
 
-3440×1440 ultrawide (or any custom size; change the force dims):
+3440×1440 ultrawide (stable `gl_mode 20`; force dims optional backup):
 
 ```
 seta vid_ref "r1gl"
 seta vid_fullscreen "1"
 seta vid_borderless "1"
-seta gl_mode "-1"
+seta gl_mode "20"
+seta sw_mode "20"
 seta vid_forcewidth "3440"
 seta vid_forceheight "1440"
 ```
