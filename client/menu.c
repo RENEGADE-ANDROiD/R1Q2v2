@@ -3380,6 +3380,8 @@ void M_AddToServerList (netadr_t adr, char *info)
 	int		ping;
 	int		nmap;
 	int		npl;
+	int		parsed;
+	int		looks_classic;
 
 	if (m_num_servers == MAX_LOCAL_SERVERS)
 		return;
@@ -3396,9 +3398,119 @@ void M_AddToServerList (netadr_t adr, char *info)
 	}
 
 	hostname[0] = mapname[0] = players[0] = 0;
+	parsed = 0;
+	looks_classic = 0;
+
+	/*
+	 * Classic SVC_Info is fixed: "%20s %8s %2i/%2i\n" (hostname left-padded).
+	 * Modern hosts (PacketFlinger, etc.) send longer names with spaces.
+	 * Prefer flexible trailing "map cur/max" parse; use classic when the
+	 * payload looks fixed-width padded or flexible parse fails.
+	 */
+	{
+		int	len = (int)strlen (info);
+
+		if (len >= 30 && info[20] == ' ')
+		{
+			p = (char *)info + 21;
+			while (*p == ' ')
+				p++;
+			while (*p && *p != ' ')
+				p++;
+			while (*p == ' ')
+				p++;
+			if (*p >= '0' && *p <= '9')
+			{
+				while (*p >= '0' && *p <= '9')
+					p++;
+				if (*p == '/')
+				{
+					p++;
+					if (*p >= '0' && *p <= '9')
+						looks_classic = 1;
+				}
+			}
+		}
+	}
+
+	if (!looks_classic)
+	{
+		char	buf[256];
+		char	*slash;
+		char	*num_start;
+		char	*map_end;
+		char	*map_start;
+		char	*host_end;
+		char	*host_start;
+		int		host_len;
+		int		map_len;
+		int		pl_len;
+
+		Q_strncpy (buf, info, sizeof(buf)-1);
+		p = buf + strlen(buf);
+		while (p > buf && (p[-1] == ' ' || p[-1] == '\n' || p[-1] == '\r' || p[-1] == '\t'))
+		{
+			p--;
+			*p = 0;
+		}
+
+		slash = strrchr (buf, '/');
+		if (slash && slash > buf && slash[1] >= '0' && slash[1] <= '9')
+		{
+			p = slash + 1;
+			while (*p >= '0' && *p <= '9')
+				p++;
+			if (*p == 0)
+			{
+				num_start = slash;
+				while (num_start > buf && num_start[-1] >= '0' && num_start[-1] <= '9')
+					num_start--;
+				if (num_start < slash && num_start > buf &&
+					(num_start[-1] == ' ' || num_start[-1] == '\t'))
+				{
+					map_end = num_start;
+					while (map_end > buf && (map_end[-1] == ' ' || map_end[-1] == '\t'))
+						map_end--;
+					map_start = map_end;
+					while (map_start > buf && map_start[-1] != ' ' && map_start[-1] != '\t')
+						map_start--;
+					if (map_start < map_end)
+					{
+						host_end = map_start;
+						while (host_end > buf && (host_end[-1] == ' ' || host_end[-1] == '\t'))
+							host_end--;
+						host_start = buf;
+						while (host_start < host_end && (*host_start == ' ' || *host_start == '\t'))
+							host_start++;
+						if (host_start < host_end)
+						{
+							host_len = (int)(host_end - host_start);
+							if (host_len >= (int)sizeof(hostname))
+								host_len = (int)sizeof(hostname) - 1;
+							memcpy (hostname, host_start, host_len);
+							hostname[host_len] = 0;
+
+							map_len = (int)(map_end - map_start);
+							if (map_len >= (int)sizeof(mapname))
+								map_len = (int)sizeof(mapname) - 1;
+							memcpy (mapname, map_start, map_len);
+							mapname[map_len] = 0;
+
+							pl_len = (int)strlen (num_start);
+							if (pl_len >= (int)sizeof(players))
+								pl_len = (int)sizeof(players) - 1;
+							memcpy (players, num_start, pl_len);
+							players[pl_len] = 0;
+							parsed = 1;
+						}
+					}
+				}
+			}
+		}
+	}
 
 	/* Classic SVC_Info: "%20s %8s %2i/%2i\n" */
-	if (strlen(info) >= 20)
+	if (!parsed && strlen(info) >= 20)
 	{
 		memcpy (hostname, info, 20);
 		hostname[20] = 0;
@@ -3413,7 +3525,7 @@ void M_AddToServerList (netadr_t adr, char *info)
 			*p = 0;
 		}
 
-		p = info + 20;
+		p = (char *)info + 20;
 		while (*p == ' ')
 			p++;
 		nmap = 0;
@@ -3427,6 +3539,7 @@ void M_AddToServerList (netadr_t adr, char *info)
 		while (*p && *p != '\n' && *p != '\r' && npl < (int)sizeof(players) - 1)
 			players[npl++] = *p++;
 		players[npl] = 0;
+		parsed = 1;
 	}
 
 	if (!hostname[0])
