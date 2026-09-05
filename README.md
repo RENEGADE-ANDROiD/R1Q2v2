@@ -13,7 +13,7 @@ Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h
    - `R1Q2v2.exe`, `r1q2ded.exe`, `gamex86.dll`
    - `ref_r1gl.dll`, `ref_gl.dll`
    - `z.dll`, `libpng16.dll`, `jpeg62.dll`
-   - **OpenAL (recommended):** `OpenAL32.dll`, `alsoft.ini`, and the `oal/hrtf/` + `oal/presets/` folders (OpenAL Soft runtime). Shipped in the [desktop tester zip](#tester-zip); R1Q2 loads `OpenAL32.dll` at runtime.
+   - **OpenAL files**
    - `baseq2/r1q2v2_visual.cfg` (and optionally `pretty_r1q2v2.cfg`) into the install `baseq2` folder
 3. Launch `R1Q2v2.exe`.
 
@@ -107,7 +107,7 @@ Drop a `maps/<map>.loc` (or `locs/<map>.loc`) in the gamedir. Nearest name draws
 
 ### Sound
 
-Builds with **`R1Q2_USE_OPENAL=ON`** (default) support OpenAL via `s_initsound 2`. R1Q2 loads **`OpenAL32.dll`** from the game folder (OpenAL Soft from vcpkg at build time, or copy from a Q2PRO-X install as `soft_oal.dll` → `OpenAL32.dll`).
+Builds with **`R1Q2_USE_OPENAL=ON`** (default) support OpenAL via `s_initsound 2`. R1Q2 loads **`OpenAL32.dll`** from the game folder.
 
 Shipped presets use OpenAL + 44 kHz:
 
