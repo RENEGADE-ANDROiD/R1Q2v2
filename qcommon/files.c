@@ -1239,7 +1239,8 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 			info[i].filepos = LittleLong(info[i].filepos);
 			info[i].filelen = LittleLong(info[i].filelen);
 #endif
-			if (info[i].filepos + info[i].filelen >= pakLen)
+			/* filepos+filelen == pakLen is valid (last byte is at pakLen-1). */
+			if (info[i].filepos + info[i].filelen > pakLen)
 				Com_Error (ERR_FATAL, "FS_LoadPackFile: File '%.64s' in pak file %s has illegal offset %u past end of file %u. Pak file is possibly corrupt.", MakePrintable (info[i].name, 0), packfile, info[i].filepos, pakLen);
 			
 			newitem = rbsearch (info[i].name, pack->rb);
@@ -1616,6 +1617,19 @@ void FS_ExecConfig (const char *filename)
 	if (Sys_FindFirst(name, 0, SFF_SUBDIR | SFF_HIDDEN | SFF_SYSTEM))
 		Cbuf_AddText (va ("exec %s\n", filename));
 	Sys_FindClose();
+}
+
+/*
+=============
+FS_ExecIfExists
+
+exec filename if it exists anywhere on the search path (baseq2 + gamedir).
+=============
+*/
+void FS_ExecIfExists (const char *filename)
+{
+	if (FS_LoadFile (filename, NULL) != -1)
+		Cbuf_AddText (va ("exec %s\n", filename));
 }
 
 void FS_ReloadPAKs (void)

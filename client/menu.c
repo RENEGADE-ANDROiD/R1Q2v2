@@ -2619,6 +2619,7 @@ static netadr_t local_server_netadr[MAX_LOCAL_SERVERS];
 static int		local_server_ping[MAX_LOCAL_SERVERS];
 static int		local_server_nplayers[MAX_LOCAL_SERVERS];
 static qboolean	local_server_isfav[MAX_LOCAL_SERVERS];
+static qboolean	local_server_ispinned[MAX_LOCAL_SERVERS]; /* PacketFlinger / TastySpleen */
 static int		m_serverlist_start_time;
 static int		m_server_page;
 static int		m_slots_visible = SERVER_SLOTS_VISIBLE;
@@ -2626,6 +2627,33 @@ static qboolean	m_searching;
 static int		m_search_idle_time;
 static int		m_join_click_slot = -1;
 static int		m_join_click_time;
+static netadr_t	m_join_selected_adr;
+static qboolean	m_join_selected_valid;
+
+static void JoinServer_SetSelectedIndex (int index)
+{
+	if (index < 0 || index >= m_num_servers)
+	{
+		m_join_selected_valid = false;
+		return;
+	}
+	m_join_selected_adr = local_server_netadr[index];
+	m_join_selected_valid = true;
+}
+
+static int JoinServer_FindSelectedIndex (void)
+{
+	int		i;
+
+	if (!m_join_selected_valid)
+		return -1;
+	for (i = 0; i < m_num_servers; i++)
+	{
+		if (NET_CompareAdr (&local_server_netadr[i], &m_join_selected_adr))
+			return i;
+	}
+	return -1;
+}
 
 static void JoinServer_RowDraw (void *self)
 {
@@ -2639,6 +2667,7 @@ static void JoinServer_RowDraw (void *self)
 	int				row_h;
 	const char		*text;
 	qboolean		selected;
+	int				sel_index;
 
 	x = a->generic.parent->x + (int)(a->generic.x * s);
 	y = a->generic.parent->y + (int)(a->generic.y * s);
@@ -2650,8 +2679,12 @@ static void JoinServer_RowDraw (void *self)
 	if (!text || !text[0])
 		return;
 
+	/* Sticky highlight: click selects a server; mouse can leave the row. */
 	selected = false;
-	if (a->generic.parent)
+	sel_index = JoinServer_FindSelectedIndex ();
+	if (sel_index >= 0 && idx == sel_index)
+		selected = true;
+	else if (sel_index < 0 && a->generic.parent)
 	{
 		for (i = 0; i < a->generic.parent->nitems; i++)
 		{
@@ -2697,6 +2730,44 @@ static void JoinServer_HeaderDraw (void *self)
 	Cvar_SetValue ("gl_fontscale", s);
 }
 
+/* Center address book / refresh / bookmark under the banner. */
+static void JoinServer_ToolbarDraw (void *self)
+{
+	menuaction_s	*a = (menuaction_s *)self;
+	float			s = SCR_GetMenuScale();
+	int				x, y;
+	int				i;
+	int				step;
+	const char		*text;
+	qboolean		selected;
+
+	text = a->generic.name;
+	if (!text || !text[0])
+		return;
+
+	y = a->generic.parent->y + (int)(a->generic.y * s);
+	step = (int)(8 * s + 0.5f);
+	if (step < 8)
+		step = 8;
+	x = (int)(viddef.width * 0.50f) - (int)((int)strlen(text) * step / 2);
+
+	selected = false;
+	if (a->generic.parent)
+	{
+		for (i = 0; i < a->generic.parent->nitems; i++)
+		{
+			if (a->generic.parent->items[i] == a)
+			{
+				selected = (a->generic.parent->cursor == i);
+				break;
+			}
+		}
+	}
+
+	for (i = 0; text[i]; i++)
+		re.DrawChar (x + i * step, y, selected ? (text[i] + 128) : text[i]);
+}
+
 static int		m_visible_index[SERVER_SLOTS_VISIBLE];
 static int		m_last_server_slot = -1;
 
@@ -2707,6 +2778,8 @@ static void JoinServer_ToggleFavoriteSelected (void);
 static qboolean JoinServer_AdrIsFavorite (netadr_t *adr);
 static qboolean JoinServer_AddFavoriteAdr (const char *addr);
 static qboolean JoinServer_RemoveFavoriteAdr (const char *addr);
+static qboolean JoinServer_IsListed (int i);
+static int JoinServer_CountListed (void);
 
 static void JoinServer_Swap (int a, int b)
 {
@@ -2731,38 +2804,96 @@ static void JoinServer_Swap (int a, int b)
 	local_server_isfav[a] = local_server_isfav[b];
 	local_server_isfav[b] = tb;
 
+	tb = local_server_ispinned[a];
+	local_server_ispinned[a] = local_server_ispinned[b];
+	local_server_ispinned[b] = tb;
+
 	memcpy (tname, local_server_names[a], sizeof(tname));
 	memcpy (local_server_names[a], local_server_names[b], sizeof(local_server_names[a]));
 	memcpy (local_server_names[b], tname, sizeof(local_server_names[b]));
 }
 
+static qboolean JoinServer_HostnameIsPinned (const char *hostname)
+{
+	char	lower[64];
+	int		i;
+
+	if (!hostname || !hostname[0])
+		return false;
+	Q_strncpy (lower, hostname, sizeof(lower)-1);
+	for (i = 0; lower[i]; i++)
+	{
+		if (lower[i] >= 'A' && lower[i] <= 'Z')
+			lower[i] = (char)(lower[i] - 'A' + 'a');
+	}
+	if (strstr (lower, "tastyspleen"))
+		return true;
+	if (strstr (lower, "packetflinger"))
+		return true;
+	return false;
+}
+
+static qboolean JoinServer_IsListed (int i)
+{
+	if (i < 0 || i >= m_num_servers)
+		return false;
+	/*
+	 * Do not hide 0-player hosts: many live bot servers report 0 humans in
+	 * classic info. Favorites + PacketFlinger/TastySpleen are always kept.
+	 */
+	return true;
+}
+
+static int JoinServer_CountListed (void)
+{
+	return m_num_servers;
+}
+
 static void JoinServer_Renumber (void)
 {
 	int		i;
+	int		n;
 	char	num[4];
 
+	n = 0;
 	for (i = 0; i < m_num_servers; i++)
 	{
 		if (!local_server_names[i][0])
 			continue;
-		Com_sprintf (num, sizeof(num), "%2d", i + 1);
+		if (!JoinServer_IsListed (i))
+			continue;
+		n++;
+		Com_sprintf (num, sizeof(num), "%2d", n);
 		local_server_names[i][0] = num[0];
 		local_server_names[i][1] = num[1];
 	}
+}
+
+static qboolean JoinServer_BetterThan (int a, int b)
+{
+	/* Bookmarks, then PF/TS networks, then players, then ping. */
+	if (local_server_isfav[a] && !local_server_isfav[b])
+		return true;
+	if (!local_server_isfav[a] && local_server_isfav[b])
+		return false;
+	if (local_server_ispinned[a] && !local_server_ispinned[b])
+		return true;
+	if (!local_server_ispinned[a] && local_server_ispinned[b])
+		return false;
+	if (local_server_nplayers[a] != local_server_nplayers[b])
+		return local_server_nplayers[a] > local_server_nplayers[b];
+	return local_server_ping[a] < local_server_ping[b];
 }
 
 static void JoinServer_SortByPlayers (void)
 {
 	int		i, j;
 
-	/* Most populated first; equal population → lower ping first. */
 	for (i = 1; i < m_num_servers; i++)
 	{
 		for (j = i; j > 0; j--)
 		{
-			if (local_server_nplayers[j] > local_server_nplayers[j - 1]
-				|| (local_server_nplayers[j] == local_server_nplayers[j - 1]
-					&& local_server_ping[j] < local_server_ping[j - 1]))
+			if (JoinServer_BetterThan (j, j - 1))
 				JoinServer_Swap (j, j - 1);
 			else
 				break;
@@ -2862,7 +2993,7 @@ static qboolean JoinServer_RemoveFavoriteAdr (const char *addr)
 			have.port = ShortSwap (PORT_SERVER);
 		if (!NET_CompareAdr (&want, &have))
 			continue;
-		Cvar_Set (name, "");
+		Cvar_FullSet (name, "", CVAR_ARCHIVE);
 		return true;
 	}
 	return false;
@@ -2973,6 +3104,7 @@ void M_AddToServerList (netadr_t adr, char *info)
 	local_server_netadr[m_num_servers] = adr;
 	local_server_ping[m_num_servers] = ping;
 	local_server_isfav[m_num_servers] = JoinServer_AdrIsFavorite (&adr);
+	local_server_ispinned[m_num_servers] = JoinServer_HostnameIsPinned (hostname);
 
 	Com_sprintf (local_server_names[m_num_servers], sizeof(local_server_names[0]),
 		"%2d.%c %-18.18s %-8.8s %5s %4d",
@@ -2996,10 +3128,7 @@ static void JoinServer_RebuildVisible (void)
 	int		skip;
 	int		start;
 
-	/* count matching servers for paging */
-	matched = 0;
-	for (i = 0; i < m_num_servers; i++)
-		matched++;
+	matched = JoinServer_CountListed ();
 
 	start = m_server_page * m_slots_visible;
 	if (start >= matched && m_server_page > 0)
@@ -3015,6 +3144,8 @@ static void JoinServer_RebuildVisible (void)
 
 	for (i = 0; i < m_num_servers && idx < m_slots_visible; i++)
 	{
+		if (!JoinServer_IsListed (i))
+			continue;
 		if (skip < start)
 		{
 			skip++;
@@ -3054,18 +3185,42 @@ static void JoinServer_ConnectSelected (void)
 {
 	int		slot;
 	int		index;
+	int		i;
 
-	if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
-		slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
-	else
-		slot = m_last_server_slot;
+	index = JoinServer_FindSelectedIndex ();
+	if (index < 0)
+	{
+		if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
+			slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
+		else
+			slot = m_last_server_slot;
 
-	if (slot < 0 || slot >= m_slots_visible)
+		if (slot < 0 || slot >= m_slots_visible)
+			return;
+		index = s_joinserver_server_actions[slot].generic.localdata[0];
+		if (index < 0 || index >= m_num_servers)
+			return;
+		JoinServerFunc (&s_joinserver_server_actions[slot]);
 		return;
-	index = s_joinserver_server_actions[slot].generic.localdata[0];
-	if (index < 0 || index >= m_num_servers)
-		return;
-	JoinServerFunc (&s_joinserver_server_actions[slot]);
+	}
+
+	for (i = 0; i < m_slots_visible; i++)
+	{
+		if (s_joinserver_server_actions[i].generic.localdata[0] == index)
+		{
+			JoinServerFunc (&s_joinserver_server_actions[i]);
+			return;
+		}
+	}
+	/* Selected server may be on another page — connect by address directly. */
+	{
+		char	buffer[128];
+
+		Com_sprintf (buffer, sizeof(buffer), "connect %s\n",
+			NET_AdrToString (&local_server_netadr[index]));
+		Cbuf_AddText (buffer);
+		M_ForceMenuOff ();
+	}
 }
 
 static void AddressBookFunc( void *self )
@@ -3087,11 +3242,13 @@ static void SearchLocalGames( void )
 	m_searching = true;
 	m_search_idle_time = 0;
 	m_serverlist_start_time = cls.realtime;
+	/* Keep sticky selection across refresh so highlight can return when the host replies. */
 	for (i = 0; i < MAX_LOCAL_SERVERS; i++)
 	{
 		local_server_ping[i] = 0;
 		local_server_nplayers[i] = 0;
 		local_server_isfav[i] = false;
+		local_server_ispinned[i] = false;
 		local_server_names[i][0] = 0;
 	}
 
@@ -3126,6 +3283,8 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_menu.cursor = 0;
 	m_join_click_slot = -1;
 	m_join_click_time = 0;
+	m_join_selected_valid = false;
+	m_last_server_slot = -1;
 
 	slots = (int)((viddef.height - s_joinserver_menu.y - 24 * s) / (JOIN_ROW_PITCH * s)) - 6;
 	if (slots < 6)
@@ -3140,6 +3299,7 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_address_book_action.generic.x		= 0;
 	s_joinserver_address_book_action.generic.y		= 0;
 	s_joinserver_address_book_action.generic.callback = AddressBookFunc;
+	s_joinserver_address_book_action.generic.ownerdraw = JoinServer_ToolbarDraw;
 	s_joinserver_address_book_action.generic.statusbar = "favorite servers (adr0-adr15)";
 
 	s_joinserver_search_action.generic.type = MTYPE_ACTION;
@@ -3148,6 +3308,7 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_search_action.generic.x	= 0;
 	s_joinserver_search_action.generic.y	= 12;
 	s_joinserver_search_action.generic.callback = SearchLocalGamesFunc;
+	s_joinserver_search_action.generic.ownerdraw = JoinServer_ToolbarDraw;
 	s_joinserver_search_action.generic.statusbar = "LAN + internet master list";
 
 	s_joinserver_bookmark_action.generic.type = MTYPE_ACTION;
@@ -3156,7 +3317,8 @@ static void JoinServer_MenuInit( void )
 	s_joinserver_bookmark_action.generic.x = 0;
 	s_joinserver_bookmark_action.generic.y = 24;
 	s_joinserver_bookmark_action.generic.callback = BookmarkSelectedFunc;
-	s_joinserver_bookmark_action.generic.statusbar = "save or remove highlighted server (also F)";
+	s_joinserver_bookmark_action.generic.ownerdraw = JoinServer_ToolbarDraw;
+	s_joinserver_bookmark_action.generic.statusbar = "click a server, then bookmark (also F)";
 
 	s_joinserver_server_title.generic.type = MTYPE_SEPARATOR;
 	s_joinserver_server_title.generic.name = " #  hostname           map      pl   ms";
@@ -3176,7 +3338,7 @@ static void JoinServer_MenuInit( void )
 		/* No callback: single-click selects; double-click / Enter connects. */
 		s_joinserver_server_actions[i].generic.callback = NULL;
 		s_joinserver_server_actions[i].generic.ownerdraw = JoinServer_RowDraw;
-		s_joinserver_server_actions[i].generic.statusbar = "click select  double-click/ENTER join  bookmark/F save";
+		s_joinserver_server_actions[i].generic.statusbar = "click to select  double-click/ENTER join  bookmark/F save";
 		s_joinserver_server_actions[i].generic.localdata[0] = -1;
 		m_visible_index[i] = -1;
 		if (i < m_slots_visible)
@@ -3209,7 +3371,7 @@ static void JoinServer_MenuDraw(void)
 		m_last_server_slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 	Menu_Draw( &s_joinserver_menu );
 
-	matched = m_num_servers;
+	matched = JoinServer_CountListed ();
 	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
 	if (maxpage < 1)
 		maxpage = 1;
@@ -3252,27 +3414,34 @@ static void JoinServer_ToggleFavoriteSelected (void)
 	int		index;
 	char	*addr;
 
-	cursor = s_joinserver_menu.cursor;
-	/* book / refresh / bookmark / title / server rows */
-	if (cursor >= JOIN_SERVER_FIRST_SLOT)
-		slot = cursor - JOIN_SERVER_FIRST_SLOT;
-	else
-		slot = m_last_server_slot;
-
-	if (slot < 0 || slot >= m_slots_visible)
+	index = JoinServer_FindSelectedIndex ();
+	if (index < 0)
 	{
-		Q_strncpy (s_bookmark_statusbar, "highlight a server first", sizeof(s_bookmark_statusbar)-1);
-		s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
-		return;
+		cursor = s_joinserver_menu.cursor;
+		/* book / refresh / bookmark / title / server rows */
+		if (cursor >= JOIN_SERVER_FIRST_SLOT)
+			slot = cursor - JOIN_SERVER_FIRST_SLOT;
+		else
+			slot = m_last_server_slot;
+
+		if (slot < 0 || slot >= m_slots_visible)
+		{
+			Q_strncpy (s_bookmark_statusbar, "click a server first", sizeof(s_bookmark_statusbar)-1);
+			s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
+			return;
+		}
+
+		index = s_joinserver_server_actions[slot].generic.localdata[0];
 	}
 
-	index = s_joinserver_server_actions[slot].generic.localdata[0];
 	if (index < 0 || index >= m_num_servers)
 	{
-		Q_strncpy (s_bookmark_statusbar, "highlight a server first", sizeof(s_bookmark_statusbar)-1);
+		Q_strncpy (s_bookmark_statusbar, "click a server first", sizeof(s_bookmark_statusbar)-1);
 		s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
 		return;
 	}
+
+	JoinServer_SetSelectedIndex (index);
 
 	addr = NET_AdrToString (&local_server_netadr[index]);
 	if (local_server_isfav[index])
@@ -3296,7 +3465,16 @@ static void JoinServer_ToggleFavoriteSelected (void)
 
 	s_joinserver_bookmark_action.generic.statusbar = s_bookmark_statusbar;
 	JoinServer_RefreshName (index);
+	JoinServer_SortByPlayers ();
+	{
+		int	sel = JoinServer_FindSelectedIndex ();
+
+		/* Newly bookmarked hosts sort to the top of the list. */
+		if (sel >= 0 && local_server_isfav[sel])
+			m_server_page = 0;
+	}
 	JoinServer_RebuildVisible ();
+	CL_WriteConfiguration ();
 }
 
 static const char *JoinServer_MenuKey( int key )
@@ -3309,9 +3487,13 @@ static const char *JoinServer_MenuKey( int key )
 		int slot = key - '1';
 		if (slot < m_slots_visible)
 		{
+			int index;
+
 			s_joinserver_menu.cursor = JOIN_SERVER_FIRST_SLOT + slot;
 			Menu_AdjustCursor (&s_joinserver_menu, 1);
 			m_last_server_slot = slot;
+			index = s_joinserver_server_actions[slot].generic.localdata[0];
+			JoinServer_SetSelectedIndex (index);
 		}
 		return menu_move_sound;
 	}
@@ -3328,7 +3510,7 @@ static const char *JoinServer_MenuKey( int key )
 		return menu_move_sound;
 	}
 
-	matched = m_num_servers;
+	matched = JoinServer_CountListed ();
 	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
 	if (maxpage < 1)
 		maxpage = 1;
@@ -3363,8 +3545,12 @@ static const char *JoinServer_MenuKey( int key )
 		{
 			int slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 			int now = cls.realtime;
+			int index;
 
 			m_last_server_slot = slot;
+			index = s_joinserver_server_actions[slot].generic.localdata[0];
+			JoinServer_SetSelectedIndex (index);
+
 			if (slot == m_join_click_slot
 				&& (now - m_join_click_time) >= 0
 				&& (now - m_join_click_time) < JOIN_DBLCLICK_MS)
@@ -3391,6 +3577,22 @@ static const char *JoinServer_MenuKey( int key )
 		}
 		Menu_SelectItem (&s_joinserver_menu);
 		return menu_move_sound;
+	}
+
+	if (key == K_UPARROW || key == K_DOWNARROW || key == K_KP_UPARROW || key == K_KP_DOWNARROW)
+	{
+		const char	*sound = Default_MenuKey (&s_joinserver_menu, key);
+
+		if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
+		{
+			int slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
+			int index;
+
+			m_last_server_slot = slot;
+			index = s_joinserver_server_actions[slot].generic.localdata[0];
+			JoinServer_SetSelectedIndex (index);
+		}
+		return sound;
 	}
 
 	return Default_MenuKey( &s_joinserver_menu, key );
@@ -4380,6 +4582,7 @@ const char *AddressBook_MenuKey( int key )
 			Com_sprintf( buffer, sizeof( buffer ), "adr%d", index );
 			Cvar_Set( buffer, s_addressbook_fields[index].buffer );
 		}
+		CL_WriteConfiguration ();
 	}
 	return Default_MenuKey( &s_addressbook_menu, key );
 }

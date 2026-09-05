@@ -960,6 +960,7 @@ void	FS_SetGamedir (const char *dir);
 char	*EXPORT FS_Gamedir (void);
 char	*FS_NextPath (const char *prevpath);
 void	FS_ExecConfig (const char *filename);
+void	FS_ExecIfExists (const char *filename);
 
 qboolean FS_ExistsInGameDir (char *filename);
 

@@ -1673,7 +1673,7 @@ static qboolean CL_HttpBodyLooksLikeHtml (const char *buf)
 	return (qboolean)(*p == '<');
 }
 
-static qboolean CL_HttpFetchUrl (HINTERNET hNet, const char *url, char *buf, DWORD bufmax, DWORD *out_total)
+static qboolean CL_HttpFetchUrl (HINTERNET hNet, const char *url, char *buf, DWORD bufmax, DWORD *out_total, qboolean allow_html)
 {
 	HINTERNET	hUrl;
 	DWORD		nread;
@@ -1722,7 +1722,7 @@ static qboolean CL_HttpFetchUrl (HINTERNET hNet, const char *url, char *buf, DWO
 			LOG_CLIENT, status, total);
 		return false;
 	}
-	if (CL_HttpBodyLooksLikeHtml (buf))
+	if (!allow_html && CL_HttpBodyLooksLikeHtml (buf))
 	{
 		Com_Printf ("HTTP master fetch failed (HTML body, status %u, %u bytes)\n",
 			LOG_CLIENT, status, total);
@@ -1730,6 +1730,142 @@ static qboolean CL_HttpFetchUrl (HINTERNET hNet, const char *url, char *buf, DWO
 	}
 
 	return true;
+}
+
+/* Scan any text/HTML for IPv4:port tokens and enqueue pings. */
+static int CL_EnqueueIpPortsFromText (const char *data)
+{
+	const char	*p;
+	char		token[32];
+	int			i;
+	int			dots;
+	int			digs;
+	int			count;
+	netadr_t	adr;
+
+	if (!data)
+		return 0;
+
+	count = 0;
+	for (p = data; *p; p++)
+	{
+		if (*p < '0' || *p > '9')
+			continue;
+
+		i = 0;
+		dots = 0;
+		while (p[i] && i < (int)sizeof(token) - 1)
+		{
+			if (p[i] >= '0' && p[i] <= '9')
+			{
+				token[i] = p[i];
+				i++;
+				continue;
+			}
+			if (p[i] == '.' && dots < 3)
+			{
+				token[i] = '.';
+				dots++;
+				i++;
+				continue;
+			}
+			if (p[i] == ':' && dots == 3)
+			{
+				token[i++] = ':';
+				digs = 0;
+				while (p[i] >= '0' && p[i] <= '9' && digs < 5 && i < (int)sizeof(token) - 1)
+				{
+					token[i] = p[i];
+					i++;
+					digs++;
+				}
+				token[i] = 0;
+				if (digs > 0 && NET_StringToAdr (token, &adr))
+				{
+					CL_EnqueueServerPing (&adr);
+					count++;
+					p += i - 1;
+				}
+				break;
+			}
+			break;
+		}
+	}
+	return count;
+}
+
+/* Always poke well-known PacketFlinger / TastySpleen hubs (fallback if HTML list fails). */
+static void CL_EnqueuePinnedNetworkServers (void)
+{
+	static const char *pinned[] = {
+		/* PacketFlinger.com hub */
+		"169.197.131.131:27910",
+		"169.197.131.131:27911",
+		"169.197.131.131:27912",
+		"169.197.131.131:27913",
+		"169.197.131.131:27920",
+		"169.197.131.131:27941",
+		"169.197.131.131:27955",
+		/* tastyspleen.net hubs */
+		"23.227.170.222:27909",
+		"23.227.170.222:27910",
+		"23.227.170.222:27911",
+		"23.227.170.222:27912",
+		"23.227.170.222:27913",
+		"23.227.170.222:27915",
+		"23.227.170.222:27916",
+		"23.227.170.222:27917",
+		"23.227.170.222:27920",
+		"23.227.170.222:27947",
+		"23.227.170.222:27666",
+		"23.227.170.214:27910",
+		"23.227.170.214:27923",
+		"23.227.170.214:27924",
+		"23.227.170.214:27926",
+		"23.227.170.214:27929",
+		NULL
+	};
+	int			i;
+	netadr_t	adr;
+
+	for (i = 0; pinned[i]; i++)
+	{
+		if (!NET_StringToAdr (pinned[i], &adr))
+			continue;
+		CL_EnqueueServerPing (&adr);
+	}
+}
+
+#define CL_PINNED_SERVERS_URL	"http://tastyspleen.net/quake/servers/list.cgi"
+
+static void CL_FetchPinnedNetworkServers (void)
+{
+	HINTERNET	hNet;
+	char		*buf;
+	DWORD		total;
+	int			count;
+
+	CL_EnqueuePinnedNetworkServers ();
+
+	hNet = InternetOpenA ("R1Q2v2", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+	if (!hNet)
+		return;
+
+	buf = malloc (512 * 1024 + 1);
+	if (!buf)
+	{
+		InternetCloseHandle (hNet);
+		return;
+	}
+
+	if (CL_HttpFetchUrl (hNet, CL_PINNED_SERVERS_URL, buf, 512 * 1024, &total, true))
+	{
+		count = CL_EnqueueIpPortsFromText (buf);
+		Com_Printf ("Pinned network list: %d address(es)\n", LOG_CLIENT|LOG_NOTICE, count);
+	}
+
+	free (buf);
+	InternetCloseHandle (hNet);
 }
 
 static void CL_FetchQ2ServersHTTP (void)
@@ -1761,11 +1897,11 @@ static void CL_FetchQ2ServersHTTP (void)
 		return;
 	}
 
-	ok = CL_HttpFetchUrl (hNet, url, buf, 256 * 1024, &total);
+	ok = CL_HttpFetchUrl (hNet, url, buf, 256 * 1024, &total, false);
 	if (!ok && strstr (url, "www.q2servers.com"))
 	{
 		Com_Printf ("retrying %s...\n", LOG_CLIENT|LOG_NOTICE, CL_MASTERHTTP_DEFAULT);
-		ok = CL_HttpFetchUrl (hNet, CL_MASTERHTTP_DEFAULT, buf, 256 * 1024, &total);
+		ok = CL_HttpFetchUrl (hNet, CL_MASTERHTTP_DEFAULT, buf, 256 * 1024, &total, false);
 	}
 
 	if (ok)
@@ -1777,6 +1913,30 @@ static void CL_FetchQ2ServersHTTP (void)
 #else
 static void CL_FetchQ2ServersHTTP (void)
 {
+}
+
+static void CL_FetchPinnedNetworkServers (void)
+{
+	/* Non-Win32: still poke the known hub addresses. */
+	static const char *pinned[] = {
+		"169.197.131.131:27910",
+		"169.197.131.131:27911",
+		"169.197.131.131:27920",
+		"23.227.170.222:27910",
+		"23.227.170.222:27915",
+		"23.227.170.222:27916",
+		"23.227.170.222:27920",
+		NULL
+	};
+	int			i;
+	netadr_t	adr;
+
+	for (i = 0; pinned[i]; i++)
+	{
+		if (!NET_StringToAdr (pinned[i], &adr))
+			continue;
+		CL_EnqueueServerPing (&adr);
+	}
 }
 #endif
 
@@ -1916,6 +2076,7 @@ void CL_PingServers_f (void)
 	}
 
 	CL_FetchQ2ServersHTTP ();
+	CL_FetchPinnedNetworkServers ();
 	CL_QueryMasters_f ();
 }
 
@@ -4181,6 +4342,41 @@ void CL_InitLocal (void)
 
 /*
 ===============
+CL_WriteBookmarks
+
+Shared address book (adr0-adr15) lives in baseq2/bookmarks.cfg so autoexec's
+exec Q2config.cfg cannot wipe favorites, and so they persist across gamedirs.
+===============
+*/
+#define CL_BOOKMARK_SLOTS	16
+
+void CL_WriteBookmarks (void)
+{
+	FILE	*f;
+	char	path[MAX_OSPATH];
+	char	name[16];
+	int		i;
+
+	Com_sprintf (path, sizeof(path), "%s/%s/bookmarks.cfg",
+		Cvar_VariableString ("basedir"), BASEDIRNAME);
+	f = fopen (path, "w");
+	if (!f)
+	{
+		Com_Printf ("Couldn't write bookmarks.cfg.\n", LOG_CLIENT);
+		return;
+	}
+
+	fprintf (f, "// shared Join Server / Address Book favorites\n");
+	for (i = 0; i < CL_BOOKMARK_SLOTS; i++)
+	{
+		Com_sprintf (name, sizeof(name), "adr%d", i);
+		fprintf (f, "set adr%d \"%s\"\n", i, Cvar_VariableString (name));
+	}
+	fclose (f);
+}
+
+/*
+===============
 CL_WriteConfiguration
 
 Writes key bindings and archived cvars to config.cfg
@@ -4207,6 +4403,7 @@ void CL_WriteConfiguration (void)
 	fclose (f);
 
 	Cvar_WriteVariables (path);
+	CL_WriteBookmarks ();
 }
 
 
@@ -4723,6 +4920,8 @@ void CL_Init (void)
 
 //	Cbuf_AddText ("exec autoexec.cfg\n");
 	FS_ExecConfig ("autoexec.cfg");
+	/* After autoexec: Q2config.cfg blanks adr*; restore shared favorites. */
+	FS_ExecIfExists ("bookmarks.cfg");
 	Cbuf_Execute ();
 
 	Con_Init ();	

@@ -47,8 +47,8 @@ const char	*current_texture_filename;
 const int		gl_solid_format = 3;
 const int		gl_alpha_format = 4;
 
-int		gl_tex_solid_format = 3;
-int		gl_tex_alpha_format = 4;
+int		gl_tex_solid_format = GL_RGB;
+int		gl_tex_alpha_format = GL_RGBA;
 
 //int		gl_filter_min = GL_LINEAR_MIPMAP_NEAREST;
 
@@ -262,7 +262,8 @@ typedef struct
 } gltmode_t;
 
 gltmode_t gl_alpha_modes[] = {
-	{"default", 4},
+	/* Prefer sized GL_RGBA — legacy "4" breaks on some modern drivers. */
+	{"default", GL_RGBA},
 	{"GL_RGBA", GL_RGBA},
 	{"GL_RGBA8", GL_RGBA8},
 	{"GL_RGB5_A1", GL_RGB5_A1},
@@ -273,7 +274,7 @@ gltmode_t gl_alpha_modes[] = {
 #define NUM_GL_ALPHA_MODES (sizeof(gl_alpha_modes) / sizeof (gltmode_t))
 
 gltmode_t gl_solid_modes[] = {
-	{"default", 3},
+	{"default", GL_RGB},
 	{"GL_RGB", GL_RGB},
 	{"GL_RGB8", GL_RGB8},
 	{"GL_RGB5", GL_RGB5},
@@ -2985,6 +2986,8 @@ nonscrap:
 	image->sh = 1;
 	image->tl = 0;
 	image->th = 1;
+
+	global_hax_texture_x = global_hax_texture_y = 0;
 
 	return image;
 }

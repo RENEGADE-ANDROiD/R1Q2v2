@@ -247,17 +247,20 @@ Draw_FindPic
 image_t	* EXPORT Draw_FindPic (char *name)
 {
 	image_t *gl;
+	char	lowered[MAX_QPATH];
 	char	fullname[MAX_QPATH];
 
-	fast_strlwr (name);
+	/* Copy first — never write through the caller's pointer (string literals). */
+	Q_strncpy (lowered, name, sizeof(lowered)-1);
+	fast_strlwr (lowered);
 
-	if (name[0] != '/' && name[0] != '\\')
+	if (lowered[0] != '/' && lowered[0] != '\\')
 	{
-		Com_sprintf (fullname, sizeof(fullname), "pics/%s.pcx", name);
-		gl = GL_FindImage (fullname, name, it_pic);
+		Com_sprintf (fullname, sizeof(fullname), "pics/%s.pcx", lowered);
+		gl = GL_FindImage (fullname, lowered, it_pic);
 	}
 	else
-		gl = GL_FindImage (name+1, name+1, it_pic);
+		gl = GL_FindImage (lowered+1, lowered+1, it_pic);
 
 	return gl;
 }
@@ -307,17 +310,8 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 		GL_CheckForError ();
 	}
 
-	if (gl->has_alpha)
-	{
-		qglDisable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglEnable(GL_BLEND);
-		GL_CheckForError ();
-
-		GL_TexEnv(GL_MODULATE);
-	}
-
+	/* Classic Quake II: rely on ALPHA_TEST from R_SetGL2D. Do not disable it
+	   or switch to blend — that paints index-255 neighbor RGB as solid white. */
 	GL_Bind (gl->texnum);
 	qglBegin (GL_QUADS);
 	qglTexCoord2f (gl->sl, gl->tl);
@@ -331,17 +325,6 @@ void EXPORT Draw_StretchPic (int x, int y, int w, int h, char *pic)
 	qglEnd ();
 
 	GL_CheckForError ();
-
-	if (gl->has_alpha)
-	{
-		GL_TexEnv (GL_REPLACE);
-		
-		qglEnable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglDisable(GL_BLEND);
-		GL_CheckForError ();
-	}
 
 	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) ) && !gl->has_alpha)
 	{
@@ -377,17 +360,7 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 		GL_CheckForError ();
 	}
 
-	if (gl->has_alpha)
-	{
-		qglDisable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-
-		qglEnable(GL_BLEND);
-		GL_CheckForError ();
-
-		GL_TexEnv(GL_MODULATE);
-	}
-
+	/* Classic Quake II: ALPHA_TEST only (see Draw_StretchPic). */
 	GL_Bind (gl->texnum);
 
 	qglBegin (GL_QUADS);
@@ -402,15 +375,6 @@ void EXPORT Draw_Pic (int x, int y, char *pic)
 	qglEnd ();
 
 	GL_CheckForError ();
-
-	if (gl->has_alpha)
-	{
-		GL_TexEnv (GL_REPLACE);
-		qglEnable(GL_ALPHA_TEST);
-		GL_CheckForError ();
-		qglDisable(GL_BLEND);
-		GL_CheckForError ();
-	}
 
 	if ( ( ( gl_config.renderer == GL_RENDERER_MCD ) || ( gl_config.renderer & GL_RENDERER_RENDITION ) )  && !gl->has_alpha)
 	{

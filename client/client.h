@@ -681,6 +681,7 @@ void CL_Disconnect_f (void);
 void CL_GetChallengePacket (void);
 void CL_PingServers_f (void);
 void CL_RunServerPings (void);
+void CL_WriteConfiguration (void);
 qboolean CL_ServerPingBusy (void);
 int CL_ConsumeServerPing (netadr_t *adr);
 void CL_Snd_Restart_f (void);
@@ -802,6 +803,8 @@ void M_Draw (void);
 void M_Menu_Main_f (void);
 void M_ForceMenuOff (void);
 void M_AddToServerList (netadr_t adr, char *info);
+
+void CL_WriteBookmarks (void);
 
 //
 // cl_inv.c

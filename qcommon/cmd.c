@@ -239,6 +239,7 @@ void Cbuf_Execute (void)
 	char			*text;
 	char			line[1024];
 	int				quotes;
+	qboolean		comment;
 
 	alias_count = 0;		// don't allow infinite alias loops
 
@@ -248,6 +249,7 @@ void Cbuf_Execute (void)
 		text = (char *)cmd_text_buf;
 
 		quotes = 0;
+		comment = false;
 		for (i=0 ; i< cmd_text.cursize ; i++)
 		{
 			//r1: allow for escaped ""s for eg rcon set hostname \"House of Pain\"
@@ -261,7 +263,11 @@ void Cbuf_Execute (void)
 			if (text[i] == '"')
 				quotes++;
 
-			if ( !(quotes&1) && text[i] == ';')
+			/* // comments run to newline — do not treat ';' as a command break. */
+			if (!(quotes & 1) && !comment && text[i] == '/' && (i + 1) < cmd_text.cursize && text[i + 1] == '/')
+				comment = true;
+
+			if (!comment && !(quotes & 1) && text[i] == ';')
 				break;	// don't break if inside a quoted string
 
 			//don't allow escapes of \n

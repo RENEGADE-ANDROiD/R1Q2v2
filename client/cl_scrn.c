@@ -724,6 +724,16 @@ static void _viewsize_changed (cvar_t *self, char *oldValue, char *newValue)
 		Cvar_Set (self->name, "100");
 }
 
+/* Redirect leftover gl_hudscale into status-bar-only scr_hudscale. */
+static void _gl_hudscale_changed (cvar_t *self, char *oldValue, char *newValue)
+{
+	if (self->value == 1.0f)
+		return;
+	if (scr_hudscale && scr_hudscale->value == 1.0f)
+		Cvar_SetValue ("scr_hudscale", self->value);
+	Cvar_Set (self->name, "1");
+}
+
 /*
 ================
 SCR_GetMenuScale
@@ -838,7 +848,9 @@ void SCR_Init (void)
 	scr_chathud_highlight_char = Cvar_Get ("scr_chathud_highlight_char", " ", 0);
 	scr_hud_top = Cvar_Get ("scr_hud_top", "0", CVAR_ARCHIVE);
 	scr_hudscale = Cvar_Get ("scr_hudscale", "1", CVAR_ARCHIVE);
-	/* Migrate old video-menu setting that scaled the whole 2D layer. */
+	/* Migrate old video-menu setting that scaled the whole 2D layer.
+	   Keep redirecting after init so autoexec / visual presets cannot
+	   turn whole-2D gl_hudscale back on. */
 	{
 		cvar_t	*gl_hs = Cvar_Get ("gl_hudscale", "1", CVAR_ARCHIVE);
 		if (gl_hs->value != 1.0f)
@@ -847,6 +859,7 @@ void SCR_Init (void)
 				Cvar_SetValue ("scr_hudscale", gl_hs->value);
 			Cvar_Set ("gl_hudscale", "1");
 		}
+		gl_hs->changed = _gl_hudscale_changed;
 	}
 
 	scr_chathud_lines->changed = SCR_Chathud_Changed;

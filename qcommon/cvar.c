@@ -427,7 +427,10 @@ static cvar_t *Cvar_Set2 (const char *var_name, const char *value, qboolean forc
 					FS_SetGamedir (var->string);
 #ifndef DEDICATED_ONLY
 					if (!Cvar_IntValue ("dedicated"))
+					{
 						FS_ExecConfig ("autoexec.cfg");
+						FS_ExecIfExists ("bookmarks.cfg");
+					}
 #endif
 				}
 			}
@@ -585,7 +588,10 @@ void Cvar_GetLatchedVars (void)
 			FS_SetGamedir (var->string);
 #ifndef DEDICATED_ONLY
 			if (!Cvar_IntValue ("dedicated"))
+			{
 				FS_ExecConfig ("autoexec.cfg");
+				FS_ExecIfExists ("bookmarks.cfg");
+			}
 #endif
 		}
 	}

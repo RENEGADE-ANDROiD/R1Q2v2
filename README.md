@@ -13,9 +13,14 @@ Console / version string: **R1Q2v2 (Build: 8012)** — bump `BUILD` in [`build.h
    - `R1Q2v2.exe`, `r1q2ded.exe`, `gamex86.dll`
    - `ref_r1gl.dll`, `ref_gl.dll`
    - `z.dll`, `libpng16.dll`, `jpeg62.dll`
+   - `baseq2/r1q2v2_visual.cfg` (and optionally `pretty_r1q2v2.cfg`) into the install `baseq2` folder
 3. Launch `R1Q2v2.exe`.
 
 You still need the usual game data (`baseq2` and so on). This project does not ship the retail or Steam content.
+
+## Docs
+
+- **[CVARS.md](CVARS.md)** — useful console variables (video, HUD, input, net, R1Q2 extras) with defaults and short explainers
 
 ## Menus
 
@@ -43,7 +48,7 @@ OpenGL / R1GL:
 
 Escape applies driver / resolution / fullscreen. The FX toggles and sliders apply as you change them. Cancel leaves without applying the video-mode change.
 
-Older configs that used `gl_hudscale` for HUD size are migrated to `scr_hudscale` once; `gl_hudscale` is forced back to `1` so it no longer shrinks the whole 2D layer.
+Older configs that used `gl_hudscale` for HUD size are redirected to `scr_hudscale`; `gl_hudscale` is forced back to `1` so it no longer shrinks the whole 2D layer (including after a later `exec`).
 
 ### Packs and high-res textures
 
@@ -51,6 +56,7 @@ Older configs that used `gl_hudscale` for HUD size are migrated to `scr_hudscale
 
 - `Q3ArenaHUD.pkz` — Quake III–style status bar pics
 - `quake2-neural-upscale-textures-*.pkz` — HD wall replacements
+- `zz_r1q2_titles.pkz` — stock menu banners / main-menu plaques from `pak0`, 2× Scale2x (beats pak9’s broken Video title). Generate with `py -3 scripts/pack_r1q2_titles.py` against your install `pak0.pak` (not in git; it is retail art)
 
 R1GL also loads loose replacements next to retail WALs (keep the WALs for UV size):
 
@@ -61,7 +67,7 @@ baseq2/env/<skyname>rt.png   (also bk lf ft up dn; jpg/tga work too)
 
 Try order is png → jpg → tga → wal. Same-gamedir **packs beat loose files** — put overrides in a later `.pak`/`.pkz` or a mod gamedir. Needs `z.dll` / `libpng16.dll` / `jpeg62.dll` next to the exe.
 
-Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lodbias` (0 … −4 via the sharpen slider), `gl_linear_mipmaps 1`, `gl_texture_formats "png jpg tga"`, `gl_pic_formats "png jpg tga"`.
+Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lodbias` (0 … −4 via the sharpen slider), `gl_linear_mipmaps 1`, `gl_texture_formats "png jpg tga"`, `gl_pic_formats "png jpg tga"`. Full list: [CVARS.md](CVARS.md).
 
 ### Multiplayer
 
@@ -72,11 +78,11 @@ Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lo
 - Space — refresh
 - [ / ] — page
 
-**Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser.
+**Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser. Favorites are stored in `baseq2/bookmarks.cfg` so they survive `exec Q2config.cfg` and gamedir switches.
 
 ### Options → R1Q2 settings
 
-DirectInput mouse, XP mouse acceleration fix, deferred model loading, **Q2Pro movement** (sync physics / `cl_async 0` for classic jump feel; off keeps stock R1Q2 async), automatic demo record, and Xania rail trail. These are not written to `config.cfg` — put anything you want to keep in `autoexec.cfg`.
+DirectInput mouse, XP mouse acceleration fix, deferred model loading, **Q2Pro movement** (sync physics / `cl_async 0` for classic jump feel; off keeps stock R1Q2 async), automatic demo record, and Xania rail trail. These are not written to `config.cfg` — put anything you want to keep in `autoexec.cfg`. Details: [CVARS.md](CVARS.md).
 
 ## Building
 

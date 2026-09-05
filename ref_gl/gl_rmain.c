@@ -1588,7 +1588,9 @@ int EXPORT R_Init( void *hinstance, void *hWnd )
 		r_turbsin[j] *= 0.5;
 	}
 
-	ri.Cmd_ExecuteText (EXEC_NOW, "exec r1gl.cfg\n");
+	/* Optional R1GL overrides. Missing file is normal — do not spam "couldn't exec". */
+	if (ri.FS_LoadFile ("r1gl.cfg", NULL) != -1)
+		ri.Cmd_ExecuteText (EXEC_NOW, "exec r1gl.cfg\n");
 
 	ri.Con_Printf (PRINT_ALL, "ref_gl version: "REF_VERSION"\n");
 
