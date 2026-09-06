@@ -841,7 +841,8 @@ float SCR_GetMenuPicScale (void)
 ================
 SCR_GetConsoleScale
 
-0 = auto from resolution (classic 480p baseline), same idea as menus.
+0 = auto from resolution (height/540 baseline — slightly softer than
+menu height/480). Explicit con_scale > 0 overrides.
 ================
 */
 float SCR_GetConsoleScale (void)
@@ -854,7 +855,8 @@ float SCR_GetConsoleScale (void)
 	if (con_scale->value > 0.0f)
 		s = con_scale->value;
 	else
-		s = (float)viddef.height / 480.0f;
+		/* Soften vs menu auto (height/480): ~2.0 at 1080p instead of ~2.25 */
+		s = (float)viddef.height / 540.0f;
 
 	if (s < 1.0f)
 		s = 1.0f;
@@ -1625,8 +1627,10 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
+					/* With layout scale: offset inside centered 320-wide canvas
+					   (right edge = width/2 + 160*ls), not screen-right pinned. */
 					if (ls != 1.0f)
-						x = viddef.width + (int)(virt * ls);
+						x = viddef.width / 2 + (int)(160.0f * ls + 0.5f) + (int)(virt * ls);
 					else
 						x = viddef.width + virt;
 					continue;
@@ -1635,8 +1639,10 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
+					/* With layout scale: same origin as xv (centered 320 canvas).
+					   Classic xl left-pin only when ls==1. Status bar keeps ls==1. */
 					if (ls != 1.0f)
-						x = (int)(virt * ls);
+						x = viddef.width / 2 - (int)(160.0f * ls + 0.5f) + (int)(virt * ls);
 					else
 						x = virt;
 					continue;

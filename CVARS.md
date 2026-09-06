@@ -1,6 +1,6 @@
 # R1Q2v2 console variables
 
-Useful client settings for **R1Q2v2 (Build 8019+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
+Useful client settings for **R1Q2v2 (Build 8020+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree — only ones players typically want.
 
 ## How to use
 
@@ -130,9 +130,9 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 |------|---------|--------|
 | `scr_menuscale` | `0` | Menu text scale. `0` = auto (~height/480, clamped 1–6). Try `2.5` at 1080p. |
 | `scr_menupicscale` | `1.2` | Extra scale for menu PCX art (banners, plaques) on top of menu scale (clamped 1–2). |
-| `con_scale` | `0` | Console / notify text scale. `0` = auto like menus. |
+| `con_scale` | `0` | Console / notify text scale. `0` = auto (~height/540, clamped 1-6; ~2.0 at 1080p — softer than menu auto). Explicit values work; try `1.75`-`2.0` at 1080p if auto still feels large. Shipped `r1q2v2_visual.cfg` sets `2.0`. |
 | `scr_hudscale` | `1` | **Status bar only** (~0.5–2.5). Menus and crosshair stay unscaled. Presets must use this, not `gl_hudscale`. |
-| `scr_layoutscale` | `0` | **In-game layout menus only** (`STAT_LAYOUTS` / `cl.layout`: Arena team select, help, scoreboards) plus inventory. `0` = auto (~height/480, clamped 1–6). `1` = classic tiny 8px. Does **not** apply `scr_hud_top` / `scr_hudwide`. |
+| `scr_layoutscale` | `0` | **In-game layout menus only** (`STAT_LAYOUTS` / `cl.layout`: Arena team select, help, scoreboards) plus inventory. `0` = auto (~height/480, clamped 1-6). `1` = classic tiny 8px. When scaled, `xl`/`xr` use the same centered 320-wide virtual canvas as `xv` (Arena team menus stay centered at HD). Does **not** apply `scr_hud_top` / `scr_hudwide`. |
 | `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs. |
 | `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
@@ -306,7 +306,7 @@ Readable menus + HUD at 1080p:
 ```
 seta scr_menuscale "2.5"
 seta scr_menupicscale "1.2"
-seta con_scale "0"
+seta con_scale "2.0"
 seta scr_hudscale "2.5"
 seta scr_layoutscale "0"
 seta gl_hudscale "1"
