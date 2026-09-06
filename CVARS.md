@@ -136,13 +136,13 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs. |
 | `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
-| `crosshair` | `0` | `0` none; `1`+ uses `pics/chN` (stock `ch1`…`ch3`, or higher if the pic exists). |
-| `ch1` / `ch2` / `ch3` | empty | Extra overlay pics (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when that cvar is non-zero. |
+| `crosshair` | `0` | `crosshair N` loads `pics/chN` (TGA/PNG/PCX OK). `0` = off (does **not** draw `ch0`). `1`+ uses stock `ch1`…`ch3`, or higher if the pic exists. |
+| `ch1` / `ch2` / `ch3` | empty | Free-name overlay slots (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when that cvar is non-zero. Drawn at native size × `ch_scale` × `chN_scale` (large vignettes need a high scale or a full-res asset). |
 | `ch_scale` | `1` | Scale for the stock crosshair and all `ch1`–`ch3` layers. Options slider (0.1–4). Saved. |
 | `ch_red` / `ch_green` / `ch_blue` | `1` | Crosshair tint 0–1. Options → Crosshair setup. Saved. |
 | `ch_alpha` | `1` | Crosshair opacity 0.1–1. Saved. |
 | `ch_health` | `0` | `1` = green→yellow→red from current HP (overrides RGB). Saved. |
-| `ch1_scale` / `ch2_scale` / `ch3_scale` | `1` | Per-layer scale on top of `ch_scale` (0.1–4). Saved. |
+| `ch1_scale` / `ch2_scale` / `ch3_scale` | `1` | Per-layer scale on top of `ch_scale` (0.1–4). Final size = native × `ch_scale` × `chN_scale`. Saved. |
 | `ch_x` / `ch_y` | `0` / `0` | Extra pixel offset, added to `scr_crosshair_x` / `y`. |
 | `scr_crosshair_x` / `scr_crosshair_y` | `0` / `0` | Crosshair pixel offset. |
 | `scr_alpha` | `1` | Status-bar opacity (Options → R1Q2). Saved. |
@@ -184,14 +184,16 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 | `sensitivity` | `3` | Mouse look sensitivity. |
 | `m_pitch` | `0.022` | Pitch scale; negate to invert Y. |
 | `m_yaw` | `0.022` | Yaw scale. |
-| `m_filter` | `0` | Average mouse deltas (smoother, less raw). |
+| `m_filter` | `0` | Average mouse deltas (smoother, less raw). Independent of DirectInput mode. |
 | `m_autosens` | `0` | Scale mouse by FOV (Q2PRO zoom aliases). `1` uses 90 as the base. |
-| `m_directinput` | `0` | `0` off; `1` buffered DirectInput; `2` immediate. |
+| `m_directinput` | `0` | Backend when `in_mouse` is 1: `0` = Win32 cursor recenter; `1` = buffered DirectInput; `2` = immediate DirectInput. Does **not** replace or bypass `in_mouse`. |
 | `m_fixaccel` | OS-dependent | XP mouse-acceleration fix (Options → R1Q2). |
-| `in_mouse` | `1` | Enable mouse input. |
+| `in_mouse` | `1` | **Master mouse enable.** `0` disables mouselook entirely (startup/activate early-out). It is **not** “use Win32 instead of DirectInput.” |
 | `freelook` | `1` | Always mouselook without `+mlook`. |
 | `lookspring` | `0` | Center view when mouselook ends. |
 | `lookstrafe` | `0` | Strafe with mouse while looking. |
+
+`in_mouse` is the master switch for mouse look; `m_directinput` only picks the backend while mouse is enabled. DirectInput does **not** replace or bypass `in_mouse`. Recommended crisp combo: `in_mouse 1`, `m_directinput 2`, `m_filter 0`. `m_filter 1` averages deltas for a smoother feel and is independent of DI mode.
 
 ---
 
@@ -251,7 +253,7 @@ These are often **not** written to `config.cfg` — keep them in `autoexec.cfg` 
 
 | Cvar | Default | Notes |
 |------|---------|--------|
-| `m_directinput` | `0` | DirectInput mouse (see Input). |
+| `m_directinput` | `0` | Mouse backend when `in_mouse` is on (see Input). |
 | `m_fixaccel` | OS-dependent | OS mouse accel fix. |
 | `cl_defermodels` | `1` | Defer model loads to reduce hitching. Loads run on the **render** frame (throttled to about one model / 16 ms), not on the packet-send frame. |
 | `cl_async` | `1` | Sync physics when `0`. Saved. Not Q2PRO pmove. |
