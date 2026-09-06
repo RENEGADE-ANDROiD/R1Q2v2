@@ -30,8 +30,21 @@ image_t	*sky_images[6];
 
 msurface_t	*warpface;
 
-#define	SUBDIVIDE_SIZE	64
-//#define	SUBDIVIDE_SIZE	1024
+#define	SUBDIVIDE_SIZE_DEFAULT	64
+
+static float Warp_SubdivideSize (void)
+{
+	float s = SUBDIVIDE_SIZE_DEFAULT;
+	if (gl_subdivide)
+	{
+		s = gl_subdivide->value;
+		if (s < 16.0f)
+			s = 16.0f;
+		if (s > 128.0f)
+			s = 128.0f;
+	}
+	return s;
+}
 
 void BoundPoly (int numverts, float *verts, vec3_t mins, vec3_t maxs)
 {
@@ -56,6 +69,7 @@ void SubdividePolygon (int numverts, float *verts)
 	int		i, j, k;
 	vec3_t	mins, maxs;
 	float	m;
+	float	subdiv;
 	float	*v;
 	vec3_t	front[64], back[64];
 	int		f, b;
@@ -71,10 +85,11 @@ void SubdividePolygon (int numverts, float *verts)
 
 	BoundPoly (numverts, verts, mins, maxs);
 
+	subdiv = Warp_SubdivideSize();
 	for (i=0 ; i<3 ; i++)
 	{
 		m = (mins[i] + maxs[i]) * 0.5f;
-		m = SUBDIVIDE_SIZE * (float)floor (m/SUBDIVIDE_SIZE + 0.5f);
+		m = subdiv * (float)floor (m/subdiv + 0.5f);
 		if (maxs[i] - m < 8)
 			continue;
 		if (m - mins[i] < 8)
@@ -232,7 +247,16 @@ void EmitWaterPolys (msurface_t *fa)
 	int			i;
 	float		s, t, os, ot;
 	float		scroll;
+	float		amp, speed, warp_time;
 	float		rdt = r_newrefdef.time;
+
+	amp = (gl_warp_amp) ? gl_warp_amp->value : 1.0f;
+	speed = (gl_warp_speed) ? gl_warp_speed->value : 1.0f;
+	if (amp < 0.0f) amp = 0.0f;
+	if (amp > 2.0f) amp = 2.0f;
+	if (speed < 0.0f) speed = 0.0f;
+	if (speed > 3.0f) speed = 3.0f;
+	warp_time = rdt * speed;
 
 	if (fa->texinfo->flags & SURF_FLOWING)
 		scroll = -64 * ( (r_newrefdef.time*0.5f) - (int)(r_newrefdef.time*0.5f) );
@@ -249,17 +273,17 @@ void EmitWaterPolys (msurface_t *fa)
 			ot = v[4];
 
 #if !id386
-			s = os + r_turbsin[(int)((ot*0.125f+r_newrefdef.time) * TURBSCALE) & 255];
+			s = os + amp * r_turbsin[(int)((ot*0.125f+warp_time) * TURBSCALE) & 255];
 #else
-			s = os + r_turbsin[Q_ftol( ((ot*0.125f+rdt) * TURBSCALE) ) & 255];
+			s = os + amp * r_turbsin[Q_ftol( ((ot*0.125f+warp_time) * TURBSCALE) ) & 255];
 #endif
 			s += scroll;
 			s *= (1.0/64);
 
 #if !id386
-			t = ot + r_turbsin[(int)((os*0.125f+rdt) * TURBSCALE) & 255];
+			t = ot + amp * r_turbsin[(int)((os*0.125f+warp_time) * TURBSCALE) & 255];
 #else
-			t = ot + r_turbsin[Q_ftol( ((os*0.125f+rdt) * TURBSCALE) ) & 255];
+			t = ot + amp * r_turbsin[Q_ftol( ((os*0.125f+warp_time) * TURBSCALE) ) & 255];
 #endif
 			t *= (1.0/64);
 

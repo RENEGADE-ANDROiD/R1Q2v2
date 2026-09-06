@@ -1346,7 +1346,7 @@ void VID_Init (void)
 	Com_Printf( "VID: default video mode index %d (desktop match)\n", LOG_CLIENT, desktop_mode );
 
 	/* Create the video variables so we know how to start the graphics drivers */
-	vid_ref = Cvar_Get ("vid_ref", "gl", CVAR_ARCHIVE);
+	vid_ref = Cvar_Get ("vid_ref", "r1gl", CVAR_ARCHIVE);
 	vid_xpos = Cvar_Get ("vid_xpos", "3", CVAR_ARCHIVE);
 	vid_ypos = Cvar_Get ("vid_ypos", "22", CVAR_ARCHIVE);
 	vid_fullscreen = Cvar_Get ("vid_fullscreen", "0", CVAR_ARCHIVE);

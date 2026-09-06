@@ -950,11 +950,25 @@ void CL_ParseConfigString (void)
 	{
 		if (cl.refresh_prepped)
 		{
-			cl.model_draw[i-CS_MODELS] = re.RegisterModel (cl.configstrings[i]);
-			if (cl.configstrings[i][0] == '*')
-				cl.model_clip[i-CS_MODELS] = CM_InlineModel (cl.configstrings[i]);
+			int mi = i - CS_MODELS;
+
+			/* Net parse only stores the string; RegisterModel runs on the
+			 * render-frame budget (see CL_LoadDeferredModels). Timedemo sync. */
+			if (cl_timedemo->intvalue)
+			{
+				cl.model_draw[mi] = re.RegisterModel (cl.configstrings[i]);
+				if (cl.configstrings[i][0] == '*')
+					cl.model_clip[mi] = CM_InlineModel (cl.configstrings[i]);
+				else
+					cl.model_clip[mi] = NULL;
+			}
 			else
-				cl.model_clip[i-CS_MODELS] = NULL;
+			{
+				cl.model_draw[mi] = NULL;
+				cl.model_clip[mi] = NULL;
+				if (cl.configstrings[i][0])
+					CL_QueueDeferredAsset (DA_MODEL, mi);
+			}
 		}
 
 		//r1: load map whilst connecting to save a bit of time
@@ -969,12 +983,27 @@ void CL_ParseConfigString (void)
 	else if (i >= CS_SOUNDS && i < CS_SOUNDS+MAX_MODELS)
 	{
 		if (cl.refresh_prepped)
-			cl.sound_precache[i-CS_SOUNDS] = S_RegisterSound (cl.configstrings[i]);
+		{
+			int si = i - CS_SOUNDS;
+			if (cl_timedemo->intvalue)
+				cl.sound_precache[si] = S_RegisterSound (cl.configstrings[i]);
+			else
+			{
+				cl.sound_precache[si] = NULL;
+				if (cl.configstrings[i][0])
+					CL_QueueDeferredAsset (DA_SOUND, si);
+			}
+		}
 	}
 	else if (i >= CS_IMAGES && i < CS_IMAGES+MAX_MODELS)
 	{
 		if (cl.refresh_prepped)
-			re.RegisterPic (cl.configstrings[i]);
+		{
+			if (cl_timedemo->intvalue)
+				re.RegisterPic (cl.configstrings[i]);
+			else if (cl.configstrings[i][0])
+				CL_QueueDeferredAsset (DA_IMAGE, i - CS_IMAGES);
+		}
 	}
 	else if (i == CS_MAXCLIENTS)
 	{
@@ -989,7 +1018,12 @@ void CL_ParseConfigString (void)
 		if (i < cl.maxclients)
 		{
 			if (cl.refresh_prepped && strcmp(olds, s))
-				CL_ParseClientinfo (i);
+			{
+				if (cl_timedemo->intvalue)
+					CL_ParseClientinfo (i);
+				else
+					CL_QueueDeferredAsset (DA_PLAYERSKIN, i);
+			}
 		}
 		else
 		{

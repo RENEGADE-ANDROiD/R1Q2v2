@@ -320,6 +320,7 @@ void CL_PrepRefresh (void)
 
 	// clear tents - dangling model pointers
 	CL_ClearTEnts ();
+	CL_ClearDeferredAssets ();
 
 	re.BeginRegistration (mapname);
 

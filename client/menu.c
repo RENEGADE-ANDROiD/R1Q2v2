@@ -931,6 +931,7 @@ static void Keys_MenuInit( void )
 	s_keys_attack_action.generic.x		= 0;
 	s_keys_attack_action.generic.y		= y;
 	s_keys_attack_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_attack_action.generic.callback = KeyBindingFunc;
 	s_keys_attack_action.generic.localdata[0] = i;
 	s_keys_attack_action.generic.name	= bindnames[s_keys_attack_action.generic.localdata[0]][1];
 
@@ -939,6 +940,7 @@ static void Keys_MenuInit( void )
 	s_keys_change_weapon_action.generic.x		= 0;
 	s_keys_change_weapon_action.generic.y		= y += 10;
 	s_keys_change_weapon_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_change_weapon_action.generic.callback = KeyBindingFunc;
 	s_keys_change_weapon_action.generic.localdata[0] = ++i;
 	s_keys_change_weapon_action.generic.name	= bindnames[s_keys_change_weapon_action.generic.localdata[0]][1];
 
@@ -947,6 +949,7 @@ static void Keys_MenuInit( void )
 	s_keys_walk_forward_action.generic.x		= 0;
 	s_keys_walk_forward_action.generic.y		= y += 10;
 	s_keys_walk_forward_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_walk_forward_action.generic.callback = KeyBindingFunc;
 	s_keys_walk_forward_action.generic.localdata[0] = ++i;
 	s_keys_walk_forward_action.generic.name	= bindnames[s_keys_walk_forward_action.generic.localdata[0]][1];
 
@@ -955,6 +958,7 @@ static void Keys_MenuInit( void )
 	s_keys_backpedal_action.generic.x		= 0;
 	s_keys_backpedal_action.generic.y		= y += 10;
 	s_keys_backpedal_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_backpedal_action.generic.callback = KeyBindingFunc;
 	s_keys_backpedal_action.generic.localdata[0] = ++i;
 	s_keys_backpedal_action.generic.name	= bindnames[s_keys_backpedal_action.generic.localdata[0]][1];
 
@@ -963,6 +967,7 @@ static void Keys_MenuInit( void )
 	s_keys_turn_left_action.generic.x		= 0;
 	s_keys_turn_left_action.generic.y		= y += 10;
 	s_keys_turn_left_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_turn_left_action.generic.callback = KeyBindingFunc;
 	s_keys_turn_left_action.generic.localdata[0] = ++i;
 	s_keys_turn_left_action.generic.name	= bindnames[s_keys_turn_left_action.generic.localdata[0]][1];
 
@@ -971,6 +976,7 @@ static void Keys_MenuInit( void )
 	s_keys_turn_right_action.generic.x		= 0;
 	s_keys_turn_right_action.generic.y		= y += 10;
 	s_keys_turn_right_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_turn_right_action.generic.callback = KeyBindingFunc;
 	s_keys_turn_right_action.generic.localdata[0] = ++i;
 	s_keys_turn_right_action.generic.name	= bindnames[s_keys_turn_right_action.generic.localdata[0]][1];
 
@@ -979,6 +985,7 @@ static void Keys_MenuInit( void )
 	s_keys_run_action.generic.x		= 0;
 	s_keys_run_action.generic.y		= y += 10;
 	s_keys_run_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_run_action.generic.callback = KeyBindingFunc;
 	s_keys_run_action.generic.localdata[0] = ++i;
 	s_keys_run_action.generic.name	= bindnames[s_keys_run_action.generic.localdata[0]][1];
 
@@ -987,6 +994,7 @@ static void Keys_MenuInit( void )
 	s_keys_step_left_action.generic.x		= 0;
 	s_keys_step_left_action.generic.y		= y += 10;
 	s_keys_step_left_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_step_left_action.generic.callback = KeyBindingFunc;
 	s_keys_step_left_action.generic.localdata[0] = ++i;
 	s_keys_step_left_action.generic.name	= bindnames[s_keys_step_left_action.generic.localdata[0]][1];
 
@@ -995,6 +1003,7 @@ static void Keys_MenuInit( void )
 	s_keys_step_right_action.generic.x		= 0;
 	s_keys_step_right_action.generic.y		= y += 10;
 	s_keys_step_right_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_step_right_action.generic.callback = KeyBindingFunc;
 	s_keys_step_right_action.generic.localdata[0] = ++i;
 	s_keys_step_right_action.generic.name	= bindnames[s_keys_step_right_action.generic.localdata[0]][1];
 
@@ -1003,6 +1012,7 @@ static void Keys_MenuInit( void )
 	s_keys_sidestep_action.generic.x		= 0;
 	s_keys_sidestep_action.generic.y		= y += 10;
 	s_keys_sidestep_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_sidestep_action.generic.callback = KeyBindingFunc;
 	s_keys_sidestep_action.generic.localdata[0] = ++i;
 	s_keys_sidestep_action.generic.name	= bindnames[s_keys_sidestep_action.generic.localdata[0]][1];
 
@@ -1011,6 +1021,7 @@ static void Keys_MenuInit( void )
 	s_keys_look_up_action.generic.x		= 0;
 	s_keys_look_up_action.generic.y		= y += 10;
 	s_keys_look_up_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_look_up_action.generic.callback = KeyBindingFunc;
 	s_keys_look_up_action.generic.localdata[0] = ++i;
 	s_keys_look_up_action.generic.name	= bindnames[s_keys_look_up_action.generic.localdata[0]][1];
 
@@ -1019,6 +1030,7 @@ static void Keys_MenuInit( void )
 	s_keys_look_down_action.generic.x		= 0;
 	s_keys_look_down_action.generic.y		= y += 10;
 	s_keys_look_down_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_look_down_action.generic.callback = KeyBindingFunc;
 	s_keys_look_down_action.generic.localdata[0] = ++i;
 	s_keys_look_down_action.generic.name	= bindnames[s_keys_look_down_action.generic.localdata[0]][1];
 
@@ -1027,6 +1039,7 @@ static void Keys_MenuInit( void )
 	s_keys_center_view_action.generic.x		= 0;
 	s_keys_center_view_action.generic.y		= y += 10;
 	s_keys_center_view_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_center_view_action.generic.callback = KeyBindingFunc;
 	s_keys_center_view_action.generic.localdata[0] = ++i;
 	s_keys_center_view_action.generic.name	= bindnames[s_keys_center_view_action.generic.localdata[0]][1];
 
@@ -1035,6 +1048,7 @@ static void Keys_MenuInit( void )
 	s_keys_mouse_look_action.generic.x		= 0;
 	s_keys_mouse_look_action.generic.y		= y += 10;
 	s_keys_mouse_look_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_mouse_look_action.generic.callback = KeyBindingFunc;
 	s_keys_mouse_look_action.generic.localdata[0] = ++i;
 	s_keys_mouse_look_action.generic.name	= bindnames[s_keys_mouse_look_action.generic.localdata[0]][1];
 
@@ -1043,6 +1057,7 @@ static void Keys_MenuInit( void )
 	s_keys_keyboard_look_action.generic.x		= 0;
 	s_keys_keyboard_look_action.generic.y		= y += 10;
 	s_keys_keyboard_look_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_keyboard_look_action.generic.callback = KeyBindingFunc;
 	s_keys_keyboard_look_action.generic.localdata[0] = ++i;
 	s_keys_keyboard_look_action.generic.name	= bindnames[s_keys_keyboard_look_action.generic.localdata[0]][1];
 
@@ -1051,6 +1066,7 @@ static void Keys_MenuInit( void )
 	s_keys_move_up_action.generic.x		= 0;
 	s_keys_move_up_action.generic.y		= y += 10;
 	s_keys_move_up_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_move_up_action.generic.callback = KeyBindingFunc;
 	s_keys_move_up_action.generic.localdata[0] = ++i;
 	s_keys_move_up_action.generic.name	= bindnames[s_keys_move_up_action.generic.localdata[0]][1];
 
@@ -1059,6 +1075,7 @@ static void Keys_MenuInit( void )
 	s_keys_move_down_action.generic.x		= 0;
 	s_keys_move_down_action.generic.y		= y += 10;
 	s_keys_move_down_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_move_down_action.generic.callback = KeyBindingFunc;
 	s_keys_move_down_action.generic.localdata[0] = ++i;
 	s_keys_move_down_action.generic.name	= bindnames[s_keys_move_down_action.generic.localdata[0]][1];
 
@@ -1067,6 +1084,7 @@ static void Keys_MenuInit( void )
 	s_keys_inventory_action.generic.x		= 0;
 	s_keys_inventory_action.generic.y		= y += 10;
 	s_keys_inventory_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_inventory_action.generic.callback = KeyBindingFunc;
 	s_keys_inventory_action.generic.localdata[0] = ++i;
 	s_keys_inventory_action.generic.name	= bindnames[s_keys_inventory_action.generic.localdata[0]][1];
 
@@ -1075,6 +1093,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_use_action.generic.x		= 0;
 	s_keys_inv_use_action.generic.y		= y += 10;
 	s_keys_inv_use_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_inv_use_action.generic.callback = KeyBindingFunc;
 	s_keys_inv_use_action.generic.localdata[0] = ++i;
 	s_keys_inv_use_action.generic.name	= bindnames[s_keys_inv_use_action.generic.localdata[0]][1];
 
@@ -1083,6 +1102,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_drop_action.generic.x		= 0;
 	s_keys_inv_drop_action.generic.y		= y += 10;
 	s_keys_inv_drop_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_inv_drop_action.generic.callback = KeyBindingFunc;
 	s_keys_inv_drop_action.generic.localdata[0] = ++i;
 	s_keys_inv_drop_action.generic.name	= bindnames[s_keys_inv_drop_action.generic.localdata[0]][1];
 
@@ -1091,6 +1111,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_prev_action.generic.x		= 0;
 	s_keys_inv_prev_action.generic.y		= y += 10;
 	s_keys_inv_prev_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_inv_prev_action.generic.callback = KeyBindingFunc;
 	s_keys_inv_prev_action.generic.localdata[0] = ++i;
 	s_keys_inv_prev_action.generic.name	= bindnames[s_keys_inv_prev_action.generic.localdata[0]][1];
 
@@ -1099,6 +1120,7 @@ static void Keys_MenuInit( void )
 	s_keys_inv_next_action.generic.x		= 0;
 	s_keys_inv_next_action.generic.y		= y += 10;
 	s_keys_inv_next_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_inv_next_action.generic.callback = KeyBindingFunc;
 	s_keys_inv_next_action.generic.localdata[0] = ++i;
 	s_keys_inv_next_action.generic.name	= bindnames[s_keys_inv_next_action.generic.localdata[0]][1];
 
@@ -1107,6 +1129,7 @@ static void Keys_MenuInit( void )
 	s_keys_help_computer_action.generic.x		= 0;
 	s_keys_help_computer_action.generic.y		= y += 10;
 	s_keys_help_computer_action.generic.ownerdraw = DrawKeyBindingFunc;
+	s_keys_help_computer_action.generic.callback = KeyBindingFunc;
 	s_keys_help_computer_action.generic.localdata[0] = ++i;
 	s_keys_help_computer_action.generic.name	= bindnames[s_keys_help_computer_action.generic.localdata[0]][1];
 
@@ -1136,13 +1159,22 @@ static void Keys_MenuInit( void )
 
 	Menu_AddItem( &s_keys_menu, ( void * ) &s_keys_help_computer_action );
 	
-	Menu_SetStatusBar( &s_keys_menu, "enter to change, backspace to clear" );
+	Menu_SetStatusBar( &s_keys_menu, "click or enter to change, backspace to clear" );
 	Menu_Center( &s_keys_menu );
 	M_PlaceMenuBelowBanner( &s_keys_menu, "KEYS" );
 }
 
 static void Keys_MenuDraw (void)
 {
+	extern int ActiveApp;
+
+	/* Alt-tab / focus loss: drop bind-grab so the next key is not eaten. */
+	if ( bind_grab && !ActiveApp )
+	{
+		bind_grab = false;
+		Menu_SetStatusBar( &s_keys_menu, "click or enter to change, backspace to clear" );
+	}
+
 	M_BannerText( "KEYS" );
 	Menu_AdjustCursor( &s_keys_menu, 1 );
 	Menu_Draw( &s_keys_menu );
@@ -1162,7 +1194,7 @@ static const char *Keys_MenuKey( int key )
 			Cbuf_InsertText (cmd);
 		}
 		
-		Menu_SetStatusBar( &s_keys_menu, "enter to change, backspace to clear" );
+		Menu_SetStatusBar( &s_keys_menu, "click or enter to change, backspace to clear" );
 		bind_grab = false;
 		return menu_out_sound;
 	}
@@ -1171,12 +1203,27 @@ static const char *Keys_MenuKey( int key )
 	{
 	case K_KP_ENTER:
 	case K_ENTER:
-		KeyBindingFunc( item );
+		if ( item )
+			KeyBindingFunc( item );
+		return menu_in_sound;
+	case K_MOUSE1:
+	case K_MOUSE2:
+	case K_MOUSE3:
+		/* Click must start bind-grab. Default_MenuKey -> Menu_SelectItem only
+		   fires Action callbacks; these rows used to omit callback so clicks
+		   were dead (esp. noticeable on ultrawide / scaled menus). */
+		IN_UpdateMenuMouse();
+		if ( !Menu_UpdateCursorFromMouse( &s_keys_menu ) )
+			return NULL;
+		item = ( menuaction_s * ) Menu_ItemAtCursor( &s_keys_menu );
+		if ( item )
+			KeyBindingFunc( item );
 		return menu_in_sound;
 	case K_BACKSPACE:		// delete bindings
 	case K_DEL:				// delete bindings
 	case K_KP_DEL:
-		M_UnbindCommand( bindnames[item->generic.localdata[0]][0] );
+		if ( item )
+			M_UnbindCommand( bindnames[item->generic.localdata[0]][0] );
 		return menu_out_sound;
 	default:
 		return Default_MenuKey( &s_keys_menu, key );
@@ -5737,13 +5784,36 @@ void M_Draw (void)
 	// repaint everything next frame
 	SCR_DirtyScreen ();
 
-	// dim everything behind it down
-#ifdef CINEMATICS
-	if (cl.cinematictime > 0)
-		re.DrawFill (0,0,viddef.width, viddef.height, 0);
+	/* Classic Quake logo backdrop when not in an active map (main menu /
+	 * disconnect). Dark fill + 4:3-centered conback — same aspect math as
+	 * Con_DrawConsole — so ultrawide does not smear circles into ovals.
+	 * In-game menus keep the classic fade over the 3D view. */
+	if (cls.state != ca_active)
+	{
+		int cb_x, cb_y, cb_w, cb_h;
+
+		re.DrawFill (0, 0, viddef.width, viddef.height, 0);
+		cb_w = viddef.height * 4 / 3;
+		cb_h = viddef.height;
+		if (cb_w > viddef.width)
+		{
+			cb_w = viddef.width;
+			cb_h = viddef.width * 3 / 4;
+		}
+		cb_x = (viddef.width - cb_w) / 2;
+		cb_y = (viddef.height - cb_h) / 2;
+		re.DrawStretchPic (cb_x, cb_y, cb_w, cb_h, "conback");
+	}
 	else
+	{
+		// dim everything behind it down
+#ifdef CINEMATICS
+		if (cl.cinematictime > 0)
+			re.DrawFill (0,0,viddef.width, viddef.height, 0);
+		else
 #endif
-		re.DrawFadeScreen ();
+			re.DrawFadeScreen ();
+	}
 
 	scale = SCR_GetMenuScale();
 	Cvar_SetValue( "gl_fontscale", scale );

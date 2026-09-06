@@ -21,7 +21,7 @@ Landed in this pass:
 
 - **Modern libpng API** — `png_get_IHDR` / getters instead of direct `png_info` field access; `png_sig_cmp`; `png_set_expand_gray_1_2_4_to_8`; allocation failure check.
 - **JPEG robustness** — custom memory source renamed to avoid clash with libjpeg-turbo’s `jpeg_mem_src`; accept any SOI (`FF D8`) JPEG, not only JFIF APP0.
-- **Anisotropic filtering** — default `gl_ext_texture_filter_anisotropic 1` and `gl_ext_max_anisotropy 8` (archived), still using the existing extension path in R1GL.
+- **Anisotropic filtering** — default `gl_ext_texture_filter_anisotropic 1` and `gl_ext_max_anisotropy 16` (archived; HW-clamped), still using the existing extension path in R1GL.
 
 ## Frame path / hitch (Build 8014)
 
@@ -30,6 +30,8 @@ Safe client-only smoothness work. **No net send, prediction, pmove, or `cl_async
 - **2D text:** `Draw_Char` always batches into one bind + one `glBegin(GL_QUADS)` and flushes before pics/fills (classic layering). `gl_defertext 1` still waits until EndFrame.
 - **2D state:** skip redundant blend/alpha/TexEnv when consecutive HUD pics share the same mode; `Draw_FindPic` keeps a last-name cache.
 - **Present:** `R_EndFrame` flushes text then swaps (Linux previously never drained deferred chars). `gl_finish` / `gl_flush` / `gl_swapinterval` defaults stay `0`.
+- **MSAA:** `gl_msaa` 0/2/4/8 (default 0). Pixel-format path; changing it forces `vid_restart`. Legacy: `gl_ext_multisample` + `gl_ext_samples`.
+- **Adaptive sync:** `gl_swapinterval -1` when `WGL_EXT_swap_control_tear` exists; falls back to `1` otherwise. Menu exposes off/on/adaptive.
 - **GL thrash:** `GL_SelectTexture` no-ops when already on that TMU; LOD-bias env is applied on change/init, not every `R_SetupGL`.
 - **Modelview:** CPU matrix matching the classic rotate/translate sequence + `glLoadMatrixf` — no per-view `glGetFloatv` stall.
 - **Load hitch:** deferred models run on the render frame (not the send frame), at most one every ~16 ms. Map-load clientinfo no longer `SCR_UpdateScreen`s once per player.

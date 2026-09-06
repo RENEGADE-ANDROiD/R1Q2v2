@@ -750,7 +750,20 @@ void Con_DrawConsole (float frac)
 	Con_BeginFont ();
 
 // draw the background
-	re.DrawStretchPic (0, lines - viddef.height, viddef.width, viddef.height, "conback");
+	re.DrawFill (0, 0, viddef.width, lines, 0);
+	{
+		int cb_x, cb_y, cb_w, cb_h;
+		cb_y = lines - viddef.height;
+		cb_h = viddef.height;
+		cb_w = viddef.height * 4 / 3;
+		if (cb_w > viddef.width) {
+			cb_w = viddef.width;
+			cb_h = viddef.width * 3 / 4;
+			cb_y = lines - cb_h;
+		}
+		cb_x = (viddef.width - cb_w) / 2;
+		re.DrawStretchPic (cb_x, cb_y, cb_w, cb_h, "conback");
+	}
 	SCR_AddDirtyPoint (0,0);
 	SCR_AddDirtyPoint (viddef.width-1,lines-1);
 

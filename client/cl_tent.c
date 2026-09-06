@@ -195,8 +195,16 @@ void CL_RegisterTEntModels (void)
 	//r1: also register localent models
 	le_mod_debris1 = re.RegisterModel ("models/objects/debris2/tris.md2");
 	le_mod_gibs = re.RegisterModel ("models/objects/gibs/sm_meat/tris.md2");
-	//le_mod_debris2 = re.RegisterModel ("models/objects/debris2/tris.md2");
-	//le_mod_debris3 = re.RegisterModel ("models/objects/debris3/tris.md2");
+
+	/* Priority prefetch: game debris paths (barrels/explobox) + formerly-lazy
+	 * TE models. Map registration / early defer — avoids first-use mid-game hitch.
+	 * RegisterModel is a cache hit later when CS_MODELS defer drains the same path. */
+	re.RegisterModel ("models/objects/debris1/tris.md2");
+	re.RegisterModel ("models/objects/debris2/tris.md2");
+	re.RegisterModel ("models/objects/debris3/tris.md2");
+	cl_mod_explo4_big = re.RegisterModel ("models/objects/r_explode2/tris.md2");
+	cl_mod_heatbeam = re.RegisterModel ("models/proj/beam/tris.md2");
+	cl_mod_lightning = re.RegisterModel ("models/proj/lightning/tris.md2");
 
 	//r1: why are these being reigstered?
 	/*

@@ -103,6 +103,100 @@ void R_RenderDlights (void)
 
 
 /*
+=============
+R_DrawDlightCoronas
+
+Soft additive corona sprites at dynamic-light origins.
+Depth-tested (occluded lights do NOT show). Fair-play only.
+gl_light_corona: 0=off (default), ~0.25-1.0 subtle scale.
+=============
+*/
+void R_DrawDlightCoronas (void)
+{
+	int			i;
+	dlight_t	*l;
+	vec3_t		up, right, origin;
+	float		scale, strength, alpha;
+	float		dist;
+
+	if (FLOAT_EQ_ZERO(gl_light_corona->value))
+		return;
+	if (!r_particletexture)
+		return;
+	if (r_newrefdef.rdflags & RDF_NOWORLDMODEL)
+		return;
+
+	strength = gl_light_corona->value;
+	if (strength < 0.0f)
+		return;
+	if (strength > 2.0f)
+		strength = 2.0f;
+
+	GL_Bind(r_particletexture->texnum);
+	qglEnable(GL_DEPTH_TEST);
+	qglDepthMask(GL_FALSE);
+	qglEnable(GL_BLEND);
+	qglBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	GL_TexEnv(GL_MODULATE);
+
+	VectorScale(vup, 1.0f, up);
+	VectorScale(vright, 1.0f, right);
+
+	l = r_newrefdef.dlights;
+	for (i = 0; i < r_newrefdef.num_dlights; i++, l++)
+	{
+		/* Keep corona centered on the light origin so walls occlude it. */
+		FastVectorCopy(l->origin, origin);
+
+		dist = (origin[0] - r_origin[0]) * vpn[0]
+			+ (origin[1] - r_origin[1]) * vpn[1]
+			+ (origin[2] - r_origin[2]) * vpn[2];
+		if (dist < 16.0f)
+			continue; /* too close / behind near plane */
+
+		/* Small soft disc; intensity scales size mildly. */
+		scale = l->intensity * 0.035f * strength;
+		if (scale < 2.0f)
+			scale = 2.0f;
+		if (scale > 48.0f)
+			scale = 48.0f;
+
+		alpha = 0.22f * strength;
+		if (alpha > 0.45f)
+			alpha = 0.45f;
+
+		qglColor4f(l->color[0], l->color[1], l->color[2], alpha);
+
+		qglBegin(GL_QUADS);
+		qglTexCoord2f(0.0f, 0.0f);
+		qglVertex3f(origin[0] + up[0]*scale - right[0]*scale,
+					origin[1] + up[1]*scale - right[1]*scale,
+					origin[2] + up[2]*scale - right[2]*scale);
+		qglTexCoord2f(1.0f, 0.0f);
+		qglVertex3f(origin[0] + up[0]*scale + right[0]*scale,
+					origin[1] + up[1]*scale + right[1]*scale,
+					origin[2] + up[2]*scale + right[2]*scale);
+		qglTexCoord2f(1.0f, 1.0f);
+		qglVertex3f(origin[0] - up[0]*scale + right[0]*scale,
+					origin[1] - up[1]*scale + right[1]*scale,
+					origin[2] - up[2]*scale + right[2]*scale);
+		qglTexCoord2f(0.0f, 1.0f);
+		qglVertex3f(origin[0] - up[0]*scale - right[0]*scale,
+					origin[1] - up[1]*scale - right[1]*scale,
+					origin[2] - up[2]*scale - right[2]*scale);
+		qglEnd();
+	}
+
+	qglColor4fv(colorWhite);
+	qglBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	qglDisable(GL_BLEND);
+	qglDepthMask(GL_TRUE);
+	GL_TexEnv(GL_REPLACE);
+}
+
+
+
+/*
 =============================================================================
 
 DYNAMIC LIGHTS
@@ -337,6 +431,19 @@ void R_LightPoint (vec3_t p, vec3_t color)
 		FastVectorCopy (pointcolor, *color);
 	}
 
+	/* Match lightmap ambient lift for entities (hard-capped). */
+	if (FLOAT_NE_ZERO(gl_ambient_lift->value))
+	{
+		float lift = gl_ambient_lift->value;
+		if (lift < 0.0f)
+			lift = 0.0f;
+		if (lift > 0.1f)
+			lift = 0.1f;
+		color[0] += lift;
+		color[1] += lift;
+		color[2] += lift;
+	}
+
 	//
 	// add dynamic lights
 	//
@@ -438,16 +545,9 @@ void R_AddDynamicLights (msurface_t *surf)
 		dl = &r_newrefdef.dlights[lnum];
 
 #ifdef INTEGER_DLIGHTS
-		if (FLOAT_NE_ZERO (gl_dlight_falloff->value))
-			frad = Q_ftol(dl->intensity * 1.10f);
-		else
-			frad = Q_ftol(dl->intensity);
-
+		frad = Q_ftol(dl->intensity);
 #else
-		if (FLOAT_NE_ZERO (gl_dlight_falloff->value))
-			frad = dl->intensity * 1.10f;
-		else
-			frad = dl->intensity;
+		frad = dl->intensity;
 #endif
 
 		fdist = (int)(DotProduct (dl->origin, surf->plane->normal) -
@@ -516,9 +616,19 @@ void R_AddDynamicLights (msurface_t *surf)
 					}
 					else
 					{
-						s_blocklights[i++] += ( fminlight - fdist ) * dl->color[0];
-						s_blocklights[i++] += ( fminlight - fdist ) * dl->color[1];
-						s_blocklights[i++] += ( fminlight - fdist ) * dl->color[2];
+						/* Quadratic soft falloff: same dlights, smoother edge, no wall bleed. */
+						float u = 1.0f - (float)fdist / (float)fminlight;
+						float atten = u * u;
+						float strength = gl_dlight_falloff->value;
+						float scale;
+						if (strength < 0.0f)
+							strength = 0.0f;
+						if (strength > 2.0f)
+							strength = 2.0f;
+						scale = atten * (float)frad * strength;
+						s_blocklights[i++] += scale * dl->color[0];
+						s_blocklights[i++] += scale * dl->color[1];
+						s_blocklights[i++] += scale * dl->color[2];
 					}
 #if BLOCKLIGHT_SIZE == 4
 					i ++;
@@ -704,6 +814,27 @@ store:
 
 			if (colors[2] < 0)
 				colors[2] = 0;
+
+			/* Tiny ambient lift with hard cap (gl_ambient_lift 0..0.1). Not night-vision. */
+			if (FLOAT_NE_ZERO(gl_ambient_lift->value))
+			{
+				float lift = gl_ambient_lift->value;
+				int add;
+				if (lift < 0.0f)
+					lift = 0.0f;
+				if (lift > 0.1f)
+					lift = 0.1f;
+				add = (int)(lift * 255.0f + 0.5f);
+				if (add > 0)
+				{
+					colors[0] += add;
+					colors[1] += add;
+					colors[2] += add;
+					if (colors[0] > 255) colors[0] = 255;
+					if (colors[1] > 255) colors[1] = 255;
+					if (colors[2] > 255) colors[2] = 255;
+				}
+			}
 
 			/*
 			** determine the brightest of the three color components

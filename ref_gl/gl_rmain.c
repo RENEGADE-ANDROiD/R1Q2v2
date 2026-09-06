@@ -141,6 +141,7 @@ cvar_t	*gl_stencilbits;
 
 cvar_t	*gl_ext_multisample;
 cvar_t	*gl_ext_samples;
+cvar_t	*gl_msaa;
 
 cvar_t	*gl_zfar;
 cvar_t	*gl_hudscale;
@@ -206,6 +207,12 @@ cvar_t	*gl_texture_formats;
 cvar_t	*gl_pic_formats;
 
 cvar_t	*gl_dlight_falloff;
+cvar_t	*gl_lightmap_filter;
+cvar_t	*gl_light_corona;
+cvar_t	*gl_ambient_lift;
+cvar_t	*gl_warp_amp;
+cvar_t	*gl_warp_speed;
+cvar_t	*gl_subdivide;
 cvar_t	*gl_alphaskins;
 cvar_t	*gl_defertext;
 
@@ -1140,7 +1147,7 @@ void R_SetupGL (void)
 	qglCullFace(GL_FRONT);
 
 	qglMatrixMode(GL_MODELVIEW);
-	/* CPU modelview — same rotate/translate sequence as classic R1GL, without
+	/* CPU modelview ??? same rotate/translate sequence as classic R1GL, without
 	 * glGetFloatv (that readback stalls the pipeline every view). */
 	R_BuildWorldMatrix ();
 	qglLoadMatrixf (r_world_matrix);
@@ -1256,7 +1263,7 @@ void R_RenderView (refdef_t *fd)
 	r_newrefdef = *fd;
 
 	/* Player-setup preview (and other NOWROLDMODEL views) already use
-	 * framebuffer pixels — do not apply gl_hudscale on top. */
+	 * framebuffer pixels ??? do not apply gl_hudscale on top. */
 	if (FLOAT_NE_ZERO(gl_hudscale->value)
 		&& !(r_newrefdef.rdflags & RDF_NOWORLDMODEL))
 	{
@@ -1300,6 +1307,7 @@ void R_RenderView (refdef_t *fd)
 	R_DrawEntitiesOnList ();
 
 	R_RenderDlights ();
+	R_DrawDlightCoronas ();
 
 	R_DrawParticles ();
 
@@ -1510,9 +1518,30 @@ void R_Register( void )
 	gl_alphabits = ri.Cvar_Get ("gl_alphabits", "", 0);
 	gl_depthbits = ri.Cvar_Get ("gl_depthbits", "", 0);
 
-	gl_ext_multisample = ri.Cvar_Get ("gl_ext_multisample", "0", 0);
-	gl_ext_samples = ri.Cvar_Get ("gl_ext_samples", "2", 0);
-	
+	gl_ext_multisample = ri.Cvar_Get ("gl_ext_multisample", "0", CVAR_ARCHIVE);
+gl_ext_samples = ri.Cvar_Get ("gl_ext_samples", "2", CVAR_ARCHIVE);
+/* gl_msaa: convenience 0/2/4/8 ??? maps to gl_ext_multisample + gl_ext_samples; needs vid_restart */
+gl_msaa = ri.Cvar_Get ("gl_msaa", "0", CVAR_ARCHIVE);
+
+	/* Sync convenience alias before first pixel format / SetMode */
+	if (gl_msaa->value > 0)
+	{
+		int samples = (int)gl_msaa->value;
+		if (samples < 2) samples = 2;
+		if (samples >= 8) samples = 8;
+		else if (samples >= 4) samples = 4;
+		else samples = 2;
+		ri.Cvar_SetValue ("gl_ext_samples", (float)samples);
+		ri.Cvar_Set ("gl_ext_multisample", "1");
+	}
+	else if (gl_ext_multisample->value > 0 && gl_ext_samples->value > 0)
+	{
+		/* migrate legacy pair into gl_msaa for menu/config consistency */
+		ri.Cvar_SetValue ("gl_msaa", gl_ext_samples->value);
+	}
+	gl_msaa->modified = false;
+	gl_ext_multisample->modified = false;
+	gl_ext_samples->modified = false;	
 	gl_zfar = ri.Cvar_Get ("gl_zfar", "8192", 0);
 	gl_hudscale = ri.Cvar_Get ("gl_hudscale", "1", CVAR_ARCHIVE);
 
@@ -1565,7 +1594,13 @@ void R_Register( void )
 	load_jpg_pics = strstr (gl_pic_formats->string, "jpg") ? true : false;
 	load_tga_pics = strstr (gl_pic_formats->string, "tga") ? true : false;
 
-	gl_dlight_falloff = ri.Cvar_Get ("gl_dlight_falloff", "0", 0);
+	gl_dlight_falloff = ri.Cvar_Get ("gl_dlight_falloff", "0", CVAR_ARCHIVE);
+	gl_lightmap_filter = ri.Cvar_Get ("gl_lightmap_filter", "1", CVAR_ARCHIVE);
+	gl_light_corona = ri.Cvar_Get ("gl_light_corona", "0", CVAR_ARCHIVE);
+	gl_ambient_lift = ri.Cvar_Get ("gl_ambient_lift", "0", CVAR_ARCHIVE);
+	gl_warp_amp = ri.Cvar_Get ("gl_warp_amp", "1", CVAR_ARCHIVE);
+	gl_warp_speed = ri.Cvar_Get ("gl_warp_speed", "1", CVAR_ARCHIVE);
+	gl_subdivide = ri.Cvar_Get ("gl_subdivide", "64", CVAR_ARCHIVE);
 	gl_alphaskins = ri.Cvar_Get ("gl_alphaskins", "0", 0);
 	gl_defertext = ri.Cvar_Get ("gl_defertext", "0", 0);
 	defer_drawing = (int)gl_defertext->value;
@@ -1669,7 +1704,7 @@ int EXPORT R_Init( void *hinstance, void *hWnd )
 		r_turbsin[j] *= 0.5;
 	}
 
-	/* Optional R1GL overrides. Missing file is normal — do not spam "couldn't exec". */
+	/* Optional R1GL overrides. Missing file is normal ??? do not spam "couldn't exec". */
 	if (ri.FS_LoadFile ("r1gl.cfg", NULL) != -1)
 		ri.Cmd_ExecuteText (EXEC_NOW, "exec r1gl.cfg\n");
 
@@ -1829,16 +1864,47 @@ retryQGL:
 	}
 
 #ifdef _WIN32
-	if ( strstr( gl_config.extensions_string, "WGL_EXT_swap_control" ) )
+	/*
+	** WGL swap control lives in the WGL extension string, not GL_EXTENSIONS.
+	** Always try GetProcAddress; many drivers expose it regardless.
+	** Negative gl_swapinterval (-1) = adaptive/tear when WGL_EXT_swap_control_tear exists.
+	*/
 	{
+		typedef const char * (WINAPI * PFNwglGetExtARB)(HDC);
+		typedef const char * (WINAPI * PFNwglGetExtEXT)(void);
+		PFNwglGetExtARB getExtARB;
+		PFNwglGetExtEXT getExtEXT;
+		const char *wgl_exts = NULL;
+
 		qwglSwapIntervalEXT = ( BOOL (WINAPI *)(int)) qwglGetProcAddress( "wglSwapIntervalEXT" );
-		ri.Con_Printf( PRINT_ALL, "...enabling WGL_EXT_swap_control\n" );
+		getExtARB = (PFNwglGetExtARB) qwglGetProcAddress( "wglGetExtensionsStringARB" );
+		getExtEXT = (PFNwglGetExtEXT) qwglGetProcAddress( "wglGetExtensionsStringEXT" );
+		gl_config.r1gl_WGL_EXT_swap_control_tear = false;
+
+		if ( getExtARB && qwglGetCurrentDC )
+			wgl_exts = getExtARB( qwglGetCurrentDC() );
+		if ( !wgl_exts && getExtEXT )
+			wgl_exts = getExtEXT();
+
+		if ( qwglSwapIntervalEXT )
+		{
+			ri.Con_Printf( PRINT_ALL, "...enabling WGL_EXT_swap_control\n" );
+			if ( wgl_exts && strstr( wgl_exts, "WGL_EXT_swap_control_tear" ) )
+			{
+				gl_config.r1gl_WGL_EXT_swap_control_tear = true;
+				ri.Con_Printf( PRINT_ALL, "...enabling WGL_EXT_swap_control_tear (gl_swapinterval -1 = adaptive)\n" );
+			}
+			else
+			{
+				ri.Con_Printf( PRINT_ALL, "...WGL_EXT_swap_control_tear not found (adaptive vsync unavailable)\n" );
+			}
+		}
+		else
+		{
+			ri.Con_Printf( PRINT_ALL, "...WGL_EXT_swap_control not found\n" );
+		}
 	}
-	else
-	{
-		ri.Con_Printf( PRINT_ALL, "...WGL_EXT_swap_control not found\n" );
-	}
-#endif
+#endif#endif
 
 	if ( strstr( gl_config.extensions_string, "GL_EXT_point_parameters" ) )
 	{
@@ -1966,11 +2032,18 @@ retryQGL:
 	}
 
 	gl_config.r1gl_GL_EXT_texture_filter_anisotropic = false;
+	gl_config.max_anisotropy = 1.0f;
 	if ( strstr( gl_config.extensions_string, "GL_EXT_texture_filter_anisotropic" ) )
 	{
 		if ( gl_ext_texture_filter_anisotropic->value ) {
 			ri.Con_Printf( PRINT_ALL, "...using GL_EXT_texture_filter_anisotropic\n" );
 			gl_config.r1gl_GL_EXT_texture_filter_anisotropic = true;
+			qglGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &gl_config.max_anisotropy );
+			if ( gl_config.max_anisotropy < 1.0f )
+				gl_config.max_anisotropy = 1.0f;
+			ri.Con_Printf( PRINT_ALL, "...max anisotropy: %.0f\n", gl_config.max_anisotropy );
+			if ( gl_ext_max_anisotropy->value > gl_config.max_anisotropy )
+				ri.Cvar_SetValue( "gl_ext_max_anisotropy", gl_config.max_anisotropy );
 		} else {
 			ri.Con_Printf( PRINT_ALL, "...ignoring GL_EXT_texture_filter_anisotropic\n" );		
 		}
@@ -2099,11 +2172,26 @@ void GL_UpdateAnisotropy (void)
 	int		i;
 	image_t	*glt;
 	float	value;
+	float	max_aniso;
 
 	if (!gl_config.r1gl_GL_EXT_texture_filter_anisotropic)
-		value = 1;
+		value = 1.0f;
 	else
+	{
+		max_aniso = gl_config.max_anisotropy;
+		if (max_aniso < 1.0f)
+		{
+			qglGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso );
+			if (max_aniso < 1.0f)
+				max_aniso = 1.0f;
+			gl_config.max_anisotropy = max_aniso;
+		}
 		value = gl_ext_max_anisotropy->value;
+		if (value > max_aniso)
+			value = max_aniso;
+		if (value < 1.0f)
+			value = 1.0f;
+	}
 
 	for (i=0, glt=gltextures ; i<numgltextures ; i++, glt++)
 	{
@@ -2128,7 +2216,7 @@ static float GL_EffectiveLodBias (void)
 	return bias;
 }
 
-/* Per-unit LOD bias — TexParameter alone is unreliable with multitextured walls. */
+/* Per-unit LOD bias ??? TexParameter alone is unreliable with multitextured walls. */
 void GL_ApplyLodBiasState (void)
 {
 	float	bias;
@@ -2189,9 +2277,40 @@ void EXPORT R_BeginFrame( float camera_separation )
 	** change modes if necessary
 	*/
 	if ( gl_mode->modified || vid_fullscreen->modified || (vid_borderless && vid_borderless->modified)
-		|| gl_forcewidth->modified || gl_forceheight->modified )
+		|| gl_forcewidth->modified || gl_forceheight->modified
+		|| (gl_ext_multisample && gl_ext_multisample->modified)
+		|| (gl_ext_samples && gl_ext_samples->modified)
+		|| (gl_msaa && gl_msaa->modified) )
 	{	// FIXME: only restart if CDS is required
 		cvar_t	*ref;
+
+		/* MSAA is a pixel-format choice ??? requires full vid_restart / context recreate */
+		if (gl_msaa && gl_msaa->modified)
+		{
+			int samples = (int)gl_msaa->value;
+			if (samples <= 0)
+			{
+				ri.Cvar_Set ("gl_ext_multisample", "0");
+			}
+			else
+			{
+				if (samples < 2) samples = 2;
+				/* snap to common powers of two */
+				if (samples >= 8) samples = 8;
+				else if (samples >= 4) samples = 4;
+				else samples = 2;
+				ri.Cvar_SetValue ("gl_ext_samples", (float)samples);
+				ri.Cvar_Set ("gl_ext_multisample", "1");
+				ri.Cvar_SetValue ("gl_msaa", (float)samples);
+			}
+			gl_msaa->modified = false;
+			ri.Con_Printf (PRINT_ALL, "gl_msaa change applied on vid_restart (samples=%s)\n",
+				gl_ext_multisample->value ? gl_ext_samples->string : "0");
+		}
+		if (gl_ext_multisample)
+			gl_ext_multisample->modified = false;
+		if (gl_ext_samples)
+			gl_ext_samples->modified = false;
 
 		ref = ri.Cvar_Get ("vid_ref", "r1gl", 0);
 		ref->modified = true;
@@ -2316,6 +2435,12 @@ void EXPORT R_BeginFrame( float camera_separation )
 	{
 		GL_TextureMode( gl_texturemode->string );
 		gl_texturemode->modified = false;
+	}
+
+	if ( gl_lightmap_filter->modified )
+	{
+		R_ApplyLightmapFilter ();
+		gl_lightmap_filter->modified = false;
 	}
 
 	if (gl_anisotropy->modified)

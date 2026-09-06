@@ -1217,15 +1217,29 @@ void CL_ItemRespawnParticles (vec3_t org)
 CL_ExplosionParticles
 ===============
 */
+
+/* Soft-cap storm size vs free-list pool (deterministic; backlog item). */
+static int CL_ExplosionParticleBudget (void)
+{
+	int pool = cl_particlecount ? cl_particlecount->intvalue : 2048;
+	int cap;
+	if (pool < 64) pool = 64;
+	cap = pool / 4;
+	if (cap > 256) cap = 256;
+	if (cap < 32) cap = 32;
+	return cap;
+}
 void CL_ExplosionParticles (vec3_t org)
 {
 	int			i, j;
 	cparticle_t	*p;
 	float		time;
+	int			budget;
 
 	time = (float)cl.time;
+	budget = CL_ExplosionParticleBudget();
 
-	for (i=0 ; i<256 ; i++)
+	for (i=0 ; i<budget ; i++)
 	{
 		if (!free_particles)
 			return;
@@ -2231,10 +2245,12 @@ void CL_BFGExplosionParticles (vec3_t org)
 	int			i, j;
 	cparticle_t	*p;
 	float		time;
+	int			budget;
 
 	time = (float)cl.time;
+	budget = CL_ExplosionParticleBudget();
 
-	for (i=0 ; i<256 ; i++)
+	for (i=0 ; i<budget ; i++)
 	{
 		if (!free_particles)
 			return;

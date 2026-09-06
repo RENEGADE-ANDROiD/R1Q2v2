@@ -650,6 +650,16 @@ void CL_AddLightStyles (void);
 void CL_PrepRefresh (void);
 void CL_RegisterSounds (void);
 
+void CL_ClearDeferredAssets (void);
+void CL_QueueDeferredAsset (int kind, int index);
+void CL_LoadDeferredModels (void);
+
+#define DA_MODEL		0
+#define DA_SOUND		1
+#define DA_IMAGE		2
+#define DA_PLAYERSKIN	3
+
+
 NORETURN void CL_Quit_f (void);
 
 void IN_Accumulate (void);
@@ -672,7 +682,7 @@ void CL_Disconnect_f (void);
 void CL_GetChallengePacket (void);
 void CL_PingServers_f (void);
 void CL_RunServerPings (void);
-void CL_WriteConfiguration (void);
+qboolean CL_WriteConfiguration (void);
 qboolean CL_ServerPingBusy (void);
 int CL_ConsumeServerPing (netadr_t *adr);
 void CL_Snd_Restart_f (void);

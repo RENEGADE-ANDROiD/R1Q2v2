@@ -233,6 +233,7 @@ extern cvar_t	*gl_stencilbits;
 
 extern cvar_t	*gl_ext_multisample;
 extern cvar_t	*gl_ext_samples;
+extern cvar_t	*gl_msaa; /* 0=off, 2/4/8=samples; needs vid_restart */
 
 extern cvar_t	*gl_r1gl_test;
 extern cvar_t	*gl_doublelight_entities;
@@ -302,6 +303,12 @@ extern	cvar_t	*gl_coloredlightmaps;
 extern	cvar_t	*intensity;
 
 extern	cvar_t	*gl_dlight_falloff;
+extern	cvar_t	*gl_lightmap_filter; /* 0=NEAREST, 1=LINEAR (+aniso-friendly) */
+extern	cvar_t	*gl_light_corona;    /* soft depth-tested dlight corona scale; 0=off */
+extern	cvar_t	*gl_ambient_lift;    /* mild LM fill 0..0.1 hard cap; 0=off */
+extern	cvar_t	*gl_warp_amp;        /* water/slime warp amplitude scale */
+extern	cvar_t	*gl_warp_speed;      /* water/slime warp time scale */
+extern	cvar_t	*gl_subdivide;       /* warp tessellation size (map load); 64 classic */
 extern	cvar_t	*gl_alphaskins;
 extern	cvar_t	*gl_defertext;
 
@@ -366,6 +373,8 @@ void R_DrawSpriteModel (entity_t *e);
 void R_DrawBeam( entity_t *e );
 void R_DrawWorld (void);
 void R_RenderDlights (void);
+void R_DrawDlightCoronas (void);
+void R_ApplyLightmapFilter (void);
 void R_DrawAlphaSurfaces (void);
 void R_RenderBrushPoly (msurface_t *fa);
 void R_InitParticleTexture (void);
@@ -489,6 +498,7 @@ void EmptyImageCache (void);
 #define GL_GENERATE_MIPMAP_SGIS			0x8191
 #define	GL_GENERATE_MIPMAP_HINT_SGIS	0x8192
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT   0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 
 #define GL_MULTISAMPLE_ARB                0x809D
 #define GL_SAMPLE_ALPHA_TO_COVERAGE_ARB   0x809E
@@ -515,6 +525,8 @@ typedef struct
 	qboolean	r1gl_GL_ARB_point_sprite;
 	qboolean	r1gl_GL_EXT_texture_filter_anisotropic;
 	qboolean	r1gl_GL_EXT_nv_multisample_filter_hint;
+	qboolean	r1gl_WGL_EXT_swap_control_tear;
+	float		max_anisotropy;
 	qboolean	r1gl_GL_ARB_texture_non_power_of_two;
 	qboolean	wglPFD;
 

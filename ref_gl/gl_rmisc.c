@@ -425,7 +425,10 @@ void GL_UpdateSwapInterval( void )
 {
 	if ( gl_swapinterval->modified )
 	{
+		int interval;
+
 		gl_swapinterval->modified = false;
+		interval = Q_ftol(gl_swapinterval->value);
 
 #ifdef STEREO_SUPPORT
 		if ( !gl_state.stereo_enabled ) 
@@ -434,7 +437,27 @@ void GL_UpdateSwapInterval( void )
 #ifdef _WIN32
 			if ( qwglSwapIntervalEXT )
 			{
-				qwglSwapIntervalEXT( Q_ftol(gl_swapinterval->value) );
+				/*
+				**  0 = uncapped (tear OK)
+				**  1 = classic vsync
+				** -1 = adaptive / late-tear (WGL_EXT_swap_control_tear; AMD FreeSync / NV Adaptive friendly)
+				** Exclusive fullscreen is unchanged — only the present interval is set.
+				*/
+				if ( interval < 0 && !gl_config.r1gl_WGL_EXT_swap_control_tear )
+				{
+					ri.Con_Printf( PRINT_ALL, "gl_swapinterval -1 requested but tear control unavailable; using vsync=1\n" );
+					interval = 1;
+					ri.Cvar_Set( "gl_swapinterval", "1" );
+				}
+				if ( !qwglSwapIntervalEXT( interval ) )
+				{
+					if ( interval < 0 )
+					{
+						ri.Con_Printf( PRINT_ALL, "adaptive swap rejected by driver; falling back to vsync=1\n" );
+						qwglSwapIntervalEXT( 1 );
+						ri.Cvar_Set( "gl_swapinterval", "1" );
+					}
+				}
 			}
 #endif
 		}

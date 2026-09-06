@@ -1464,6 +1464,75 @@ void R_MarkLeaves (void)
 =============================================================================
 */
 
+
+/*
+=============
+LM_SetTextureFilter
+
+Apply lightmap sampling filter. gl_lightmap_filter 0=NEAREST, 1=LINEAR.
+When linear and anisotropy is available, allow aniso-friendly sampling
+(does not change visibility / occluded geo).
+=============
+*/
+static void LM_SetTextureFilter (void)
+{
+	GLenum minf, magf;
+	float aniso;
+
+	if (gl_lightmap_filter && FLOAT_EQ_ZERO(gl_lightmap_filter->value))
+	{
+		minf = GL_NEAREST;
+		magf = GL_NEAREST;
+		aniso = 1.0f;
+	}
+	else
+	{
+		minf = GL_LINEAR;
+		magf = GL_LINEAR;
+		aniso = 1.0f;
+		if (gl_config.r1gl_GL_EXT_texture_filter_anisotropic
+			&& gl_ext_max_anisotropy
+			&& FLOAT_NE_ZERO(gl_ext_max_anisotropy->value))
+		{
+			aniso = gl_ext_max_anisotropy->value;
+			if (aniso > gl_config.max_anisotropy)
+				aniso = gl_config.max_anisotropy;
+			if (aniso < 1.0f)
+				aniso = 1.0f;
+		}
+	}
+
+	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (float)minf);
+	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (float)magf);
+	if (gl_config.r1gl_GL_EXT_texture_filter_anisotropic)
+		qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso);
+}
+
+/*
+=============
+R_ApplyLightmapFilter
+
+Re-apply LM filter to all allocated lightmap textures (cvar change).
+=============
+*/
+void R_ApplyLightmapFilter (void)
+{
+	int i;
+	int last;
+
+	last = gl_lms.current_lightmap_texture;
+	if (last < 1)
+		last = 1;
+	if (last > MAX_LIGHTMAPS)
+		last = MAX_LIGHTMAPS;
+
+	for (i = 0; i < last; i++)
+	{
+		GL_Bind(gl_state.lightmap_textures + i);
+		LM_SetTextureFilter();
+	}
+}
+
 static void LM_UploadBlock( qboolean dynamic )
 {
 	int texture;
@@ -1479,8 +1548,7 @@ static void LM_UploadBlock( qboolean dynamic )
 	}
 
 	GL_Bind( gl_state.lightmap_textures + texture );
-	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	LM_SetTextureFilter();
 
 	if ( dynamic )
 	{
@@ -1749,8 +1817,7 @@ void GL_BeginBuildingLightmaps (void)
 	** initialize the dynamic lightmap texture
 	*/
 	GL_Bind( gl_state.lightmap_textures + 0 );
-	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	LM_SetTextureFilter();
 	qglTexImage2D( GL_TEXTURE_2D, 
 				   0, 
 				   gl_lms.internal_format,

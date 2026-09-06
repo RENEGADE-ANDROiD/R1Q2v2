@@ -42,6 +42,9 @@ static cvar_t *gl_finish;
 static cvar_t *gl_swapinterval;
 static cvar_t *gl_modulate;
 static cvar_t *gl_ext_max_anisotropy;
+static cvar_t *gl_msaa;
+static cvar_t *gl_ext_multisample;
+static cvar_t *gl_ext_samples;
 static cvar_t *gl_texture_lodbias;
 static cvar_t *scr_hudscale;
 static cvar_t *scr_hud_top;
@@ -49,6 +52,15 @@ static cvar_t *scr_hudwide;
 static cvar_t *gl_shadows;
 static cvar_t *gl_dynamic;
 static cvar_t *r_maxfps;
+
+/* BUILD 8036+ lighting / warp polish (Advanced Settings) */
+static cvar_t *gl_lightmap_filter;
+static cvar_t *gl_dlight_falloff;
+static cvar_t *gl_warp_amp;
+static cvar_t *gl_warp_speed;
+static cvar_t *gl_subdivide;
+static cvar_t *gl_light_corona;
+static cvar_t *gl_ambient_lift;
 
 static cvar_t *sw_mode;
 static cvar_t *sw_stipplealpha;
@@ -64,9 +76,11 @@ MENU INTERACTION
 */
 #define SOFTWARE_MENU 0
 #define OPENGL_MENU   1
+#define ADVANCED_MENU 2
 
 static menuframework_s  s_software_menu;
 static menuframework_s	s_opengl_menu;
+static menuframework_s	s_advanced_menu;
 static menuframework_s *s_current_menu;
 static int				s_current_menu_index;
 
@@ -85,12 +99,25 @@ static menuslider_s		s_modulate_slider;
 static menuslider_s		s_sharpen_slider;
 static menuslider_s		s_hudscale_slider;
 static menulist_s		s_aniso_box;
+static menulist_s		s_msaa_box;
 static menulist_s		s_hudtop_box;
 static menulist_s		s_hudwide_box;
 static menulist_s		s_shadows_box;
 static menulist_s		s_dynamic_box;
+static menuaction_s		s_advanced_action;
 static menuaction_s		s_cancel_action[2];
 static menuaction_s		s_defaults_action[2];
+
+/* Advanced Settings (lighting / warp polish) */
+static menulist_s		s_adv_lmfilter_box;
+static menuslider_s		s_adv_dlight_slider;
+static menuslider_s		s_adv_warpamp_slider;
+static menuslider_s		s_adv_warpspeed_slider;
+static menulist_s		s_adv_subdivide_box;
+static menulist_s		s_adv_corona_box;
+static menuslider_s		s_adv_ambient_slider;
+static menuseparator_s	s_adv_note;
+static menuaction_s		s_adv_back_action;
 
 static void DriverCallback( void *unused )
 {
@@ -133,12 +160,47 @@ static void BrightnessCallback( void *s )
 	}
 }
 
+static void VID_ApplyAdvancedSettings( void )
+{
+	static const float subdivide_vals[] = { 64.0f, 48.0f, 32.0f };
+	float ambient;
+	int si;
+
+	Cvar_SetValue( "gl_lightmap_filter", (float)s_adv_lmfilter_box.curvalue );
+	Cvar_SetValue( "gl_dlight_falloff", s_adv_dlight_slider.curvalue );
+	Cvar_SetValue( "gl_warp_amp", s_adv_warpamp_slider.curvalue / 10.0f );
+	Cvar_SetValue( "gl_warp_speed", s_adv_warpspeed_slider.curvalue / 10.0f );
+
+	si = s_adv_subdivide_box.curvalue;
+	if (si < 0) si = 0;
+	if (si > 2) si = 2;
+	Cvar_SetValue( "gl_subdivide", subdivide_vals[si] );
+
+	if ( !s_adv_corona_box.curvalue )
+		Cvar_SetValue( "gl_light_corona", 0.0f );
+	else if ( !gl_light_corona || gl_light_corona->value <= 0.0f )
+		Cvar_SetValue( "gl_light_corona", 1.0f );
+	/* else keep existing subtle scale (e.g. 0.35) when left on */
+
+	ambient = s_adv_ambient_slider.curvalue / 100.0f;
+	if (ambient < 0.0f)
+		ambient = 0.0f;
+	if (ambient > 0.1f)
+		ambient = 0.1f;
+	Cvar_SetValue( "gl_ambient_lift", ambient );
+}
+
 static void VID_ApplyFxSettings( void )
 {
 	static const float aniso_vals[] = { 1.0f, 2.0f, 4.0f, 8.0f, 16.0f };
-	int ai;
+	static const float vsync_vals[] = { 0.0f, 1.0f, -1.0f }; /* off / on / adaptive */
+	static const float msaa_vals[] = { 0.0f, 2.0f, 4.0f, 8.0f };
+	int ai, mi;
 
-	Cvar_SetValue( "gl_swapinterval", (float)s_vsync_box.curvalue );
+	ai = s_vsync_box.curvalue;
+	if (ai < 0) ai = 0;
+	if (ai > 2) ai = 2;
+	Cvar_SetValue( "gl_swapinterval", vsync_vals[ai] );
 	Cvar_SetValue( "r_maxfps", s_maxfps_slider.curvalue * 10.0f );
 	Cvar_SetValue( "gl_picmip", 3 - (float)s_tq_slider.curvalue );
 	Cvar_SetValue( "gl_ext_palettedtexture", (float)s_paletted_texture_box.curvalue );
@@ -150,6 +212,11 @@ static void VID_ApplyFxSettings( void )
 	if (ai > 4)
 		ai = 4;
 	Cvar_SetValue( "gl_ext_max_anisotropy", aniso_vals[ai] );
+	mi = s_msaa_box.curvalue;
+	if (mi < 0) mi = 0;
+	if (mi > 3) mi = 3;
+	Cvar_SetValue( "gl_msaa", msaa_vals[mi] );
+	/* gl_msaa change forces vid_restart via ref_gl (pixel format) */
 	Cvar_SetValue( "gl_texture_lodbias", -s_sharpen_slider.curvalue * 0.4f );
 	Cvar_SetValue( "scr_hudscale", s_hudscale_slider.curvalue / 10.0f );
 	Cvar_SetValue( "gl_hudscale", 1.0f ); /* keep 2D layer unscaled (menus/crosshair) */
@@ -162,6 +229,11 @@ static void VID_ApplyFxSettings( void )
 static void VidFxCallback( void *unused )
 {
 	VID_ApplyFxSettings();
+}
+
+static void AdvFxCallback( void *unused )
+{
+	VID_ApplyAdvancedSettings();
 }
 
 static void ResetDefaults( void *unused )
@@ -189,6 +261,7 @@ static void ApplyChanges( void *unused )
 	Cvar_SetValue( "sw_stipplealpha", (float)s_stipple_box.curvalue );
 	Cvar_SetValue( "vid_fullscreen", (float)s_fs_box[s_current_menu_index].curvalue );
 	VID_ApplyFxSettings();
+	VID_ApplyAdvancedSettings();
 	Cvar_SetValue( "sw_mode", (float)s_mode_list[SOFTWARE_MENU].curvalue );
 	Cvar_SetValue( "gl_mode", (float)s_mode_list[OPENGL_MENU].curvalue );
 
@@ -261,6 +334,21 @@ static void CancelChanges( void *unused )
 	M_PopMenu();
 }
 
+static void AdvancedMenuOpen( void *unused )
+{
+	s_current_menu = &s_advanced_menu;
+	s_current_menu_index = ADVANCED_MENU;
+	s_advanced_menu.cursor = 0;
+	Menu_AdjustCursor( &s_advanced_menu, 1 );
+}
+
+static void AdvancedMenuBack( void *unused )
+{
+	VID_ApplyAdvancedSettings();
+	s_current_menu = &s_opengl_menu;
+	s_current_menu_index = OPENGL_MENU;
+}
+
 /*
 ** VID_MenuInit
 */
@@ -285,6 +373,19 @@ void EXPORT VID_MenuInit( void )
 	{
 		"no",
 		"yes",
+		0
+	};
+	static const char *lmfilter_names[] =
+	{
+		"nearest",
+		"linear",
+		0
+	};
+	static const char *subdivide_names[] =
+	{
+		"64",
+		"48",
+		"32",
 		0
 	};
 	int i;
@@ -321,6 +422,12 @@ void EXPORT VID_MenuInit( void )
 
 	if ( !gl_ext_max_anisotropy )
 		gl_ext_max_anisotropy = Cvar_Get( "gl_ext_max_anisotropy", "16", CVAR_ARCHIVE );
+	if ( !gl_msaa )
+		gl_msaa = Cvar_Get( "gl_msaa", "0", CVAR_ARCHIVE );
+	if ( !gl_ext_multisample )
+		gl_ext_multisample = Cvar_Get( "gl_ext_multisample", "0", CVAR_ARCHIVE );
+	if ( !gl_ext_samples )
+		gl_ext_samples = Cvar_Get( "gl_ext_samples", "2", CVAR_ARCHIVE );
 
 	if ( !gl_texture_lodbias )
 		gl_texture_lodbias = Cvar_Get( "gl_texture_lodbias", "0", CVAR_ARCHIVE );
@@ -345,6 +452,22 @@ void EXPORT VID_MenuInit( void )
 
 	if ( !sw_stipplealpha )
 		sw_stipplealpha = Cvar_Get( "sw_stipplealpha", "0", CVAR_ARCHIVE );
+
+	/* Fair-play lighting / warp polish ? archived for seta / writeconfig */
+	if ( !gl_lightmap_filter )
+		gl_lightmap_filter = Cvar_Get( "gl_lightmap_filter", "1", CVAR_ARCHIVE );
+	if ( !gl_dlight_falloff )
+		gl_dlight_falloff = Cvar_Get( "gl_dlight_falloff", "0", CVAR_ARCHIVE );
+	if ( !gl_warp_amp )
+		gl_warp_amp = Cvar_Get( "gl_warp_amp", "1", CVAR_ARCHIVE );
+	if ( !gl_warp_speed )
+		gl_warp_speed = Cvar_Get( "gl_warp_speed", "1", CVAR_ARCHIVE );
+	if ( !gl_subdivide )
+		gl_subdivide = Cvar_Get( "gl_subdivide", "64", CVAR_ARCHIVE );
+	if ( !gl_light_corona )
+		gl_light_corona = Cvar_Get( "gl_light_corona", "0", CVAR_ARCHIVE );
+	if ( !gl_ambient_lift )
+		gl_ambient_lift = Cvar_Get( "gl_ambient_lift", "0", CVAR_ARCHIVE );
 
 	resolutions = VID_GetModeNames();
 	maxmode = VID_GetNumModes() - 1;
@@ -406,6 +529,8 @@ void EXPORT VID_MenuInit( void )
 	s_software_menu.nitems = 0;
 	s_opengl_menu.x = (int)(viddef.width * 0.50f);
 	s_opengl_menu.nitems = 0;
+	s_advanced_menu.x = (int)(viddef.width * 0.50f);
+	s_advanced_menu.nitems = 0;
 
 	for ( i = 0; i < 2; i++ )
 	{
@@ -449,13 +574,13 @@ void EXPORT VID_MenuInit( void )
 		s_defaults_action[i].generic.type = MTYPE_ACTION;
 		s_defaults_action[i].generic.name = "reset to defaults";
 		s_defaults_action[i].generic.x    = 0;
-		s_defaults_action[i].generic.y    = 190;
+		s_defaults_action[i].generic.y    = 210;
 		s_defaults_action[i].generic.callback = ResetDefaults;
 
 		s_cancel_action[i].generic.type = MTYPE_ACTION;
 		s_cancel_action[i].generic.name = "cancel";
 		s_cancel_action[i].generic.x    = 0;
-		s_cancel_action[i].generic.y    = 200;
+		s_cancel_action[i].generic.y    = 220;
 		s_cancel_action[i].generic.callback = CancelChanges;
 	}
 
@@ -477,13 +602,21 @@ void EXPORT VID_MenuInit( void )
 	if (s_tq_slider.curvalue < 0)
 		s_tq_slider.curvalue = 0;
 
-	s_vsync_box.generic.type = MTYPE_SPINCONTROL;
-	s_vsync_box.generic.x	= 0;
-	s_vsync_box.generic.y	= 50;
-	s_vsync_box.generic.name	= "vsync";
-	s_vsync_box.generic.callback = VidFxCallback;
-	s_vsync_box.itemnames = yesno_names;
-	s_vsync_box.curvalue = gl_swapinterval->intvalue ? 1 : 0;
+	{
+		static const char *vsync_names[] = { "off", "on", "adaptive", 0 };
+		s_vsync_box.generic.type = MTYPE_SPINCONTROL;
+		s_vsync_box.generic.x	= 0;
+		s_vsync_box.generic.y	= 50;
+		s_vsync_box.generic.name	= "vsync";
+		s_vsync_box.generic.callback = VidFxCallback;
+		s_vsync_box.itemnames = vsync_names;
+		if ( gl_swapinterval->value < 0 )
+			s_vsync_box.curvalue = 2; /* adaptive / tear */
+		else if ( gl_swapinterval->intvalue )
+			s_vsync_box.curvalue = 1;
+		else
+			s_vsync_box.curvalue = 0;
+	}
 
 	s_maxfps_slider.generic.type = MTYPE_SLIDER;
 	s_maxfps_slider.generic.x = 0;
@@ -548,9 +681,35 @@ void EXPORT VID_MenuInit( void )
 			s_aniso_box.curvalue = 0;
 	}
 
+	{
+		static const char *msaa_names[] = { "off", "2x", "4x", "8x", 0 };
+		float mv;
+		/* Prefer gl_msaa; fall back to legacy enable+samples */
+		if ( gl_msaa && gl_msaa->value > 0 )
+			mv = gl_msaa->value;
+		else if ( gl_ext_multisample && gl_ext_multisample->value && gl_ext_samples )
+			mv = gl_ext_samples->value;
+		else
+			mv = 0;
+		s_msaa_box.generic.type = MTYPE_SPINCONTROL;
+		s_msaa_box.generic.x = 0;
+		s_msaa_box.generic.y = 120;
+		s_msaa_box.generic.name = "msaa";
+		s_msaa_box.generic.callback = VidFxCallback;
+		s_msaa_box.itemnames = msaa_names;
+		if (mv >= 8)
+			s_msaa_box.curvalue = 3;
+		else if (mv >= 4)
+			s_msaa_box.curvalue = 2;
+		else if (mv >= 2)
+			s_msaa_box.curvalue = 1;
+		else
+			s_msaa_box.curvalue = 0;
+	}
+
 	s_sharpen_slider.generic.type = MTYPE_SLIDER;
 	s_sharpen_slider.generic.x = 0;
-	s_sharpen_slider.generic.y = 120;
+	s_sharpen_slider.generic.y = 130;
 	s_sharpen_slider.generic.name = "texture sharpen";
 	s_sharpen_slider.generic.callback = VidFxCallback;
 	s_sharpen_slider.minvalue = 0;
@@ -563,7 +722,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_hudscale_slider.generic.type = MTYPE_SLIDER;
 	s_hudscale_slider.generic.x = 0;
-	s_hudscale_slider.generic.y = 130;
+	s_hudscale_slider.generic.y = 140;
 	s_hudscale_slider.generic.name = "hud scale";
 	s_hudscale_slider.generic.callback = VidFxCallback;
 	s_hudscale_slider.minvalue = 5;
@@ -576,7 +735,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_hudtop_box.generic.type = MTYPE_SPINCONTROL;
 	s_hudtop_box.generic.x = 0;
-	s_hudtop_box.generic.y = 140;
+	s_hudtop_box.generic.y = 150;
 	s_hudtop_box.generic.name = "hud at top";
 	s_hudtop_box.generic.callback = VidFxCallback;
 	s_hudtop_box.itemnames = yesno_names;
@@ -584,7 +743,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_hudwide_box.generic.type = MTYPE_SPINCONTROL;
 	s_hudwide_box.generic.x = 0;
-	s_hudwide_box.generic.y = 150;
+	s_hudwide_box.generic.y = 160;
 	s_hudwide_box.generic.name = "wide HUD";
 	s_hudwide_box.generic.callback = VidFxCallback;
 	s_hudwide_box.generic.statusbar = "health left, armor/weapon right on 16:9";
@@ -593,7 +752,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_shadows_box.generic.type = MTYPE_SPINCONTROL;
 	s_shadows_box.generic.x = 0;
-	s_shadows_box.generic.y = 160;
+	s_shadows_box.generic.y = 170;
 	s_shadows_box.generic.name = "shadows";
 	s_shadows_box.generic.callback = VidFxCallback;
 	s_shadows_box.itemnames = yesno_names;
@@ -601,11 +760,121 @@ void EXPORT VID_MenuInit( void )
 
 	s_dynamic_box.generic.type = MTYPE_SPINCONTROL;
 	s_dynamic_box.generic.x = 0;
-	s_dynamic_box.generic.y = 170;
+	s_dynamic_box.generic.y = 180;
 	s_dynamic_box.generic.name = "dynamic lights";
 	s_dynamic_box.generic.callback = VidFxCallback;
 	s_dynamic_box.itemnames = yesno_names;
 	s_dynamic_box.curvalue = gl_dynamic->intvalue ? 1 : 0;
+
+	s_advanced_action.generic.type = MTYPE_ACTION;
+	s_advanced_action.generic.name = "advanced settings...";
+	s_advanced_action.generic.x = 0;
+	s_advanced_action.generic.y = 190;
+	s_advanced_action.generic.callback = AdvancedMenuOpen;
+	s_advanced_action.generic.statusbar = "lighting / water warp polish";
+
+	/* ---- Advanced Settings submenu ---- */
+	s_adv_lmfilter_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_lmfilter_box.generic.x = 0;
+	s_adv_lmfilter_box.generic.y = 0;
+	s_adv_lmfilter_box.generic.name = "lightmap filter";
+	s_adv_lmfilter_box.generic.callback = AdvFxCallback;
+	s_adv_lmfilter_box.generic.statusbar = "nearest = blocky classic; linear = smoother";
+	s_adv_lmfilter_box.itemnames = lmfilter_names;
+	s_adv_lmfilter_box.curvalue = gl_lightmap_filter->intvalue ? 1 : 0;
+
+	s_adv_dlight_slider.generic.type = MTYPE_SLIDER;
+	s_adv_dlight_slider.generic.x = 0;
+	s_adv_dlight_slider.generic.y = 10;
+	s_adv_dlight_slider.generic.name = "dlight falloff";
+	s_adv_dlight_slider.generic.callback = AdvFxCallback;
+	s_adv_dlight_slider.generic.statusbar = "0 = classic linear; 1-2 = softer quadratic";
+	s_adv_dlight_slider.minvalue = 0;
+	s_adv_dlight_slider.maxvalue = 2;
+	s_adv_dlight_slider.curvalue = gl_dlight_falloff->value;
+	if (s_adv_dlight_slider.curvalue < 0)
+		s_adv_dlight_slider.curvalue = 0;
+	if (s_adv_dlight_slider.curvalue > 2)
+		s_adv_dlight_slider.curvalue = 2;
+
+	s_adv_warpamp_slider.generic.type = MTYPE_SLIDER;
+	s_adv_warpamp_slider.generic.x = 0;
+	s_adv_warpamp_slider.generic.y = 20;
+	s_adv_warpamp_slider.generic.name = "warp amplitude";
+	s_adv_warpamp_slider.generic.callback = AdvFxCallback;
+	s_adv_warpamp_slider.generic.statusbar = "water/slime warp strength (1.0 = classic)";
+	s_adv_warpamp_slider.minvalue = 5;
+	s_adv_warpamp_slider.maxvalue = 20;
+	s_adv_warpamp_slider.curvalue = gl_warp_amp->value * 10.0f;
+	if (s_adv_warpamp_slider.curvalue < 5)
+		s_adv_warpamp_slider.curvalue = 5;
+	if (s_adv_warpamp_slider.curvalue > 20)
+		s_adv_warpamp_slider.curvalue = 20;
+
+	s_adv_warpspeed_slider.generic.type = MTYPE_SLIDER;
+	s_adv_warpspeed_slider.generic.x = 0;
+	s_adv_warpspeed_slider.generic.y = 30;
+	s_adv_warpspeed_slider.generic.name = "warp speed";
+	s_adv_warpspeed_slider.generic.callback = AdvFxCallback;
+	s_adv_warpspeed_slider.generic.statusbar = "water/slime warp timing (1.0 = classic)";
+	s_adv_warpspeed_slider.minvalue = 5;
+	s_adv_warpspeed_slider.maxvalue = 20;
+	s_adv_warpspeed_slider.curvalue = gl_warp_speed->value * 10.0f;
+	if (s_adv_warpspeed_slider.curvalue < 5)
+		s_adv_warpspeed_slider.curvalue = 5;
+	if (s_adv_warpspeed_slider.curvalue > 20)
+		s_adv_warpspeed_slider.curvalue = 20;
+
+	s_adv_subdivide_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_subdivide_box.generic.x = 0;
+	s_adv_subdivide_box.generic.y = 40;
+	s_adv_subdivide_box.generic.name = "warp subdivide";
+	s_adv_subdivide_box.generic.callback = AdvFxCallback;
+	s_adv_subdivide_box.generic.statusbar = "needs map reload / reconnect";
+	s_adv_subdivide_box.itemnames = subdivide_names;
+	{
+		float sv = gl_subdivide->value;
+		if (sv <= 40)
+			s_adv_subdivide_box.curvalue = 2; /* 32 */
+		else if (sv <= 56)
+			s_adv_subdivide_box.curvalue = 1; /* 48 */
+		else
+			s_adv_subdivide_box.curvalue = 0; /* 64 */
+	}
+
+	s_adv_corona_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_corona_box.generic.x = 0;
+	s_adv_corona_box.generic.y = 50;
+	s_adv_corona_box.generic.name = "light coronas";
+	s_adv_corona_box.generic.callback = AdvFxCallback;
+	s_adv_corona_box.generic.statusbar = "depth-tested soft glow; occluded lights hidden";
+	s_adv_corona_box.itemnames = yesno_names;
+	s_adv_corona_box.curvalue = (gl_light_corona->value > 0.0f) ? 1 : 0;
+
+	s_adv_ambient_slider.generic.type = MTYPE_SLIDER;
+	s_adv_ambient_slider.generic.x = 0;
+	s_adv_ambient_slider.generic.y = 60;
+	s_adv_ambient_slider.generic.name = "ambient lift";
+	s_adv_ambient_slider.generic.callback = AdvFxCallback;
+	s_adv_ambient_slider.generic.statusbar = "hard-capped at 0.1; not night-vision";
+	s_adv_ambient_slider.minvalue = 0;
+	s_adv_ambient_slider.maxvalue = 10;
+	s_adv_ambient_slider.curvalue = gl_ambient_lift->value * 100.0f;
+	if (s_adv_ambient_slider.curvalue < 0)
+		s_adv_ambient_slider.curvalue = 0;
+	if (s_adv_ambient_slider.curvalue > 10)
+		s_adv_ambient_slider.curvalue = 10;
+
+	s_adv_note.generic.type = MTYPE_SEPARATOR;
+	s_adv_note.generic.name = "fair-play polish only - no bloom / wallhack";
+	s_adv_note.generic.x = 160;
+	s_adv_note.generic.y = 80;
+
+	s_adv_back_action.generic.type = MTYPE_ACTION;
+	s_adv_back_action.generic.name = "back";
+	s_adv_back_action.generic.x = 0;
+	s_adv_back_action.generic.y = 100;
+	s_adv_back_action.generic.callback = AdvancedMenuBack;
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_ref_list[SOFTWARE_MENU] );
 	Menu_AddItem( &s_software_menu, ( void * ) &s_mode_list[SOFTWARE_MENU] );
@@ -626,12 +895,24 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_finish_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_modulate_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_aniso_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_msaa_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_sharpen_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudscale_slider );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudtop_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_hudwide_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_shadows_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_dynamic_box );
+	Menu_AddItem( &s_opengl_menu, ( void * ) &s_advanced_action );
+
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_lmfilter_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_dlight_slider );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_warpamp_slider );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_warpspeed_slider );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_subdivide_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_corona_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_ambient_slider );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_note );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_back_action );
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_defaults_action[SOFTWARE_MENU] );
 	Menu_AddItem( &s_software_menu, ( void * ) &s_cancel_action[SOFTWARE_MENU] );
@@ -640,10 +921,12 @@ void EXPORT VID_MenuInit( void )
 
 	Menu_Center( &s_software_menu );
 	Menu_Center( &s_opengl_menu );
+	Menu_Center( &s_advanced_menu );
 
 	/* Menu_Center can pull first rows under the banner at high scr_menuscale. */
 	M_PlaceMenuBelowBanner( &s_software_menu, "VIDEO SETTINGS" );
 	M_PlaceMenuBelowBanner( &s_opengl_menu, "VIDEO SETTINGS" );
+	M_PlaceMenuBelowBanner( &s_advanced_menu, "ADVANCED SETTINGS" );
 }
 
 /*
@@ -653,12 +936,17 @@ VID_MenuDraw
 */
 void VID_MenuDraw (void)
 {
-	if ( s_current_menu_index == 0 )
+	if ( s_current_menu_index == SOFTWARE_MENU )
 		s_current_menu = &s_software_menu;
+	else if ( s_current_menu_index == ADVANCED_MENU )
+		s_current_menu = &s_advanced_menu;
 	else
 		s_current_menu = &s_opengl_menu;
 
-	M_BannerText( "VIDEO SETTINGS" );
+	if ( s_current_menu_index == ADVANCED_MENU )
+		M_BannerText( "ADVANCED SETTINGS" );
+	else
+		M_BannerText( "VIDEO SETTINGS" );
 
 	/*
 	** move cursor to a reasonable starting position
@@ -686,6 +974,11 @@ const char *VID_MenuKey( int key )
 	switch ( key )
 	{
 	case K_ESCAPE:
+		if ( s_current_menu_index == ADVANCED_MENU )
+		{
+			AdvancedMenuBack( NULL );
+			return NULL;
+		}
 		ApplyChanges( 0 );
 		return NULL;
 	case K_KP_UPARROW:
@@ -724,11 +1017,15 @@ const char *VID_MenuKey( int key )
 	case K_KP_ENTER:
 	case K_ENTER:
 		if ( !Menu_SelectItem( m ) )
-			ApplyChanges( NULL );
+		{
+			if ( s_current_menu_index == ADVANCED_MENU )
+				AdvancedMenuBack( NULL );
+			else
+				ApplyChanges( NULL );
+		}
 		break;
 	}
 
 	return "misc/menu1.wav";
 }
-
 
