@@ -1,4 +1,5 @@
-#define BUILD "8038"
-/* BUILD 8038: Final ship pass — vid_ref default r1gl; hitch defer; menu/keybind/conback;
- * writeconfig; MSAA/aniso/adaptive sync; fair-play lighting polish; Video Advanced Settings.
- * Vulkan abandoned (no ref_vk). CVARS.md / RENDERER.md updated. */
+#define BUILD "8039"
+/* BUILD 8039: Join Server paging (mouse wheel / KP PgUp-Dn / arrows),
+ * left-justify hit-test fix for UW list clicks, keep q2rpg2 (Quaketown)
+ * in the multiplayer browser mix (HTTP g=* + pinned hub).
+ */

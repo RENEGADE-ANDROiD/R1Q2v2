@@ -1241,7 +1241,11 @@ void Key_Event (int key, qboolean down, uint32 time)
 			&& key_repeats[key] > 1)
 			return;	// ignore most autorepeats
 			
-		if (key >= 200 && !keybindings[key])
+		/* Menus own mouse buttons/wheel — never nag about binds there. */
+		if (key >= 200 && !keybindings[key]
+			&& !(cls.key_dest == key_menu
+				&& ((key >= K_MOUSE1 && key <= K_MOUSE3)
+					|| key == K_MWHEELUP || key == K_MWHEELDOWN)))
 			Com_Printf ("%s is unbound, hit F4 to set.\n", LOG_CLIENT, Key_KeynumToString (key) );
 	}
 	else

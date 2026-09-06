@@ -3887,7 +3887,7 @@ static void JoinServer_MenuInit( void )
 		/* No callback: single-click selects; double-click / Enter connects. */
 		s_joinserver_server_actions[i].generic.callback = NULL;
 		s_joinserver_server_actions[i].generic.ownerdraw = JoinServer_RowDraw;
-		s_joinserver_server_actions[i].generic.statusbar = "click to select  double-click/ENTER join  bookmark/F save";
+		s_joinserver_server_actions[i].generic.statusbar = "click select  dblclick/ENTER join  F bookmark  wheel/[ ] page";
 		s_joinserver_server_actions[i].generic.localdata[0] = -1;
 		m_visible_index[i] = -1;
 		if (i < m_slots_visible)
@@ -3940,10 +3940,10 @@ static void JoinServer_MenuDraw(void)
 
 	s = SCR_GetMenuScale();
 	if (m_searching)
-		Com_sprintf (pagebuf, sizeof(pagebuf), "searching...  page %d/%d  %d listed",
+		Com_sprintf (pagebuf, sizeof(pagebuf), "searching...  page %d/%d  %d listed  (wheel/[ ])",
 			m_server_page + 1, maxpage, matched);
 	else
-		Com_sprintf (pagebuf, sizeof(pagebuf), "page %d/%d  %d listed",
+		Com_sprintf (pagebuf, sizeof(pagebuf), "page %d/%d  %d listed  (wheel/[ ])",
 			m_server_page + 1, maxpage, matched);
 
 	charh = (int)(8 * s);
@@ -4026,18 +4026,43 @@ static void JoinServer_ToggleFavoriteSelected (void)
 	CL_WriteConfiguration ();
 }
 
+static void JoinServer_ChangePage (int delta)
+{
+	int	matched;
+	int	maxpage;
+
+	matched = JoinServer_CountListed ();
+	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
+	if (maxpage < 1)
+		maxpage = 1;
+
+	if (delta > 0)
+	{
+		if (m_server_page + 1 >= maxpage)
+			return;
+		m_server_page++;
+		JoinServer_RebuildVisible ();
+	}
+	else if (delta < 0)
+	{
+		if (m_server_page <= 0)
+			return;
+		m_server_page--;
+		JoinServer_RebuildVisible ();
+	}
+}
+
 static const char *JoinServer_MenuKey( int key )
 {
-	int maxpage;
-	int matched;
+	int slot;
+	int index;
+	int last_filled;
 
 	if (key >= '1' && key <= '9')
 	{
-		int slot = key - '1';
+		slot = key - '1';
 		if (slot < m_slots_visible)
 		{
-			int index;
-
 			s_joinserver_menu.cursor = JOIN_SERVER_FIRST_SLOT + slot;
 			Menu_AdjustCursor (&s_joinserver_menu, 1);
 			m_last_server_slot = slot;
@@ -4059,28 +4084,22 @@ static const char *JoinServer_MenuKey( int key )
 		return menu_move_sound;
 	}
 
-	matched = JoinServer_CountListed ();
-	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
-	if (maxpage < 1)
-		maxpage = 1;
-
-	if (key == ']' || key == K_PGDN)
+	/*
+	 * Page the full master list. Mouse wheel was previously swallowed by the
+	 * menu key path (keys.c routes MWHEEL to M_Keydown) but never handled â€”
+	 * same for keypad PgUp/PgDn and left/right. [ ] remain as documented.
+	 */
+	if (key == ']' || key == K_PGDN || key == K_KP_PGDN
+		|| key == K_MWHEELDOWN || key == K_RIGHTARROW || key == K_KP_RIGHTARROW)
 	{
-		if (m_server_page + 1 < maxpage)
-		{
-			m_server_page++;
-			JoinServer_RebuildVisible ();
-		}
+		JoinServer_ChangePage (1);
 		return menu_move_sound;
 	}
 
-	if (key == '[' || key == K_PGUP)
+	if (key == '[' || key == K_PGUP || key == K_KP_PGUP
+		|| key == K_MWHEELUP || key == K_LEFTARROW || key == K_KP_LEFTARROW)
 	{
-		if (m_server_page > 0)
-		{
-			m_server_page--;
-			JoinServer_RebuildVisible ();
-		}
+		JoinServer_ChangePage (-1);
 		return menu_move_sound;
 	}
 
@@ -4092,10 +4111,9 @@ static const char *JoinServer_MenuKey( int key )
 			return NULL;
 		if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
 		{
-			int slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 			int now = cls.realtime;
-			int index;
 
+			slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 			m_last_server_slot = slot;
 			index = s_joinserver_server_actions[slot].generic.localdata[0];
 			JoinServer_SetSelectedIndex (index);
@@ -4128,15 +4146,63 @@ static const char *JoinServer_MenuKey( int key )
 		return menu_move_sound;
 	}
 
+	/* Up/down wrap across pages when leaving the first/last filled row. */
+	if (key == K_UPARROW || key == K_KP_UPARROW)
+	{
+		if (s_joinserver_menu.cursor == JOIN_SERVER_FIRST_SLOT && m_server_page > 0)
+		{
+			JoinServer_ChangePage (-1);
+			last_filled = 0;
+			for (slot = 0; slot < m_slots_visible; slot++)
+			{
+				if (s_joinserver_server_actions[slot].generic.localdata[0] >= 0)
+					last_filled = slot;
+			}
+			s_joinserver_menu.cursor = JOIN_SERVER_FIRST_SLOT + last_filled;
+			Menu_AdjustCursor (&s_joinserver_menu, -1);
+			m_last_server_slot = last_filled;
+			index = s_joinserver_server_actions[last_filled].generic.localdata[0];
+			JoinServer_SetSelectedIndex (index);
+			return menu_move_sound;
+		}
+	}
+
+	if (key == K_DOWNARROW || key == K_KP_DOWNARROW)
+	{
+		last_filled = -1;
+		for (slot = 0; slot < m_slots_visible; slot++)
+		{
+			if (s_joinserver_server_actions[slot].generic.localdata[0] >= 0)
+				last_filled = slot;
+		}
+		if (last_filled >= 0
+			&& s_joinserver_menu.cursor == JOIN_SERVER_FIRST_SLOT + last_filled)
+		{
+			int	matched = JoinServer_CountListed ();
+			int	maxpage = (matched + m_slots_visible - 1) / m_slots_visible;
+
+			if (maxpage < 1)
+				maxpage = 1;
+			if (m_server_page + 1 < maxpage)
+			{
+				JoinServer_ChangePage (1);
+				s_joinserver_menu.cursor = JOIN_SERVER_FIRST_SLOT;
+				Menu_AdjustCursor (&s_joinserver_menu, 1);
+				m_last_server_slot = 0;
+				index = s_joinserver_server_actions[0].generic.localdata[0];
+				JoinServer_SetSelectedIndex (index);
+				return menu_move_sound;
+			}
+		}
+	}
+
 	if (key == K_UPARROW || key == K_DOWNARROW || key == K_KP_UPARROW || key == K_KP_DOWNARROW)
 	{
 		const char	*sound = Default_MenuKey (&s_joinserver_menu, key);
 
 		if (s_joinserver_menu.cursor >= JOIN_SERVER_FIRST_SLOT)
 		{
-			int slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
-			int index;
-
+			slot = s_joinserver_menu.cursor - JOIN_SERVER_FIRST_SLOT;
 			m_last_server_slot = slot;
 			index = s_joinserver_server_actions[slot].generic.localdata[0];
 			JoinServer_SetSelectedIndex (index);
@@ -5785,8 +5851,8 @@ void M_Draw (void)
 	SCR_DirtyScreen ();
 
 	/* Classic Quake logo backdrop when not in an active map (main menu /
-	 * disconnect). Dark fill + 4:3-centered conback — same aspect math as
-	 * Con_DrawConsole — so ultrawide does not smear circles into ovals.
+	 * disconnect). Dark fill + 4:3-centered conback ï¿½ same aspect math as
+	 * Con_DrawConsole ï¿½ so ultrawide does not smear circles into ovals.
 	 * In-game menus keep the classic fade over the 3D view. */
 	if (cls.state != ca_active)
 	{

@@ -1871,7 +1871,7 @@ static void CL_ParseMasterText (char *data)
 	Com_Printf ("HTTP master list: %d server(s)\n", LOG_CLIENT|LOG_NOTICE, count);
 }
 
-#define CL_MASTERHTTP_DEFAULT	"http://q2servers.com/?raw=1"
+#define CL_MASTERHTTP_DEFAULT	"http://q2servers.com/?g=*&raw=1"
 
 #ifdef _WIN32
 static qboolean CL_HttpBodyLooksLikeHtml (const char *buf)
@@ -2010,6 +2010,8 @@ static int CL_EnqueueIpPortsFromText (const char *data)
 static void CL_EnqueuePinnedNetworkServers (void)
 {
 	static const char *pinned[] = {
+		/* Quaketown Open World (q2rpg2) — keep in mix even if a master filter drifts */
+		"104.15.247.5:27910",
 		/* PacketFlinger.com hub */
 		"169.197.131.131:27910",
 		"169.197.131.131:27911",

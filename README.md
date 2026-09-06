@@ -93,7 +93,7 @@ Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lo
 - Enter — connect
 - F — add or remove the selected server in the Address Book
 - Space — refresh
-- [ / ] — page
+- Mouse wheel, [ / ], PgUp/PgDn, left/right — page through the full list (vanilla, Arena, q2rpg2, …)
 
 **Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser. Favorites are stored in `baseq2/bookmarks.cfg` so they survive `exec Q2config.cfg` and gamedir switches.
 

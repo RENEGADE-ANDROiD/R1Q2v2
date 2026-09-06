@@ -381,21 +381,36 @@ qboolean Menu_UpdateCursorFromMouse( menuframework_s *menu )
 	menucommon_s *item;
 	float s = Menu_Scale();
 	int x0, x1;
+	int ix, iy;
 
 	if ( !menu || !menu_mouse_valid )
 		return false;
 
-	/* Parent menu X span (classic 320-wide UI centered on menu->x) */
-	x0 = menu->x - (int)(160 * s);
-	x1 = menu->x + (int)(160 * s);
-
 	for ( i = 0; i < menu->nitems; i++ )
 	{
-		int iy, dummyx;
 		item = ( menucommon_s * ) menu->items[i];
 		if ( !item || item->type == MTYPE_SEPARATOR )
 			continue;
-		Menu_ScaledXY( item, &dummyx, &iy );
+		Menu_ScaledXY( item, &ix, &iy );
+
+		/*
+		 * Join Server (and other QMF_LEFT_JUSTIFY lists) store menu->x as the
+		 * LEFT edge of the row text, not the classic centered column. A
+		 * +/-160 span around that point misses most of the row on UW / scaled
+		 * layouts — clicks and hover never land on the visible hostname text.
+		 */
+		if ( item->flags & QMF_LEFT_JUSTIFY )
+		{
+			x0 = ix - (int)(8 * s);
+			x1 = ix + (int)(360 * s);
+		}
+		else
+		{
+			/* Classic 320-wide UI centered on menu->x */
+			x0 = menu->x - (int)(160 * s);
+			x1 = menu->x + (int)(160 * s);
+		}
+
 		/* Slightly taller hit box so Join Server's 12-pitch rows stay clickable */
 		if ( menu_mouse_y >= iy && menu_mouse_y < iy + (int)(12 * s)
 			&& menu_mouse_x >= x0 && menu_mouse_x < x1 )
