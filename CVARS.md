@@ -163,7 +163,7 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
 | `crosshair` | `0` | `crosshair N` loads `pics/chN` (TGA/PNG/PCX OK). `0` = off (does **not** draw `ch0`). `1`+ uses stock `ch1`â€¦`ch3`, or higher if the pic exists. |
-| `ch1` / `ch2` / `ch3` | empty | Free-name overlay slots (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when that cvar is non-zero. Drawn at native size Ã— `ch_scale` Ã— `chN_scale` (large vignettes need a high scale or a full-res asset). |
+| `ch1` / `ch2` / `ch3` | empty | Free-name overlay slots (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when non-empty and not cleared. **Clear with `chN 0`** (client treats `string[0]=='0'` as cleared in `cl_scrn.c`). Do **not** use `ch1 ""` — Quake tokenizes away empty quotes so the set never sticks (footgun). Drawn at native size × `ch_scale` × `chN_scale` (large vignettes need a high scale or a full-res asset). |
 | `ch_scale` | `1` | Scale for the stock crosshair and all `ch1`â€“`ch3` layers. Options slider (0.1â€“4). Saved. |
 | `ch_red` / `ch_green` / `ch_blue` | `1` | Crosshair tint 0â€“1. Options â†’ Crosshair setup. Saved. |
 | `ch_alpha` | `1` | Crosshair opacity 0.1â€“1. Saved. |
@@ -186,12 +186,12 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 
 **Example hold-to-zoom (crosshair overlays)**
 
-`crosshair N` loads `pics/chN`. Overlay cvars `ch1`/`ch2`/`ch3` take any pic name under `pics/` (no path/extension). Clear overlays in your restore alias or they stick after zoom. Needs matching pics in a pak/pkz (e.g. MaxPak `ch0`â€“`ch9`, `sniper`).
+`crosshair N` loads `pics/chN`. Overlay cvars `ch1`/`ch2`/`ch3` take any pic name under `pics/` (no path/extension). Clear overlays with `ch1 0; ch2 0; ch3 0` in your restore alias or they stick after zoom (empty `ch1 ""` does **not** clear — Quake drops empty quotes). Needs matching pics in a pak/pkz (e.g. MaxPak `ch0`â€“`ch9`, `sniper`).
 
 Hold Mouse3 zoom pattern (from a live R1Q2v2 autoexec â€” tweak FOV/sensitivity to taste):
 
 ```
-alias def_view "fov 110; sensitivity 4.15; crosshair 2; ch1 \"\"; ch2 \"\"; ch3 \"\"; ch_scale 1; ch1_scale 1; ch2_scale 1; ch3_scale 1"
+alias def_view "fov 110; sensitivity 4.15; crosshair 2; ch1 0; ch2 0; ch3 0; ch_scale 1; ch1_scale 1; ch2_scale 1; ch3_scale 1"
 alias +railzoom "fov 60; sensitivity 2.6975; crosshair 9; ch1 ch0; ch2 sniper; ch_scale 1; ch1_scale 1; ch2_scale 1"
 alias -railzoom "def_view"
 bind MOUSE3 +railzoom
