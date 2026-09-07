@@ -26,11 +26,39 @@ static vec3_t	modelorg;		// relative to viewpoint
 
 msurface_t	*r_alpha_surfaces;
 
+/* Exact gamedir basename must be baseq2. Empty FS_Gamedir falls back to BASEDIRNAME. */
+static qboolean R_IsExactBaseq2 (void)
+{
+	const char	*g;
+	const char	*base;
+
+	g = ri.FS_Gamedir ();
+	if (!g || !g[0])
+		return true;
+
+	base = g;
+	while (*g)
+	{
+		if (*g == '/' || *g == '\\')
+			base = g + 1;
+		g++;
+	}
+
+	return !strcmp (base, "baseq2");
+}
+
 static float R_TurbSurfaceAlpha (msurface_t *s)
 {
 	const char	*n;
 
 	if (!(s->flags & SURF_DRAWTURB))
+		return 1.0f;
+
+	/* Translucent turb water/slime: baseq2 only. Force opaque for other gamedirs
+	 * regardless of gl_transwater (arena/ctf/action/etc.). */
+	if (!R_IsExactBaseq2 ())
+		return 1.0f;
+	if (!gl_transwater || !gl_transwater->value)
 		return 1.0f;
 
 	n = (s->texinfo && s->texinfo->image) ? s->texinfo->image->name : "";
