@@ -3049,9 +3049,48 @@ static char			image_miss_name[IMAGE_MISS_CACHE][MAX_QPATH];
 static unsigned int	image_miss_hash[IMAGE_MISS_CACHE];
 static int			image_miss_count;
 
+#define IMAGE_EXT_MISS_CACHE	256
+static char			image_ext_miss_stem[IMAGE_EXT_MISS_CACHE][MAX_QPATH];
+static unsigned int	image_ext_miss_hash[IMAGE_EXT_MISS_CACHE];
+static int			image_ext_miss_count;
+
 void GL_ClearImageMissCache (void)
 {
 	image_miss_count = 0;
+	image_ext_miss_count = 0;
+}
+
+static qboolean GL_ExtStemWasMissed (const char *stem)
+{
+	unsigned int	h;
+	int				i;
+
+	if (!stem || !stem[0] || image_ext_miss_count <= 0)
+		return false;
+	h = hashify (stem);
+	for (i = 0; i < image_ext_miss_count; i++)
+	{
+		if (image_ext_miss_hash[i] == h && !strcmp (image_ext_miss_stem[i], stem))
+			return true;
+	}
+	return false;
+}
+
+static void GL_NoteExtStemMiss (const char *stem)
+{
+	size_t n;
+
+	if (!stem || !stem[0] || image_ext_miss_count >= IMAGE_EXT_MISS_CACHE)
+		return;
+	if (GL_ExtStemWasMissed (stem))
+		return;
+	n = strlen (stem);
+	if (n >= MAX_QPATH)
+		n = MAX_QPATH - 1;
+	memcpy (image_ext_miss_stem[image_ext_miss_count], stem, n);
+	image_ext_miss_stem[image_ext_miss_count][n] = 0;
+	image_ext_miss_hash[image_ext_miss_count] = hashify (stem);
+	image_ext_miss_count++;
 }
 
 static qboolean GL_ImageWasMissed (const char *name)
@@ -3352,6 +3391,11 @@ static image_t *GL_FindImageExt (const char *stem, imagetype_t type)
 	if (!stem || !stem[0])
 		return NULL;
 
+	/* Stem-level negative cache: after a full .tga/.jpg/.png/.pcx miss,
+	 * skip repeated FS walks for the same missing skin stem (MP miss storms). */
+	if (GL_ExtStemWasMissed (stem))
+		return NULL;
+
 	for (i = 0; exts[i]; i++)
 	{
 		Com_sprintf (path, sizeof(path), "%s%s", stem, exts[i]);
@@ -3359,6 +3403,7 @@ static image_t *GL_FindImageExt (const char *stem, imagetype_t type)
 		if (img)
 			return img;
 	}
+	GL_NoteExtStemMiss (stem);
 	return NULL;
 }
 

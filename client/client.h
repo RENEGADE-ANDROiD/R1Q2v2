@@ -787,6 +787,7 @@ void CL_CheckPredictionError (void);
 // cl_fx.c
 //
 cdlight_t *CL_AllocDlight (int entity, qboolean follow);
+void CL_RegisterMuzzleFlashSounds (void);
 void CL_BigTeleportParticles (vec3_t org);
 void CL_RocketTrail (vec3_t start, vec3_t end, centity_t *old);
 void CL_DiminishingTrail (vec3_t start, vec3_t end, centity_t *old, int flags);

@@ -1,7 +1,7 @@
-#define BUILD "8042"
-/* BUILD 8042 (local tracking):
- * Priority A MP hitch fixes: split DA_PLAYERSKIN into tris/skin/icon/vwep
- * steps; never sync-load deferred overflow from parse (queue 512 + render
- * force-drain); overlap map-prep drip with mid-game queue; prefetch sexed
- * sounds for CS_PLAYERSKINS models beyond male/female/cyborg (render drip).
+#define BUILD "8043"
+/* BUILD 8043 (local tracking):
+ * Priority B MP hitch fixes: static MZ weapon/muzzle sfx table
+ * (CL_RegisterMuzzleFlashSounds + cached pointers in ParseMuzzleFlash/2);
+ * prefetch misc/bigtele.wav; GL_FindImageExt stem negative cache so
+ * repeated missing-skin ext walks do not FS-storm.
  */

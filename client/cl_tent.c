@@ -120,6 +120,7 @@ static struct model_s	*le_mod_gibs;
 //ROGUE
 static struct sfx_s	*cl_sfx_lightning;
 static struct sfx_s	*cl_sfx_disrexp;
+static struct sfx_s	*cl_sfx_bigtele;
 static struct model_s	*cl_mod_lightning;
 static struct model_s	*cl_mod_heatbeam;
 //static struct model_s	*cl_mod_monster_heatbeam;
@@ -194,6 +195,8 @@ void CL_RegisterTEntSounds (void)
 	}
 
 //PGM
+	CL_RegisterMuzzleFlashSounds ();
+	cl_sfx_bigtele = S_RegisterSound ("misc/bigtele.wav");
 	cl_sfx_lightning = S_RegisterSound ("weapons/tesla.wav");
 	cl_sfx_disrexp = S_RegisterSound ("weapons/disrupthit.wav");
 	// version stuff
@@ -1188,7 +1191,7 @@ void CL_ParseTEnt (void)
 			Com_Error (ERR_DROP, "CL_ParseTEnt: Insufficient bytes for TE_BOSSTPORT");
 		MSG_ReadPos (&net_message, pos);
 		CL_BigTeleportParticles (pos);
-		S_StartSound (pos, 0, 0, S_RegisterSound ("misc/bigtele.wav"), 1, ATTN_NONE, 0);
+		S_StartSound (pos, 0, 0, cl_sfx_bigtele, 1, ATTN_NONE, 0);
 		break;
 
 	case TE_GRAPPLE_CABLE:
