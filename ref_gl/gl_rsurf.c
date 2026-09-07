@@ -26,54 +26,6 @@ static vec3_t	modelorg;		// relative to viewpoint
 
 msurface_t	*r_alpha_surfaces;
 
-/* Exact gamedir basename must be baseq2. Empty FS_Gamedir falls back to BASEDIRNAME. */
-static qboolean R_IsExactBaseq2 (void)
-{
-	const char	*g;
-	const char	*base;
-
-	g = ri.FS_Gamedir ();
-	if (!g || !g[0])
-		return true;
-
-	base = g;
-	while (*g)
-	{
-		if (*g == '/' || *g == '\\')
-			base = g + 1;
-		g++;
-	}
-
-	return !strcmp (base, "baseq2");
-}
-
-static float R_TurbSurfaceAlpha (msurface_t *s)
-{
-	const char	*n;
-
-	if (!(s->flags & SURF_DRAWTURB))
-		return 1.0f;
-
-	/* Translucent turb water/slime: baseq2 only. Force opaque for other gamedirs
-	 * regardless of gl_transwater (arena/ctf/action/etc.). */
-	if (!R_IsExactBaseq2 ())
-		return 1.0f;
-	if (!gl_transwater || !gl_transwater->value)
-		return 1.0f;
-
-	n = (s->texinfo && s->texinfo->image) ? s->texinfo->image->name : "";
-	if (strstr (n, "lava"))
-		return 1.0f;
-	if (strstr (n, "slime"))
-		return 0.84f;
-	return 0.66f;
-}
-
-static qboolean R_TurbWantsAlpha (msurface_t *s)
-{
-	return (s->flags & SURF_DRAWTURB) && R_TurbSurfaceAlpha (s) < 0.99f;
-}
-
 #define DYNAMIC_LIGHT_WIDTH  128
 #define DYNAMIC_LIGHT_HEIGHT 128
 
@@ -669,21 +621,7 @@ void R_DrawAlphaSurfaces (void)
 		else
 			qglColor4f (intens,intens,intens,1);
 		if (s->flags & SURF_DRAWTURB)
-		{
-			float	a = R_TurbSurfaceAlpha (s);
-
-			if (a >= 0.99f)
-			{
-				if (s->texinfo->flags & SURF_TRANS33)
-					a = 0.33f;
-				else if (s->texinfo->flags & SURF_TRANS66)
-					a = 0.66f;
-			}
-			qglColor4f (intens, intens, intens, a);
-			qglDepthMask (GL_FALSE);
 			EmitWaterPolys (s);
-			qglDepthMask (GL_TRUE);
-		}
 		else if(s->texinfo->flags & SURF_FLOWING)			// PGM	9/16/98
 			DrawGLFlowingPoly (s);							// PGM
 		else
@@ -993,7 +931,7 @@ void R_DrawInlineBModel (void)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66) || R_TurbWantsAlpha (psurf))
+			if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
 			{	// add to the translucent chain
 				psurf->texturechain = r_alpha_surfaces;
 				r_alpha_surfaces = psurf;
@@ -1258,7 +1196,7 @@ static void R_RecursiveWorldNode (mnode_t *node, int planebits)
 		{	// just adds to visible sky bounds
 			R_AddSkySurface (surf);
 		}
-		else if (surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66) || R_TurbWantsAlpha (surf))
+		else if (surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
 		{	// add to the translucent chain
 			surf->texturechain = r_alpha_surfaces;
 			r_alpha_surfaces = surf;

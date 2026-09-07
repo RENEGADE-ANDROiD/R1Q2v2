@@ -119,7 +119,6 @@ Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolut
 | `gl_ambient_lift` | `0` | Tiny fill added to lightmaps (and matching entity light samples) so pitch-black is less crushed. Hard-capped at **0.1** linear (~25/255). **`0`** = off (default). Keep at `0.03`-`0.05` if used - not night-vision. **Archived.** Video -> **Advanced Settings**. |
 | `gl_warp_amp` | `1` | Water/slime warp amplitude scale (`1` = classic). Range about `0`-`2`. Does not change transparency / SURF_TRANS rules. **Archived.** Video -> **Advanced Settings**. |
 | `gl_warp_speed` | `1` | Water/slime warp timing scale (`1` = classic). Range about `0`-`3`. **Archived.** Video -> **Advanced Settings**. |
-| `gl_transwater` | `1` | Translucent turb water/slime alpha draw. Effective only when current gamedir basename is exactly `baseq2`; forced opaque for other gamedirs regardless of value. Does not change `SURF_TRANS33`/`SURF_TRANS66` glass. **Archived.** |
 | `gl_subdivide` | `64` | Warp surface tessellation size at map load (`64` = classic). Lower (e.g. `32`) = finer water mesh. Needs a map reload / reconnect. Clamped ~16-128. **Archived.** Video -> **Advanced Settings** (64/48/32). |
 | `gl_coloredlightmaps` | `1` | Colored lightmaps. |
 | `gl_finish` | `0` | Call `glFinish` each frame (can hurt FPS). Leave off. |

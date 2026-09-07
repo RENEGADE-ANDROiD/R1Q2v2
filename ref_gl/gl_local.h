@@ -308,7 +308,6 @@ extern	cvar_t	*gl_light_corona;    /* soft depth-tested dlight corona scale; 0=o
 extern	cvar_t	*gl_ambient_lift;    /* mild LM fill 0..0.1 hard cap; 0=off */
 extern	cvar_t	*gl_warp_amp;        /* water/slime warp amplitude scale */
 extern	cvar_t	*gl_warp_speed;      /* water/slime warp time scale */
-extern	cvar_t	*gl_transwater;     /* translucent turb water (baseq2 only) */
 extern	cvar_t	*gl_subdivide;       /* warp tessellation size (map load); 64 classic */
 extern	cvar_t	*gl_alphaskins;
 extern	cvar_t	*gl_defertext;

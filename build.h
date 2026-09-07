@@ -1,8 +1,7 @@
-#define BUILD "8044"
-/* BUILD 8044 (local tracking):
- * Priority C hitch leftovers: prefetch RF_USE_DISGUISE skins/models at
- * CL_RegisterTEntModels; cl_deferstats developer cvar (queue depth,
- * overflow drops, last ProcessDeferredAsset ms); enable players/
- * download deferred-clientinfo reparse in release via DA_PLAYERSKIN
- * queue (UDP FinishDownload + HTTP) — not sync CL_ParseClientinfo.
+#define BUILD "8045"
+/* BUILD 8045 (local tracking):
+ * Remove translucent turb water entirely: delete gl_transwater cvar and
+ * R_IsExactBaseq2 / R_TurbSurfaceAlpha / R_TurbWantsAlpha. Water/slime
+ * SURF_WARP always uses classic opaque turb path for all gamedirs
+ * (including baseq2). SURF_TRANS33/66 glass unchanged.
  */

@@ -59,8 +59,6 @@ OpenGL / R1GL:
 - **Shadows**
 - **Dynamic lights**
 
-Water and slime draw see-through (water 0.66, slime 0.84). Lava stays opaque.
-
 Widescreen Hor+ FOV (`cl_adjustfov`) and HUD opacity (`scr_alpha`) are under Options → R1Q2, not here. Both save.
 
 Escape applies driver / resolution / fullscreen. The FX toggles and sliders apply as you change them. Cancel leaves without applying the video-mode change.
