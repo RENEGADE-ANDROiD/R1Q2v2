@@ -1,5 +1,6 @@
-#define BUILD "8039"
-/* BUILD 8039: Join Server paging (mouse wheel / KP PgUp-Dn / arrows),
- * left-justify hit-test fix for UW list clicks, keep q2rpg2 (Quaketown)
- * in the multiplayer browser mix (HTTP g=* + pinned hub).
+#define BUILD "8040"
+/* BUILD 8040 (local tracking - not a GitHub release ship):
+ * Prefetch sexed player sounds (male/female/cyborg pain/death/fall/jump)
+ * in CL_RegisterTEntSounds via #players/... paths matching S_RegisterSexedSound.
+ * Reduces first-use MP audio hitches. Not a complete hitch-fix release.
  */

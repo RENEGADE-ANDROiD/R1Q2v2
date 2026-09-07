@@ -154,6 +154,34 @@ void CL_RegisterTEntSounds (void)
 	S_RegisterSound ("player/fall2.wav");
 	S_RegisterSound ("player/fall1.wav");
 
+	/* Prefetch common sexed player sounds (male/female/cyborg).
+	 * Paths match S_RegisterSexedSound: #players/<model>/<base>.
+	 * Registered during S_Begin/EndRegistration so first MP
+	 * pain/death/fall/jump does not hitch on FS_LoadFile+S_LoadSound. */
+	{
+		static const char *models[] = { "male", "female", "cyborg" };
+		static const char *bases[] = {
+			"pain25_1.wav", "pain25_2.wav",
+			"pain50_1.wav", "pain50_2.wav",
+			"pain75_1.wav", "pain75_2.wav",
+			"pain100_1.wav", "pain100_2.wav",
+			"death1.wav", "death2.wav", "death3.wav", "death4.wav",
+			"fall1.wav", "fall2.wav",
+			"jump1.wav"
+		};
+		int mi, bi;
+		char sexed[MAX_QPATH];
+
+		for (mi = 0; mi < (int)(sizeof(models)/sizeof(models[0])); mi++)
+		{
+			for (bi = 0; bi < (int)(sizeof(bases)/sizeof(bases[0])); bi++)
+			{
+				Com_sprintf (sexed, sizeof(sexed), "#players/%s/%s", models[mi], bases[bi]);
+				S_RegisterSound (sexed);
+			}
+		}
+	}
+
 	//r1: localents
 	le_sfx_gibimp1 = S_RegisterSound ("gibs/gibimp1.wav");
 	le_sfx_gibimp2 = S_RegisterSound ("gibs/gibimp2.wav");
