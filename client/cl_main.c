@@ -33,27 +33,126 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 int deferred_model_index;
 
 /* Mid-game configstring asset queue (models/sounds/images/skins).
- * Map-prep still uses deferred_model_index; this queue drains after that
- * finishes (or alone when map-prep defer is off). Same ~16 ms render budget. */
-#define MAX_DEFERRED_ASSETS		128
+ * Map-prep (deferred_model_index) overlaps with this queue: one map model
+ * and/or one queued unit per ~16 ms render tick. Never sync-load from parse. */
+#define MAX_DEFERRED_ASSETS		512
+#define DEFERRED_OVERFLOW_DRAIN	4
+#define DEFERRED_OVERFLOW_WATERMARK	(MAX_DEFERRED_ASSETS / 2)
 
 typedef struct
 {
 	byte			kind;
+	byte			step;		/* multi-step DA_PLAYERSKIN (tris/skin/pic/vwep) */
 	unsigned short	index;
 } deferred_asset_t;
 
 static deferred_asset_t	deferred_assets[MAX_DEFERRED_ASSETS];
 static int				deferred_asset_head;
 static int				deferred_asset_count;
+static qboolean			deferred_force_drain;
+
+/* Sexed-sound prefetch drip for player models seen in CS_PLAYERSKINS.
+ * One wav per render tick mid-game; never 15 sync loads in parse. */
+#define MAX_SEXED_PREFETCH_MODELS	16
+#define SEXED_PREFETCH_SOUND_COUNT	15
+
+static char	sexed_prefetch_models[MAX_SEXED_PREFETCH_MODELS][MAX_QPATH];
+static byte	sexed_prefetch_next[MAX_SEXED_PREFETCH_MODELS];	/* next base index */
+static int	sexed_prefetch_count;
+
+static const char *sexed_prefetch_bases[SEXED_PREFETCH_SOUND_COUNT] = {
+	"pain25_1.wav", "pain25_2.wav",
+	"pain50_1.wav", "pain50_2.wav",
+	"pain75_1.wav", "pain75_2.wav",
+	"pain100_1.wav", "pain100_2.wav",
+	"death1.wav", "death2.wav", "death3.wav", "death4.wav",
+	"fall1.wav", "fall2.wav",
+	"jump1.wav"
+};
 
 void CL_ClearDeferredAssets (void)
 {
 	deferred_asset_head = 0;
 	deferred_asset_count = 0;
+	deferred_force_drain = false;
+	sexed_prefetch_count = 0;
+	memset (sexed_prefetch_models, 0, sizeof(sexed_prefetch_models));
+	memset (sexed_prefetch_next, 0, sizeof(sexed_prefetch_next));
 }
 
-static void CL_ProcessDeferredAsset (int kind, int index)
+void CL_PrefetchSexedSoundsForModel (const char *model)
+{
+	int		i;
+	char	clean[MAX_QPATH];
+	char	*p;
+
+	if (!model || !model[0])
+		return;
+
+	Q_strncpy (clean, model, sizeof(clean)-1);
+	p = strchr (clean, '/');
+	if (p)
+		*p = 0;
+	p = strchr (clean, '\\');
+	if (p)
+		*p = 0;
+	if (!clean[0])
+		return;
+
+	/* male/female/cyborg already registered in CL_RegisterTEntSounds. */
+	if (!Q_stricmp (clean, "male") || !Q_stricmp (clean, "female") || !Q_stricmp (clean, "cyborg"))
+		return;
+
+	for (i = 0; i < sexed_prefetch_count; i++)
+	{
+		if (!Q_stricmp (sexed_prefetch_models[i], clean))
+			return;
+	}
+
+	if (sexed_prefetch_count >= MAX_SEXED_PREFETCH_MODELS)
+		return;
+
+	Q_strncpy (sexed_prefetch_models[sexed_prefetch_count], clean, sizeof(sexed_prefetch_models[0])-1);
+	sexed_prefetch_next[sexed_prefetch_count] = 0;
+	sexed_prefetch_count++;
+}
+
+/* Returns true if one sexed wav was registered this call. */
+static qboolean CL_DrainSexedSoundPrefetch (void)
+{
+	int		i;
+	char	path[MAX_QPATH];
+
+	for (i = 0; i < sexed_prefetch_count; i++)
+	{
+		if (sexed_prefetch_next[i] >= SEXED_PREFETCH_SOUND_COUNT)
+			continue;
+
+		Com_sprintf (path, sizeof(path), "#players/%s/%s",
+			sexed_prefetch_models[i],
+			sexed_prefetch_bases[sexed_prefetch_next[i]]);
+		sexed_prefetch_next[i]++;
+		S_RegisterSound (path);
+
+		/* Compact finished slots occasionally. */
+		if (sexed_prefetch_next[i] >= SEXED_PREFETCH_SOUND_COUNT)
+		{
+			int j;
+			for (j = i; j < sexed_prefetch_count - 1; j++)
+			{
+				memcpy (sexed_prefetch_models[j], sexed_prefetch_models[j+1], sizeof(sexed_prefetch_models[0]));
+				sexed_prefetch_next[j] = sexed_prefetch_next[j+1];
+			}
+			sexed_prefetch_count--;
+		}
+		return true;
+	}
+	return false;
+}
+
+static void CL_QueueDeferredAssetStep (int kind, int index, int step);
+
+static void CL_ProcessDeferredAsset (int kind, int index, int step)
 {
 	switch (kind)
 	{
@@ -77,37 +176,57 @@ static void CL_ProcessDeferredAsset (int kind, int index)
 		re.RegisterPic (cl.configstrings[CS_IMAGES+index]);
 		break;
 	case DA_PLAYERSKIN:
+		/* One chunk per budget tick: tris / skin / icon / one vwep. */
 		if (index >= 0 && index < cl.maxclients)
-			CL_ParseClientinfo (index);
+		{
+			if (CL_LoadClientinfoStep (index, step))
+				CL_QueueDeferredAssetStep (DA_PLAYERSKIN, index, step + 1);
+		}
 		break;
 	}
 }
 
-void CL_QueueDeferredAsset (int kind, int index)
+static void CL_QueueDeferredAssetStep (int kind, int index, int step)
 {
 	int		i, slot;
 
 	if (index < 0)
 		return;
+	if (step < 0)
+		step = 0;
+	if (step > 255)
+		step = 255;
 
 	for (i = 0; i < deferred_asset_count; i++)
 	{
 		slot = (deferred_asset_head + i) % MAX_DEFERRED_ASSETS;
 		if (deferred_assets[slot].kind == kind && deferred_assets[slot].index == (unsigned short)index)
+		{
+			/* Coalesce: restart PLAYERSKIN if a newer CS arrived; else keep earlier step. */
+			if (kind == DA_PLAYERSKIN && step == 0)
+				deferred_assets[slot].step = 0;
 			return;
+		}
 	}
 
 	if (deferred_asset_count >= MAX_DEFERRED_ASSETS)
 	{
-		/* Do not drop permanently — sync load this one. */
-		CL_ProcessDeferredAsset (kind, index);
-		return;
+		/* NEVER sync-load from parse/queue path. Drop oldest, force render drain. */
+		deferred_force_drain = true;
+		deferred_asset_head = (deferred_asset_head + 1) % MAX_DEFERRED_ASSETS;
+		deferred_asset_count--;
 	}
 
 	slot = (deferred_asset_head + deferred_asset_count) % MAX_DEFERRED_ASSETS;
 	deferred_assets[slot].kind = (byte)kind;
+	deferred_assets[slot].step = (byte)step;
 	deferred_assets[slot].index = (unsigned short)index;
 	deferred_asset_count++;
+}
+
+void CL_QueueDeferredAsset (int kind, int index)
+{
+	CL_QueueDeferredAssetStep (kind, index, 0);
 }
 
 extern cvar_t	*qport;
@@ -4790,6 +4909,9 @@ void CL_RefreshInputs (void)
 void CL_LoadDeferredModels (void)
 {
 	static unsigned int last_load;
+	qboolean	did_work;
+	int			queue_budget;
+	int			n;
 
 	if (!cl.refresh_prepped)
 		return;
@@ -4799,11 +4921,12 @@ void CL_LoadDeferredModels (void)
 	if (!cl_timedemo->intvalue && last_load && (unsigned)(curtime - last_load) < 16)
 		return;
 
-	/* Map-prep sequential walk has priority until EndRegistration. */
+	did_work = false;
+	queue_budget = 0;
+
+	/* Map-prep: one model this tick (no longer blocks the mid-game queue). */
 	if (deferred_model_index != MAX_MODELS)
 	{
-		last_load = curtime;
-
 		for (;;)
 		{
 			deferred_model_index ++;
@@ -4812,7 +4935,8 @@ void CL_LoadDeferredModels (void)
 			{
 				re.EndRegistration ();
 				Com_DPrintf ("CL_LoadDeferredModels: All done.\n");
-				return;
+				did_work = true;
+				break;
 			}
 
 			if (!cl.configstrings[CS_MODELS+deferred_model_index][0])
@@ -4820,7 +4944,6 @@ void CL_LoadDeferredModels (void)
 
 			if (cl.configstrings[CS_MODELS+deferred_model_index][0] != '#')
 			{
-				//Com_DPrintf ("CL_LoadDeferredModels: Now loading '%s'...\n", cl.configstrings[CS_MODELS+deferred_model_index]);
 				cl.model_draw[deferred_model_index] = re.RegisterModel (cl.configstrings[CS_MODELS+deferred_model_index]);
 				if (cl.configstrings[CS_MODELS+deferred_model_index][0] == '*')
 					cl.model_clip[deferred_model_index] = CM_InlineModel (cl.configstrings[CS_MODELS+deferred_model_index]);
@@ -4828,26 +4951,58 @@ void CL_LoadDeferredModels (void)
 					cl.model_clip[deferred_model_index] = NULL;
 			}
 
+			did_work = true;
 			break;
 		}
-		return;
+
+		/* Overlap: also allow one mid-game unit the same tick. */
+		queue_budget = 1;
+	}
+	else
+	{
+		queue_budget = 1;
 	}
 
-	/* Mid-game queued CS_MODELS / SOUNDS / IMAGES / PLAYERSKINS. */
-	if (deferred_asset_count <= 0)
-		return;
+	/* Overflow recovery: force-drain only on render path (never from parse). */
+	if (deferred_force_drain)
+		queue_budget = DEFERRED_OVERFLOW_DRAIN;
 
-	last_load = curtime;
+	for (n = 0; n < queue_budget; n++)
 	{
 		int		kind;
 		int		index;
+		int		step;
+
+		if (deferred_asset_count <= 0)
+			break;
 
 		kind = deferred_assets[deferred_asset_head].kind;
+		step = deferred_assets[deferred_asset_head].step;
 		index = deferred_assets[deferred_asset_head].index;
 		deferred_asset_head = (deferred_asset_head + 1) % MAX_DEFERRED_ASSETS;
 		deferred_asset_count--;
-		CL_ProcessDeferredAsset (kind, index);
+		CL_ProcessDeferredAsset (kind, index, step);
+		did_work = true;
 	}
+
+	if (deferred_force_drain && deferred_asset_count <= DEFERRED_OVERFLOW_WATERMARK)
+		deferred_force_drain = false;
+
+	/* Prefer light sexed-sound drip when the heavy queue is idle this tick. */
+	if (!did_work || (deferred_asset_count <= 0 && deferred_model_index == MAX_MODELS))
+	{
+		if (CL_DrainSexedSoundPrefetch ())
+			did_work = true;
+	}
+	else if (queue_budget <= 1 && deferred_asset_count <= 0 && deferred_model_index != MAX_MODELS)
+	{
+		/* During map-prep with empty CS queue, still drip one sexed wav. */
+		if (CL_DrainSexedSoundPrefetch ())
+			did_work = true;
+	}
+
+	if (did_work)
+		last_load = curtime;
 }
 
 void CL_SendCommand_Synchronous (void)

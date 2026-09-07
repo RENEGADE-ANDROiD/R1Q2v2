@@ -653,6 +653,8 @@ void CL_RegisterSounds (void);
 void CL_ClearDeferredAssets (void);
 void CL_QueueDeferredAsset (int kind, int index);
 void CL_LoadDeferredModels (void);
+void CL_PrefetchSexedSoundsForModel (const char *model);
+qboolean CL_LoadClientinfoStep (int player, int step);
 
 #define DA_MODEL		0
 #define DA_SOUND		1

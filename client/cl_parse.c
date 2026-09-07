@@ -767,6 +767,7 @@ badskin:
 
 		// model file
 		Com_sprintf (model_filename, sizeof(model_filename), "players/%s/tris.md2", model_name);
+		CL_PrefetchSexedSoundsForModel (model_name);
 		ci->model = re.RegisterModel (model_filename);
 		if (!ci->model)
 		{
@@ -856,6 +857,214 @@ badskin:
 		ci->weaponmodel[0] = NULL;
 		return;
 	}
+}
+
+
+/*
+================
+CL_LoadClientinfoStep
+
+Budget-friendly playerskin load used by DA_PLAYERSKIN defer.
+One step per render tick:
+  0 = tris.md2, 1 = skin, 2 = icon, 3+ = one vwep.
+Returns true if more steps remain. Incomplete ci keeps NULL model/skin
+so cl_ents falls back to baseclientinfo placeholders.
+================
+*/
+qboolean CL_LoadClientinfoStep (int player, int step)
+{
+	clientinfo_t	*ci;
+	char		*s;
+	char		*t;
+	char		model_name[MAX_QPATH];
+	char		skin_name[MAX_QPATH];
+	char		model_filename[MAX_QPATH];
+	char		skin_filename[MAX_QPATH];
+	char		weapon_filename[MAX_QPATH];
+	int			length;
+	int			j;
+	int			vwep_i;
+	int			max_vwep;
+
+	if (player < 0 || player >= MAX_CLIENTS)
+		return false;
+
+	ci = &cl.clientinfo[player];
+	s = cl.configstrings[player + CS_PLAYERSKINS];
+
+	if (step == 0)
+	{
+		Q_strncpy (ci->cinfo, s, sizeof(ci->cinfo)-1);
+		Q_strncpy (ci->name, s, sizeof(ci->name)-1);
+		ci->deferred = false;
+		ci->skin = NULL;
+		ci->icon = NULL;
+		ci->model = NULL;
+		ci->iconname[0] = 0;
+		memset (ci->weaponmodel, 0, sizeof(ci->weaponmodel));
+
+		t = strchr (s, '\\');
+		if (t)
+		{
+			if (t - s < (int)sizeof(ci->name) - 1)
+			{
+				ci->name[t - s] = 0;
+				s = t + 1;
+			}
+		}
+	}
+	else
+	{
+		/* Re-resolve model/skin names from stored cinfo for later steps. */
+		s = ci->cinfo;
+		t = strchr (s, '\\');
+		if (t)
+			s = t + 1;
+	}
+
+	/* Shared parse of model_name / skin_name (mirrors CL_LoadClientinfo). */
+	{
+		int bad = 0;
+
+		t = s;
+		while (*t)
+		{
+			if (*t <= 32)
+			{
+				bad = 1;
+				break;
+			}
+			t++;
+		}
+
+		if (cl_noskins->intvalue || !s[0] || bad)
+		{
+			strcpy (model_name, "male");
+			strcpy (skin_name, "grunt");
+		}
+		else
+		{
+			Q_strncpy (model_name, s, sizeof(model_name)-1);
+			t = strchr (model_name, '/');
+			if (!t)
+				t = strchr (model_name, '\\');
+			if (!t)
+			{
+				strcpy (model_name, "male");
+				strcpy (skin_name, "grunt");
+			}
+			else
+			{
+				t[0] = 0;
+				Q_strncpy (skin_name, s + strlen(model_name) + 1, sizeof(skin_name)-1);
+			}
+
+			length = (int)strlen (model_name);
+			for (j = 0; j < length; j++)
+			{
+				if (!isvalidchar (model_name[j]))
+				{
+					strcpy (model_name, "male");
+					strcpy (skin_name, "grunt");
+					break;
+				}
+			}
+			length = (int)strlen (skin_name);
+			for (j = 0; j < length; j++)
+			{
+				if (!isvalidchar (skin_name[j]))
+				{
+					strcpy (model_name, "male");
+					strcpy (skin_name, "grunt");
+					break;
+				}
+			}
+		}
+	}
+
+	if (step == 0)
+	{
+		Com_sprintf (model_filename, sizeof(model_filename), "players/%s/tris.md2", model_name);
+		ci->model = re.RegisterModel (model_filename);
+		if (!ci->model)
+		{
+			ci->deferred = true;
+			strcpy (model_name, "male");
+			strcpy (model_filename, "players/male/tris.md2");
+			ci->model = re.RegisterModel (model_filename);
+		}
+		CL_PrefetchSexedSoundsForModel (model_name);
+		return true;	/* skin next */
+	}
+
+	if (step == 1)
+	{
+		Com_sprintf (skin_filename, sizeof(skin_filename), "players/%s/%s.pcx", model_name, skin_name);
+		ci->skin = re.RegisterSkin (skin_filename);
+		if (!ci->skin)
+			ci->deferred = true;
+
+		if (!ci->skin && Q_stricmp (model_name, "male"))
+		{
+			strcpy (model_name, "male");
+			strcpy (model_filename, "players/male/tris.md2");
+			ci->model = re.RegisterModel (model_filename);
+			Com_sprintf (skin_filename, sizeof(skin_filename), "players/%s/%s.pcx", model_name, skin_name);
+			ci->skin = re.RegisterSkin (skin_filename);
+		}
+
+		if (!ci->skin)
+		{
+			Com_sprintf (skin_filename, sizeof(skin_filename), "players/%s/grunt.pcx", model_name);
+			ci->skin = re.RegisterSkin (skin_filename);
+		}
+		return true;	/* icon next */
+	}
+
+	if (step == 2)
+	{
+		Com_sprintf (ci->iconname, sizeof(ci->iconname), "/players/%s/%s_i.pcx", model_name, skin_name);
+		ci->icon = re.RegisterPic (ci->iconname);
+		if (!ci->icon)
+			ci->deferred = true;
+		return true;	/* vweps next */
+	}
+
+	/* step >= 3: one weapon model per tick */
+	vwep_i = step - 3;
+	max_vwep = cl_vwep->intvalue ? num_cl_weaponmodels : 1;
+	if (max_vwep < 1)
+		max_vwep = 1;
+	if (max_vwep > num_cl_weaponmodels)
+		max_vwep = num_cl_weaponmodels;
+	if (max_vwep > MAX_CLIENTWEAPONMODELS)
+		max_vwep = MAX_CLIENTWEAPONMODELS;
+
+	if (vwep_i < 0 || vwep_i >= max_vwep)
+		goto finalize;
+
+	Com_sprintf (weapon_filename, sizeof(weapon_filename), "players/%s/%s", model_name, cl_weaponmodels[vwep_i]);
+	ci->weaponmodel[vwep_i] = re.RegisterModel (weapon_filename);
+	if (!ci->weaponmodel[vwep_i])
+		ci->deferred = true;
+	if (!ci->weaponmodel[vwep_i] && !strcmp (model_name, "cyborg"))
+	{
+		Com_sprintf (weapon_filename, sizeof(weapon_filename), "players/male/%s", cl_weaponmodels[vwep_i]);
+		ci->weaponmodel[vwep_i] = re.RegisterModel (weapon_filename);
+	}
+
+	if (vwep_i + 1 < max_vwep)
+		return true;
+
+finalize:
+	if (!ci->skin || !ci->icon || !ci->model || !ci->weaponmodel[0])
+	{
+		ci->skin = NULL;
+		ci->icon = NULL;
+		ci->model = NULL;
+		ci->weaponmodel[0] = NULL;
+	}
+	return false;
 }
 
 /*
@@ -1022,7 +1231,41 @@ void CL_ParseConfigString (void)
 				if (cl_timedemo->intvalue)
 					CL_ParseClientinfo (i);
 				else
+				{
+					clientinfo_t	*ci;
+					char		model[MAX_QPATH];
+					char		*p;
+
+					/* Placeholder until stepped load finishes (baseclientinfo). */
+					ci = &cl.clientinfo[i];
+					Q_strncpy (ci->cinfo, s, sizeof(ci->cinfo)-1);
+					Q_strncpy (ci->name, s, sizeof(ci->name)-1);
+					p = strchr (ci->name, '\\');
+					if (p)
+						*p = 0;
+					ci->model = NULL;
+					ci->skin = NULL;
+					ci->icon = NULL;
+					ci->iconname[0] = 0;
+					memset (ci->weaponmodel, 0, sizeof(ci->weaponmodel));
+
+					/* Queue sexed-sound prefetch for this model (drip on render). */
+					model[0] = 0;
+					p = strchr (s, '\\');
+					if (p)
+					{
+						Q_strncpy (model, p + 1, sizeof(model)-1);
+						p = strchr (model, '/');
+						if (!p)
+							p = strchr (model, '\\');
+						if (p)
+							*p = 0;
+					}
+					if (model[0])
+						CL_PrefetchSexedSoundsForModel (model);
+
 					CL_QueueDeferredAsset (DA_PLAYERSKIN, i);
+				}
 			}
 		}
 		else
