@@ -27,6 +27,11 @@ extern	uint32	sys_frame_time;
 uint32	frame_msec;
 uint32	old_sys_frame_time;
 
+void CL_ResetInputClock (void)
+{
+	old_sys_frame_time = sys_frame_time;
+}
+
 /*
 ===============================================================================
 

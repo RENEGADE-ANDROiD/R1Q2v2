@@ -237,6 +237,8 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 
 `in_mouse` is the master switch for mouse look; `m_directinput` only picks the backend while mouse is enabled. DirectInput does **not** replace or bypass `in_mouse`. Recommended crisp combo: `in_mouse 1`, `m_directinput 2`, `m_filter 0`. `m_filter 1` averages deltas for a smoother feel and is independent of DI mode.
 
+**Alt-tab / multi-monitor (Build 8047):** the client keeps sending usercmds while unfocused so you do not time out. Prefer `vid_borderless 1` over exclusive fullscreen on more than one display. Default `m_directinput 0` (Win32 mouse) is the more reliable focus-restore path; DirectInput exclusive (`m_directinput 1`) can fail to reacquire until the window is truly foreground. No extra cvar is required.
+
 ---
 
 ## Movement, prediction, view

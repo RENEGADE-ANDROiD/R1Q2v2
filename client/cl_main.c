@@ -5226,7 +5226,7 @@ void CL_Frame (int msec)
 #else
 #ifdef _WIN32
 	if (!ActiveApp && !Com_ServerState())
-		NET_Client_Sleep (100);
+		NET_Client_Sleep (16);
 #endif
 #endif
 
@@ -5240,6 +5240,23 @@ void CL_Frame (int msec)
 	packet_delta += msec;
 	render_delta += msec;
 	misc_delta += msec;
+
+#ifdef _WIN32
+	/* Unfocused cmds must keep sending (timeouts) but with honest msec.
+	 * A 100ms sleep plus the stock "ms > 250 -> 100" clamp looks like a
+	 * timing bot to unused-msec / sv_enforcetime filters. */
+	if (!ActiveApp)
+	{
+		int cap = 50;
+
+		if (cl_maxfps->intvalue > 0 && (1000 / cl_maxfps->intvalue) > cap)
+			cap = 1000 / cl_maxfps->intvalue;
+		if (packet_delta > cap)
+			packet_delta = cap;
+		if (msec > 200)
+			CL_ResetInputClock ();
+	}
+#endif
 
 	//jec - set the frame counters
 	cl.time += msec;

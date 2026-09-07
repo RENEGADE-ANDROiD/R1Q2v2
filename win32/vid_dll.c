@@ -334,6 +334,7 @@ void AppActivate(BOOL fActive, BOOL minimize)
 		//if (!win_nopriority->value)
 		//	SetPriorityClass (GetCurrentProcess (), NORMAL_PRIORITY_CLASS);
 		IN_Activate (true);
+		IN_NotifyFocusGained ();
 #ifdef CD_AUDIO
 		CDAudio_Activate (true);
 #endif

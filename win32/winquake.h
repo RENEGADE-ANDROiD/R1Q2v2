@@ -48,6 +48,7 @@ void IN_ReadBufferedData( usercmd_t *cmd );
 void IN_ReadKeyboard (void);
 
 void IN_Activate (qboolean active);
+void IN_NotifyFocusGained (void);
 void IN_MouseEvent (int mstate);
 
 extern int		window_center_x, window_center_y;

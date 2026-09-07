@@ -168,6 +168,7 @@ float		mouse_x, mouse_y, old_mouse_x, old_mouse_y;//, mx_accum, my_accum;
 int			old_x, old_y;
 
 qboolean	mouseactive;	// false when not focus app
+static qboolean	in_drop_mouse_sample;	/* first sample after focus is a cursor jump */
 
 qboolean	restore_spi;
 qboolean	mouseinitialized;
@@ -969,7 +970,11 @@ void IN_ActivateMouse (void)
 
 	if (g_pMouse)
 	{
-		IDirectInputDevice8_Acquire (g_pMouse);
+		HRESULT hr;
+
+		hr = IDirectInputDevice8_Acquire (g_pMouse);
+		if (FAILED(hr))
+			return;		/* IN_Frame retries once the window is really foreground */
 	}
 
 	if (mouseparmsvalid)
@@ -1017,6 +1022,7 @@ void IN_ActivateMouse (void)
 	}
 
 	mouseactive = true;
+	in_drop_mouse_sample = true;
 
 	while (ShowCursor (FALSE) >= 0)
 		;
@@ -1193,6 +1199,45 @@ void IN_MouseEvent (int mstate)
 
 /*
 ===========
+IN_DropPendingMouseSample
+
+Drain one Win32 / DirectInput sample without applying look. After
+multi-monitor alt-tab the first captured delta is the OS cursor jump.
+===========
+*/
+static void IN_DropPendingMouseSample (void)
+{
+	in_drop_mouse_sample = false;
+
+	if (g_pMouse)
+	{
+		if (m_directinput->intvalue == 1)
+		{
+			DIDEVICEOBJECTDATA didod[DX_MOUSE_BUFFER_SIZE];
+			DWORD dwElements = DX_MOUSE_BUFFER_SIZE;
+
+			IDirectInputDevice8_GetDeviceData (g_pMouse, sizeof(DIDEVICEOBJECTDATA),
+				didod, &dwElements, 0);
+		}
+		else
+		{
+			DIMOUSESTATE2 dims2;
+
+			if (!FAILED(IDirectInputDevice8_GetDeviceState (g_pMouse, sizeof(dims2), &dims2)))
+				memcpy (&old_state, &dims2, sizeof(old_state));
+		}
+	}
+	else
+	{
+		SetCursorPos (window_center_x, window_center_y);
+	}
+
+	old_mouse_x = 0;
+	old_mouse_y = 0;
+}
+
+/*
+===========
 IN_MouseMove
 ===========
 */
@@ -1202,6 +1247,12 @@ void IN_MouseMove (usercmd_t *cmd)
 
 	if (!mouseactive)
 		return;
+
+	if (in_drop_mouse_sample)
+	{
+		IN_DropPendingMouseSample ();
+		return;
+	}
 
 	if (g_pMouse)
 	{
@@ -1407,6 +1458,24 @@ void IN_Activate (qboolean active)
 		IN_DeactivateMouse ();
 	//mouseactive = active;		// force a new window check or turn off
 	//Com_Printf ("mouseactive = %d\n", mouseactive);
+}
+
+/*
+===========
+IN_NotifyFocusGained
+
+WM_ACTIVATE just made us the foreground window. Grab the mouse now
+(game dest only) instead of waiting for the next 250ms IN_Frame tick,
+and drop the first sample so the other-monitor cursor jump is ignored.
+===========
+*/
+void IN_NotifyFocusGained (void)
+{
+	in_drop_mouse_sample = true;
+	CL_ResetInputClock ();
+
+	if (cls.key_dest == key_game && cl.refresh_prepped)
+		IN_ActivateMouse ();
 }
 
 
