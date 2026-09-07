@@ -1,6 +1,6 @@
-#define BUILD "8047"
-/* BUILD 8047:
- * Alt-tab / multi-monitor focus: reacquire mouse on WA_ACTIVE, drop one
- * mouse sample, 16ms unfocused yield instead of 100ms, cap unfocused
- * packet_delta so cmd.msec is not clamp-to-100. Not Q2PRO pmove.
+#define BUILD "8049"
+/* BUILD 8049:
+ * RA/TastySpleen MOTD is CS_STATUSBAR with picn/cstring, not svc_layout.
+ * Run that string on the layout canvas so hud_top/hudscale cannot pin
+ * the help plaque to the framebuffer edge. Numeric HUD (hnum) unchanged.
  */

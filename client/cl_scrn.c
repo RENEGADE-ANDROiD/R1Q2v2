@@ -87,6 +87,8 @@ static qboolean	scr_hud_top_active;
 
 /* Only set while drawing STAT_LAYOUTS / cl.layout (not status bar). */
 static float	scr_layout_draw_scale = 1.0f;
+/* True only inside SCR_DrawLayout. Canvas math even when scale is 1. */
+static qboolean	scr_layout_canvas;
 
 static qboolean SCR_HudIsWide (void)
 {
@@ -130,9 +132,12 @@ static void SCR_HudPlace (int *x, int *y)
 	float	hs = scr_hud_draw_scale;
 	int		mid;
 
+	/* Layout menus already map classic 320x240 coords; do not re-place.
+	   Flag covers ls==1 on widescreen so HudPlace cannot wide-split pics. */
+	if (scr_layout_canvas)
+		return;
 	if (hs == 1.0f)
 		return;
-	/* Layout menus already map classic 320x240 coords; do not re-place. */
 	if (scr_layout_draw_scale != 1.0f)
 		return;
 
@@ -1617,7 +1622,8 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
-					if (ls != 1.0f)
+					/* Layout canvas: centered 320 even when ls==1 (widescreen). */
+					if (scr_layout_canvas)
 						x = viddef.width / 2 - (int)(160.0f * ls + 0.5f) + (int)(virt * ls);
 					else
 						x = SCR_HudXv (virt);
@@ -1627,9 +1633,9 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
-					/* With layout scale: offset inside centered 320-wide canvas
-					   (right edge = width/2 + 160*ls), not screen-right pinned. */
-					if (ls != 1.0f)
+					/* Layout: right edge of centered 320 canvas (virt usually negative).
+					   Status bar: pin to framebuffer right. */
+					if (scr_layout_canvas)
 						x = viddef.width / 2 + (int)(160.0f * ls + 0.5f) + (int)(virt * ls);
 					else
 						x = viddef.width + virt;
@@ -1639,9 +1645,8 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
-					/* With layout scale: same origin as xv (centered 320 canvas).
-					   Classic xl left-pin only when ls==1. Status bar keeps ls==1. */
-					if (ls != 1.0f)
+					/* Layout: same origin as xv. Status bar: left-pin. */
+					if (scr_layout_canvas)
 						x = viddef.width / 2 - (int)(160.0f * ls + 0.5f) + (int)(virt * ls);
 					else
 						x = virt;
@@ -1654,7 +1659,7 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
-					if (ls != 1.0f)
+					if (scr_layout_canvas)
 						y = viddef.height / 2 - (int)(120.0f * ls + 0.5f) + (int)(virt * ls);
 					else
 						y = viddef.height/2 - 120 + virt;
@@ -1664,11 +1669,12 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
-					/* yb is bottom-relative (usually negative). Flip to top for status bar only. */
-					if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
-						y = (ls != 1.0f) ? (int)(-virt * ls) : -virt;
-					else if (ls != 1.0f)
-						y = viddef.height + (int)(virt * ls);
+					/* Layout: bottom of centered 240 canvas (virt usually negative).
+					   Status bar: framebuffer bottom, or top flip via scr_hud_top. */
+					if (scr_layout_canvas)
+						y = viddef.height / 2 + (int)(120.0f * ls + 0.5f) + (int)(virt * ls);
+					else if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
+						y = -virt;
 					else
 						y = viddef.height + virt;
 					continue;
@@ -1677,10 +1683,11 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
-					if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
-						y = (ls != 1.0f) ? viddef.height - (int)(virt * ls) : viddef.height - virt;
-					else if (ls != 1.0f)
-						y = (int)(virt * ls);
+					/* Layout: top of centered 240 canvas. Status bar: screen top / hud_top flip. */
+					if (scr_layout_canvas)
+						y = viddef.height / 2 - (int)(120.0f * ls + 0.5f) + (int)(virt * ls);
+					else if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
+						y = viddef.height - virt;
 					else
 						y = virt;
 					continue;
@@ -1945,6 +1952,42 @@ void SCR_ExecuteLayoutString (char *s)
 	}
 }
 
+/*
+ * Numeric HUD uses hnum/anum/rnum.
+ * RA/TastySpleen MOTD and the help computer stuff picn/cstring into
+ * CS_STATUSBAR instead of svc_layout — those are 320x240 menus.
+ */
+static qboolean SCR_LayoutStringIsMenu (const char *s)
+{
+	if (!s || !s[0])
+		return false;
+	if (strstr(s, "hnum") || strstr(s, "anum") || strstr(s, "rnum"))
+		return false;
+	if (strstr(s, "picn"))
+		return true;
+	if (strstr(s, "cstring"))
+		return true;
+	return false;
+}
+
+static void SCR_RunLayoutMenu (char *s)
+{
+	float	sc;
+
+	sc = SCR_GetLayoutScale ();
+	scr_layout_draw_scale = sc;
+	scr_hud_draw_scale = sc;
+	scr_layout_canvas = true;
+	if (sc != 1.0f)
+		Cvar_SetValue ("gl_fontscale", sc);
+	SCR_ExecuteLayoutString (s);
+	if (sc != 1.0f)
+		Cvar_SetValue ("gl_fontscale", 1);
+	scr_layout_canvas = false;
+	scr_hud_draw_scale = 1.0f;
+	scr_layout_draw_scale = 1.0f;
+}
+
 
 /*
 ================
@@ -1965,6 +2008,17 @@ void SCR_DrawStats (void)
 		a = 0.1f;
 	if (re.DrawSetColor)
 		re.DrawSetColor (1.0f, 1.0f, 1.0f, a);
+
+	/* TastySpleen/RA entry menu lives in CS_STATUSBAR. Do not apply
+	   scr_hud_top / scr_hudscale / scr_hudwide to it. */
+	if (SCR_LayoutStringIsMenu (cl.configstrings[CS_STATUSBAR]))
+	{
+		SCR_RunLayoutMenu (cl.configstrings[CS_STATUSBAR]);
+		if (re.DrawSetColor)
+			re.DrawSetColor (1.0f, 1.0f, 1.0f, 1.0f);
+		return;
+	}
+
 	scr_hud_draw_scale = SCR_HudScaleValue ();
 	scr_hud_wide_xv = true;
 	scr_hud_top_active = true;
@@ -2012,22 +2066,12 @@ SCR_DrawLayout
 
 void SCR_DrawLayout (void)
 {
-	float	s;
-
 	if (!cl.frame.playerstate.stats[STAT_LAYOUTS])
 		return;
 
-	/* Scale layout menus for resolution; never enable hud_top / hudwide. */
-	s = SCR_GetLayoutScale ();
-	scr_layout_draw_scale = s;
-	scr_hud_draw_scale = s;	/* stretch pics/fields; HudPlace skipped while layout scale set */
-	if (s != 1.0f)
-		Cvar_SetValue ("gl_fontscale", s);
-	SCR_ExecuteLayoutString (cl.layout);
-	if (s != 1.0f)
-		Cvar_SetValue ("gl_fontscale", 1);
-	scr_hud_draw_scale = 1.0f;
-	scr_layout_draw_scale = 1.0f;
+	/* Scale layout menus for resolution; never enable hud_top / hudwide.
+	   scr_layout_canvas keeps xl/xr/yt/yb on a centered 320x240 even if s==1. */
+	SCR_RunLayoutMenu (cl.layout);
 }
 
 //=======================================================
