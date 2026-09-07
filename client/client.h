@@ -652,6 +652,7 @@ void CL_RegisterSounds (void);
 
 void CL_ClearDeferredAssets (void);
 void CL_QueueDeferredAsset (int kind, int index);
+void CL_RequeueDeferredClientinfos (void);
 void CL_LoadDeferredModels (void);
 void CL_PrefetchSexedSoundsForModel (const char *model);
 qboolean CL_LoadClientinfoStep (int player, int step);

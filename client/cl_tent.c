@@ -237,6 +237,15 @@ void CL_RegisterTEntModels (void)
 	cl_mod_heatbeam = re.RegisterModel ("models/proj/beam/tris.md2");
 	cl_mod_lightning = re.RegisterModel ("models/proj/lightning/tris.md2");
 
+	/* Prefetch RF_USE_DISGUISE assets used mid-frame in cl_ents (~1886).
+	 * Fair-play Rogue disguise skins/models — first use becomes a cache hit. */
+	re.RegisterSkin ("players/male/disguise.pcx");
+	re.RegisterModel ("players/male/tris.md2");
+	re.RegisterSkin ("players/female/disguise.pcx");
+	re.RegisterModel ("players/female/tris.md2");
+	re.RegisterSkin ("players/cyborg/disguise.pcx");
+	re.RegisterModel ("players/cyborg/tris.md2");
+
 	//r1: why are these being reigstered?
 	/*
 re.RegisterModel ("models/objects/laser/tris.md2");

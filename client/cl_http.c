@@ -940,6 +940,10 @@ static void CL_FinishHTTPDownload (void)
 			if (rename (dl->filePath, tempName))
 				Com_Printf ("Failed to rename %s for some odd reason...", LOG_CLIENT|LOG_ERROR, dl->filePath);
 
+			/* players/ HTTP finish: re-queue deferred skins on render budget. */
+			if (strstr (dl->queueEntry->quakePath, "players"))
+				CL_RequeueDeferredClientinfos ();
+
 			//a pak file is very special...
 			i = strlen (tempName);
 			if (!strcmp (tempName + i - 4, ".pak"))

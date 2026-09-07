@@ -298,6 +298,7 @@ These are often **not** written to `config.cfg` â€” keep them in `autoexec.
 | `m_directinput` | `0` | Mouse backend when `in_mouse` is on (see Input). |
 | `m_fixaccel` | OS-dependent | OS mouse accel fix. |
 | `cl_defermodels` | `1` | Map-prep: defer non-world model loads onto the **render** frame (~1 model / 16 ms) so connect/load hitches less. Mid-game `CS_MODELS` / `CS_SOUNDS` / `CS_IMAGES` / `CS_PLAYERSKINS` updates are **always** queued the same way (net parse only stores the string; Register* / stepped `CL_LoadClientinfoStep` run on the render budget). Map-prep drip **overlaps** the mid-game queue (1 map model and/or 1 queued unit per tick). `DA_PLAYERSKIN` is split (tris/skin/icon/one-vwep per tick) with `baseclientinfo` placeholders until ready. Overflow never sync-loads from parse — queue is 512 and force-drains on render only. Custom player models also drip-prefetch sexed pain/death/fall/jump. Does not touch packet send, prediction, or pmove. Timedemo still loads sync. |
+| `cl_deferstats` | `0` | Developer/debug: every ~2s prints deferred-asset queue depth, overflow drop count, ms of last `CL_ProcessDeferredAsset`, force-drain flag, pending sexed-prefetch models, and map-prep index (`-1` = done). No gameplay/feel change. |
 | `cl_async` | `1` | Sync physics when `0`. Saved. Not Q2PRO pmove. |
 | `cl_autorecord` | `0` | Auto-record demos on map start. |
 | `cl_railtrail` | `0` | Xania-style rail colors `1`â€“`5`; `0` off. |

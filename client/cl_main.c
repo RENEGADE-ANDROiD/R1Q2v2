@@ -51,6 +51,12 @@ static int				deferred_asset_head;
 static int				deferred_asset_count;
 static qboolean			deferred_force_drain;
 
+/* Developer stats for deferred asset queue (cl_deferstats). */
+static unsigned			deferred_overflow_drops;
+static unsigned			deferred_last_process_ms;
+static unsigned			deferred_stats_last_print;
+cvar_t					*cl_deferstats;
+
 /* Sexed-sound prefetch drip for player models seen in CS_PLAYERSKINS.
  * One wav per render tick mid-game; never 15 sync loads in parse. */
 #define MAX_SEXED_PREFETCH_MODELS	16
@@ -75,6 +81,9 @@ void CL_ClearDeferredAssets (void)
 	deferred_asset_head = 0;
 	deferred_asset_count = 0;
 	deferred_force_drain = false;
+	deferred_overflow_drops = 0;
+	deferred_last_process_ms = 0;
+	deferred_stats_last_print = 0;
 	sexed_prefetch_count = 0;
 	memset (sexed_prefetch_models, 0, sizeof(sexed_prefetch_models));
 	memset (sexed_prefetch_next, 0, sizeof(sexed_prefetch_next));
@@ -213,6 +222,7 @@ static void CL_QueueDeferredAssetStep (int kind, int index, int step)
 	{
 		/* NEVER sync-load from parse/queue path. Drop oldest, force render drain. */
 		deferred_force_drain = true;
+		deferred_overflow_drops++;
 		deferred_asset_head = (deferred_asset_head + 1) % MAX_DEFERRED_ASSETS;
 		deferred_asset_count--;
 	}
@@ -227,6 +237,26 @@ static void CL_QueueDeferredAssetStep (int kind, int index, int step)
 void CL_QueueDeferredAsset (int kind, int index)
 {
 	CL_QueueDeferredAssetStep (kind, index, 0);
+}
+
+/* After a players/ download finishes, re-queue clientinfos that fell back
+ * because assets were missing. Uses DA_PLAYERSKIN drip - never sync Register*. */
+void CL_RequeueDeferredClientinfos (void)
+{
+	int				i;
+	clientinfo_t	*ci;
+
+	if (cls.state < ca_connected)
+		return;
+	if (cl.maxclients <= 0)
+		return;
+
+	for (i = 0; i < cl.maxclients; i++)
+	{
+		ci = &cl.clientinfo[i];
+		if (ci->deferred)
+			CL_QueueDeferredAsset (DA_PLAYERSKIN, i);
+	}
 }
 
 extern cvar_t	*qport;
@@ -4479,6 +4509,7 @@ void CL_InitLocal (void)
 	cl_timeout = Cvar_Get ("cl_timeout", "120", 0);
 	cl_paused = Cvar_Get ("paused", "0", 0);
 	cl_timedemo = Cvar_Get ("timedemo", "0", 0);
+	cl_deferstats = Cvar_Get ("cl_deferstats", "0", 0);
 
 	cl_filterchat = Cvar_Get ("cl_filterchat", "0", 0);
 
@@ -4981,7 +5012,11 @@ void CL_LoadDeferredModels (void)
 		index = deferred_assets[deferred_asset_head].index;
 		deferred_asset_head = (deferred_asset_head + 1) % MAX_DEFERRED_ASSETS;
 		deferred_asset_count--;
-		CL_ProcessDeferredAsset (kind, index, step);
+		{
+			unsigned	t0 = Sys_Milliseconds ();
+			CL_ProcessDeferredAsset (kind, index, step);
+			deferred_last_process_ms = Sys_Milliseconds () - t0;
+		}
 		did_work = true;
 	}
 
@@ -5003,6 +5038,23 @@ void CL_LoadDeferredModels (void)
 
 	if (did_work)
 		last_load = curtime;
+
+	/* Developer/debug: queue depth, overflow drops, last process ms. No feel change. */
+	if (cl_deferstats && cl_deferstats->intvalue)
+	{
+		if (!deferred_stats_last_print || (unsigned)(curtime - deferred_stats_last_print) >= 2000)
+		{
+			Com_Printf ("cl_deferstats: depth=%d drops=%u last_ms=%u force=%d sexed=%d map=%d\n",
+				LOG_CLIENT,
+				deferred_asset_count,
+				deferred_overflow_drops,
+				deferred_last_process_ms,
+				deferred_force_drain ? 1 : 0,
+				sexed_prefetch_count,
+				(deferred_model_index == MAX_MODELS) ? -1 : deferred_model_index);
+			deferred_stats_last_print = curtime;
+		}
+	}
 }
 
 void CL_SendCommand_Synchronous (void)

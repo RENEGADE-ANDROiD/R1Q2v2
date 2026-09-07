@@ -38,10 +38,6 @@ void CL_DownloadFileName(char *dest, int destlen, char *fn)
 
 void CL_FinishDownload (void)
 {
-#ifdef _DEBUG
-	clientinfo_t *ci;
-#endif
-
 	int r;
 	char	oldn[MAX_OSPATH];
 	char	newn[MAX_OSPATH];
@@ -58,15 +54,10 @@ void CL_FinishDownload (void)
 	if (r)
 		Com_Printf ("failed to rename.\n", LOG_CLIENT);
 
-#ifdef _DEBUG
-	if (cls.serverProtocol == PROTOCOL_R1Q2 && (strstr(newn, "players"))) {
-		for (r = 0; r < cl.maxclients; r++) {
-			ci = &cl.clientinfo[r];
-			if (ci->deferred)
-				CL_ParseClientinfo (r);
-		}
-	}
-#endif
+	/* Release: re-queue deferred playerskins after players/ UDP download.
+	 * Uses DA_PLAYERSKIN drip (not sync CL_ParseClientinfo) to avoid hitch. */
+	if (cls.serverProtocol == PROTOCOL_R1Q2 && strstr(newn, "players"))
+		CL_RequeueDeferredClientinfos ();
 
 	cls.failed_download = false;
 	cls.downloadpending = false;
