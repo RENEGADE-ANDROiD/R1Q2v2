@@ -471,7 +471,9 @@ void R_RenderBrushPoly (msurface_t *fa)
 	{	
 		GL_Bind( image->texnum );
 
-		// warp texture, no lightmaps
+		// classic opaque turb: solid modulate, depth write on, no blend
+		qglDisable (GL_BLEND);
+		qglDepthMask (GL_TRUE);
 		GL_TexEnv( GL_MODULATE );
 		qglColor4f( gl_state.inverse_intensity, 
 			        gl_state.inverse_intensity,
@@ -614,18 +616,29 @@ void R_DrawAlphaSurfaces (void)
 		GL_Bind(s->texinfo->image->texnum);
 		c_brush_polys++;
 
-		if (s->texinfo->flags & SURF_TRANS33)
-			qglColor4f (intens,intens,intens,0.33f);
-		else if (s->texinfo->flags & SURF_TRANS66)
-			qglColor4f (intens,intens,intens,0.66f);
-		else
-			qglColor4f (intens,intens,intens,1);
+		/* SURF_WARP liquids with TRANS33/66 must not reach here (routed opaque).
+		 * Glass TRANS without WARP stays translucent. */
 		if (s->flags & SURF_DRAWTURB)
+		{
+			qglDepthMask (GL_TRUE);
+			qglDisable (GL_BLEND);
+			qglColor4f (intens, intens, intens, 1.0f);
 			EmitWaterPolys (s);
-		else if(s->texinfo->flags & SURF_FLOWING)			// PGM	9/16/98
-			DrawGLFlowingPoly (s);							// PGM
+			qglEnable (GL_BLEND);
+		}
 		else
-			DrawGLPoly (s->polys);
+		{
+			if (s->texinfo->flags & SURF_TRANS33)
+				qglColor4f (intens,intens,intens,0.33f);
+			else if (s->texinfo->flags & SURF_TRANS66)
+				qglColor4f (intens,intens,intens,0.66f);
+			else
+				qglColor4f (intens,intens,intens,1);
+			if(s->texinfo->flags & SURF_FLOWING)			// PGM	9/16/98
+				DrawGLFlowingPoly (s);							// PGM
+			else
+				DrawGLPoly (s->polys);
+		}
 	}
 
 	GL_TexEnv( GL_REPLACE );
@@ -931,7 +944,11 @@ void R_DrawInlineBModel (void)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
+			/* WARP/turb (water/slime/lava) stays opaque even if WAL has TRANS33/66.
+			 * Glass TRANS without WARP still goes on the alpha chain. */
+			if ((psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
+				&& !(psurf->flags & SURF_DRAWTURB)
+				&& !(psurf->texinfo->flags & SURF_WARP))
 			{	// add to the translucent chain
 				psurf->texturechain = r_alpha_surfaces;
 				r_alpha_surfaces = psurf;
@@ -1196,8 +1213,10 @@ static void R_RecursiveWorldNode (mnode_t *node, int planebits)
 		{	// just adds to visible sky bounds
 			R_AddSkySurface (surf);
 		}
-		else if (surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
-		{	// add to the translucent chain
+		else if ((surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
+			&& !(surf->flags & SURF_DRAWTURB)
+			&& !(surf->texinfo->flags & SURF_WARP))
+		{	// glass TRANS only — WARP liquids draw opaque via texture chain
 			surf->texturechain = r_alpha_surfaces;
 			r_alpha_surfaces = surf;
 		}
