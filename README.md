@@ -45,7 +45,8 @@ Column menus are centered under the banner. New installs default to your desktop
 
 OpenGL / R1GL:
 
-- Driver, video mode, screen size, brightness, fullscreen
+- Driver (R1GL, plus software). Stock `[default OpenGL]` is not listed; saved `vid_ref gl` remaps to r1gl
+- Video mode, screen size, brightness, fullscreen
 - **Vsync** (off by default)
 - **Max fps** slider (about 60–300; default 250)
 - Texture quality, 8-bit textures, sync every frame
@@ -63,6 +64,8 @@ Widescreen Hor+ FOV (`cl_adjustfov`) and HUD opacity (`scr_alpha`) are under Opt
 
 Escape applies driver / resolution / fullscreen. The FX toggles and sliders apply as you change them. Cancel leaves without applying the video-mode change.
 
+Campaign / local SP (`maxclients` 1): warp water that the map tagged TRANS33/66 is translucent again. Rocket Arena, DM, CTF, and coop stay classic opaque turb. `gl_wateralpha` is console-only and ignored in multiplayer.
+
 Older configs that used `gl_hudscale` for HUD size are redirected to `scr_hudscale`; `gl_hudscale` is forced back to `1` so it no longer shrinks the whole 2D layer (including after a later `exec`).
 
 ### Packs and high-res textures
@@ -71,7 +74,7 @@ Older configs that used `gl_hudscale` for HUD size are redirected to `scr_hudsca
 
 - `Q3ArenaHUD.pkz` — Quake III–style status bar pics
 - `quake2-neural-upscale-textures-*.pkz` — HD wall replacements
-- `zz_r1q2_titles.pkz` — stock menu banners / main-menu plaques from `pak0`, 2× Scale2x (beats pak9’s broken Video title). Generate with `py -3 scripts/pack_r1q2_titles.py` against your install `pak0.pak` (not in git; it is retail art)
+- Do **not** drop `zz_r1q2_titles.pkz` in `baseq2` yet — R1GL prefers the 2× PNG and `M_Main_Draw` still uses classic 40-unit tag pitch, so the plaque sits on GAME and the tags stack. Stock `pak0` PCX only. The generator script is `scripts/pack_r1q2_titles.py` (retail art, not in git) for when layout uses logical PCX sizes.
 
 R1GL also loads loose replacements next to retail WALs (keep the WALs for UV size):
 

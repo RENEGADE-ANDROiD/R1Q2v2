@@ -422,13 +422,23 @@ qboolean Menu_UpdateCursorFromMouse( menuframework_s *menu )
 	return false;
 }
 
+/* Keyboard owns the highlight until the mouse actually moves (Join Server
+ * click hit-test still runs on K_MOUSE*). Unconditional hover stole arrows. */
+static int menu_last_mx = -1, menu_last_my = -1;
+
 void Menu_Draw( menuframework_s *menu )
 {
 	int i;
 	menucommon_s *item;
 	float s = Menu_Scale();
 
-	Menu_UpdateCursorFromMouse( menu );
+	if ( menu_mouse_valid
+		&& ( menu_mouse_x != menu_last_mx || menu_mouse_y != menu_last_my ) )
+	{
+		Menu_UpdateCursorFromMouse( menu );
+		menu_last_mx = menu_mouse_x;
+		menu_last_my = menu_mouse_y;
+	}
 
 	/*
 	** draw contents
@@ -728,7 +738,7 @@ void Slider_DoSlide( menuslider_s *s, int dir )
 
 void Slider_Draw( menuslider_s *s )
 {
-	int	i, x, y, step;
+	int	x, y, step;
 	float sc = Menu_Scale();
 
 	Menu_ScaledXY( &s->generic, &x, &y );
@@ -742,11 +752,26 @@ void Slider_Draw( menuslider_s *s )
 		s->range = 0;
 	if ( s->range > 1)
 		s->range = 1;
-	Draw_Char( x + (int)(RCOLUMN_OFFSET * sc), y, 128);
-	for ( i = 0; i < SLIDER_RANGE; i++ )
-		Draw_Char( x + (int)(RCOLUMN_OFFSET * sc) + i * step + step, y, 129);
-	Draw_Char( x + (int)(RCOLUMN_OFFSET * sc) + i * step + step, y, 130);
-	Draw_Char( x + (int)(RCOLUMN_OFFSET * sc) + step + (int)((SLIDER_RANGE-1) * step * s->range), y, 131);
+
+	/* One fill for the track — ten nearest conchars tiles seam at menuscale 2+.
+	 * Thumb stays char 131; Slider_DoSlide / SLIDER_RANGE math unchanged. */
+	{
+		int track_x = x + (int)(RCOLUMN_OFFSET * sc) + step;
+		int track_w = SLIDER_RANGE * step;
+		int track_h = (int)(6 * sc);
+		int track_y;
+		int thumb_x;
+
+		if (track_h < 4)
+			track_h = 4;
+		track_y = y + (step - track_h) / 2;
+		if (track_y < y)
+			track_y = y;
+		Draw_Fill( track_x, track_y, track_w, track_h, 7 );
+		thumb_x = x + (int)(RCOLUMN_OFFSET * sc) + step
+			+ (int)((SLIDER_RANGE - 1) * step * s->range);
+		Draw_Char( thumb_x, y, 131 );
+	}
 }
 
 static void SpinControl_DoEnter( menulist_s *s )

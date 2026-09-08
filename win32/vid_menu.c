@@ -23,11 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 enum
 {
 	REF_SOFT,
-	REF_OPENGL,
-	REF_3DFX,
-	REF_POWERVR,
-	REF_R1GL,
-	REF_NCGL
+	REF_R1GL
 };
 
 extern cvar_t *vid_ref;
@@ -270,28 +266,8 @@ static void ApplyChanges( void *unused )
 		case REF_SOFT:
 			Cvar_Set( "vid_ref", "soft" );
 			break;
-		case REF_OPENGL:
-			Cvar_Set( "vid_ref", "gl" );
-			Cvar_Set( "gl_driver", "opengl32" );
-			break;
-		case REF_3DFX:
-			Cvar_Set( "vid_ref", "gl" );
-			Cvar_Set( "gl_driver", "3dfxgl" );
-			break;
-		case REF_POWERVR:
-			Cvar_Set( "vid_ref", "gl" );
-			Cvar_Set( "gl_driver", "pvrgl" );
-			break;
-		/*case REF_VERITE:
-			Cvar_Set( "vid_ref", "gl" );
-			Cvar_Set( "gl_driver", "veritegl" );
-			break;*/
-		case REF_R1GL:
+		default:
 			Cvar_Set ( "vid_ref", "r1gl" );
-			Cvar_Set ( "gl_driver", "opengl32" );
-			break;
-		case REF_NCGL:
-			Cvar_Set ( "vid_ref", "ncgl" );
 			Cvar_Set ( "gl_driver", "opengl32" );
 			break;
 	}
@@ -361,12 +337,7 @@ void EXPORT VID_MenuInit( void )
 	static const char *refs[] =
 	{
 		"[software      ]",
-		"[default OpenGL]",
-		"[3Dfx OpenGL   ]",
-		"[PowerVR OpenGL]",
 		"[R1GL          ]",
-		"[NoCheat OpenGL]",
-//		"[Rendition OpenGL]",
 		0
 	};
 	static const char *yesno_names[] =
@@ -498,6 +469,8 @@ void EXPORT VID_MenuInit( void )
 	s_screensize_slider[SOFTWARE_MENU].curvalue = scr_viewsize->value/10;
 	s_screensize_slider[OPENGL_MENU].curvalue = scr_viewsize->value/10;
 
+	VID_RemapUnsupportedRef ();
+
 	if ( strcmp( vid_ref->string, "soft" ) == 0 )
 	{
 		s_current_menu_index = SOFTWARE_MENU;
@@ -506,23 +479,7 @@ void EXPORT VID_MenuInit( void )
 	else
 	{
 		s_current_menu_index = OPENGL_MENU;
-		if ( strcmp( gl_driver->string, "3dfxgl" ) == 0 )
-			s_ref_list[s_current_menu_index].curvalue = REF_3DFX;
-		else if ( strcmp( gl_driver->string, "pvrgl" ) == 0 )
-			s_ref_list[s_current_menu_index].curvalue = REF_POWERVR;
-		else if ( strcmp( gl_driver->string, "opengl32" ) == 0 )
-		{
-			if ( strcmp( vid_ref->string, "r1gl" ) == 0 )
-				s_ref_list[s_current_menu_index].curvalue = REF_R1GL;
-			else if ( strcmp( vid_ref->string, "ncgl" ) == 0 )
-				s_ref_list[s_current_menu_index].curvalue = REF_NCGL;
-			else
-				s_ref_list[s_current_menu_index].curvalue = REF_OPENGL;
-		}
-		else
-		{
-			s_ref_list[s_current_menu_index].curvalue = REF_OPENGL;
-		}
+		s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_R1GL;
 	}
 
 	s_software_menu.x = (int)(viddef.width * 0.50f);

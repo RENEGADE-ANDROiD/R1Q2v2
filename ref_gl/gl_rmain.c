@@ -213,6 +213,8 @@ cvar_t	*gl_ambient_lift;
 cvar_t	*gl_warp_amp;
 cvar_t	*gl_warp_speed;
 cvar_t	*gl_subdivide;
+cvar_t	*gl_wateralpha;
+cvar_t	*r_water_alpha_ok;
 cvar_t	*gl_alphaskins;
 cvar_t	*gl_defertext;
 
@@ -1601,6 +1603,8 @@ gl_msaa = ri.Cvar_Get ("gl_msaa", "0", CVAR_ARCHIVE);
 	gl_warp_amp = ri.Cvar_Get ("gl_warp_amp", "1", CVAR_ARCHIVE);
 	gl_warp_speed = ri.Cvar_Get ("gl_warp_speed", "1", CVAR_ARCHIVE);
 	gl_subdivide = ri.Cvar_Get ("gl_subdivide", "64", CVAR_ARCHIVE);
+	gl_wateralpha = ri.Cvar_Get ("gl_wateralpha", "0", 0);
+	r_water_alpha_ok = ri.Cvar_Get ("r_water_alpha_ok", "0", CVAR_NOSET);
 	gl_alphaskins = ri.Cvar_Get ("gl_alphaskins", "0", 0);
 	gl_defertext = ri.Cvar_Get ("gl_defertext", "0", 0);
 	defer_drawing = (int)gl_defertext->value;
@@ -2500,16 +2504,21 @@ void EXPORT R_BeginFrame( float camera_separation )
 		gl_hudscale->modified = false;
 		hs = R_EffectiveHudScale ();
 
-		width = (int)ceilf((float)vid.width / hs);
-		height = (int)ceilf((float)vid.height / hs);
+		if (vid.width >= 64 && vid.height >= 48)
+		{
+			width = (int)ceilf((float)vid.width / hs);
+			height = (int)ceilf((float)vid.height / hs);
 
-		width = (width+7)&~7;
-		height = (height+1)&~1;
+			width = (width+7)&~7;
+			height = (height+1)&~1;
 
-		vid_scaled_width = vid.width / hs;
-		vid_scaled_height = vid.height / hs;
-
-		ri.Vid_NewWindow (width, height);
+			if (width >= 64 && height >= 48)
+			{
+				vid_scaled_width = vid.width / hs;
+				vid_scaled_height = vid.height / hs;
+				ri.Vid_NewWindow (width, height);
+			}
+		}
 	}
 
 #if 0

@@ -228,6 +228,12 @@ int VID_CreateWindow( int width, int height, qboolean fullscreen )
 	width = (width+7)&~7;
 	height = (height+1)&~1;
 
+	if (width < 64 || height < 48)
+	{
+		ri.Con_Printf( PRINT_ALL, "VID_CreateWindow: skip Vid_NewWindow %d/%d\n", width, height );
+		return VID_ERR_NONE;
+	}
+
 	// let the sound and input subsystems know about the new window
 	ri.Vid_NewWindow (width, height);
 

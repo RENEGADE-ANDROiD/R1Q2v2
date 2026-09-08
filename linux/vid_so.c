@@ -151,8 +151,24 @@ qboolean VID_GetModeInfo(unsigned int *width, unsigned int *height, int mode)
 */
 void VID_NewWindow ( int width, int height)
 {
+	if (width >= 0x10000 || width < 64 || height >= 0x10000 || height < 48)
+	{
+		Com_Printf ("VID_NewWindow: ignored illegal width/height %d/%d\n", LOG_CLIENT, width, height);
+		return;
+	}
 	viddef.width  = width;
 	viddef.height = height;
+}
+
+void VID_RemapUnsupportedRef (void)
+{
+	if (!vid_ref || !vid_ref->string[0])
+		return;
+	if (!Q_stricmp (vid_ref->string, "gl") || !Q_stricmp (vid_ref->string, "ncgl"))
+	{
+		Com_Printf ("vid_ref %s is unsupported; using r1gl\n", LOG_CLIENT, vid_ref->string);
+		Cvar_Set ("vid_ref", "r1gl");
+	}
 }
 
 void VID_FreeReflib (void)

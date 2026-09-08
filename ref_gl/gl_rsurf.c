@@ -452,6 +452,46 @@ void R_BlendLightmaps (void)
 #define GL_COMBINE_ARB						0x8570
 #define GL_RGB_SCALE_ARB					0x8573
 
+/* TRANS33/66 warp only when the client says CS_MAXCLIENTS <= 1.
+ * Default (unset / MP / coop) is classic opaque turb. */
+static qboolean R_WaterAlphaAllowed (void)
+{
+	if (!r_water_alpha_ok || r_water_alpha_ok->intvalue <= 0)
+		return false;
+	return true;
+}
+
+static qboolean R_IsTransWater (const msurface_t *s)
+{
+	if (!s || !s->texinfo)
+		return false;
+	if (!(s->texinfo->flags & (SURF_TRANS33|SURF_TRANS66)))
+		return false;
+	if (!(s->flags & SURF_DRAWTURB) && !(s->texinfo->flags & SURF_WARP))
+		return false;
+	return R_WaterAlphaAllowed ();
+}
+
+static float R_TransWaterAlpha (const msurface_t *s)
+{
+	float a = 1.0f;
+
+	if (s->texinfo->flags & SURF_TRANS33)
+		a = 0.33f;
+	else if (s->texinfo->flags & SURF_TRANS66)
+		a = 0.66f;
+
+	if (gl_wateralpha && gl_wateralpha->value > 0.0f && R_WaterAlphaAllowed ())
+	{
+		a = gl_wateralpha->value;
+		if (a < 0.15f)
+			a = 0.15f;
+		if (a > 1.0f)
+			a = 1.0f;
+	}
+	return a;
+}
+
 /*
 ================
 R_RenderBrushPoly
@@ -616,15 +656,26 @@ void R_DrawAlphaSurfaces (void)
 		GL_Bind(s->texinfo->image->texnum);
 		c_brush_polys++;
 
-		/* SURF_WARP liquids with TRANS33/66 must not reach here (routed opaque).
-		 * Glass TRANS without WARP stays translucent. */
+		/* SP: TRANS+WARP water uses map alpha. MP: turb should not be here;
+		 * if it is, keep it opaque. Glass TRANS without WARP is unchanged. */
 		if (s->flags & SURF_DRAWTURB)
 		{
-			qglDepthMask (GL_TRUE);
-			qglDisable (GL_BLEND);
-			qglColor4f (intens, intens, intens, 1.0f);
-			EmitWaterPolys (s);
-			qglEnable (GL_BLEND);
+			if (R_WaterAlphaAllowed ()
+				&& (s->texinfo->flags & (SURF_TRANS33|SURF_TRANS66)))
+			{
+				qglBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				qglDepthMask (GL_FALSE);
+				qglColor4f (intens, intens, intens, R_TransWaterAlpha (s));
+				EmitWaterPolys (s);
+			}
+			else
+			{
+				qglDepthMask (GL_TRUE);
+				qglDisable (GL_BLEND);
+				qglColor4f (intens, intens, intens, 1.0f);
+				EmitWaterPolys (s);
+				qglEnable (GL_BLEND);
+			}
 		}
 		else
 		{
@@ -644,6 +695,7 @@ void R_DrawAlphaSurfaces (void)
 	GL_TexEnv( GL_REPLACE );
 	qglColor4fv(colorWhite);
 	qglDisable (GL_BLEND);
+	qglDepthMask (GL_TRUE);
 
 	r_alpha_surfaces = NULL;
 }
@@ -944,11 +996,11 @@ void R_DrawInlineBModel (void)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			/* WARP/turb (water/slime/lava) stays opaque even if WAL has TRANS33/66.
-			 * Glass TRANS without WARP still goes on the alpha chain. */
+			/* Glass TRANS always alpha. TRANS+WARP water only in SP. */
 			if ((psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
-				&& !(psurf->flags & SURF_DRAWTURB)
-				&& !(psurf->texinfo->flags & SURF_WARP))
+				&& (R_IsTransWater (psurf)
+					|| (!(psurf->flags & SURF_DRAWTURB)
+						&& !(psurf->texinfo->flags & SURF_WARP))))
 			{	// add to the translucent chain
 				psurf->texturechain = r_alpha_surfaces;
 				r_alpha_surfaces = psurf;
@@ -1214,9 +1266,10 @@ static void R_RecursiveWorldNode (mnode_t *node, int planebits)
 			R_AddSkySurface (surf);
 		}
 		else if ((surf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
-			&& !(surf->flags & SURF_DRAWTURB)
-			&& !(surf->texinfo->flags & SURF_WARP))
-		{	// glass TRANS only — WARP liquids draw opaque via texture chain
+			&& (R_IsTransWater (surf)
+				|| (!(surf->flags & SURF_DRAWTURB)
+					&& !(surf->texinfo->flags & SURF_WARP))))
+		{	// glass always; TRANS+WARP water in SP only
 			surf->texturechain = r_alpha_surfaces;
 			r_alpha_surfaces = surf;
 		}

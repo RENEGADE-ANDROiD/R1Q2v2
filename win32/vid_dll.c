@@ -401,7 +401,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		** this chunk of code theoretically only works under NT4 and Win98
 		** since this message doesn't exist under Win95
 		*/
-		if (ActiveApp && g_pMouse)
+		/* g_pMouse is allocated for the life of DI, including after menu
+		 * Unacquire. Only skip the OS wheel when DI is actually reading. */
+		if (ActiveApp && g_pMouse && mouseactive)
 			return TRUE;
 
 		if ( ( int16 ) HIWORD( wParam ) > 0 )
@@ -897,9 +899,14 @@ void VID_UpdateWindowPosAndSize(void)
 */
 void EXPORT VID_NewWindow ( int width, int height)
 {
-	//sanity check from renderer
+	/* PrtScn / alt-tab / Quit can call this with width 0 and garbage height
+	 * after the HWND is destroyed. Keep the last good size; do not fatal. */
 	if (width >= 0x10000 || width < 64 || height >= 0x10000 || height < 48)
-		Com_Error (ERR_FATAL, "VID_NewWindow: Illegal width/height %d/%d", width, height);
+	{
+		Com_Printf ("VID_NewWindow: ignored illegal width/height %d/%d\n",
+			LOG_CLIENT, width, height);
+		return;
+	}
 
 	viddef.width  = width;
 	viddef.height = height;
@@ -1130,6 +1137,18 @@ qboolean VID_LoadRefresh( char *name, char *errstr )
 	return true;
 }
 
+void VID_RemapUnsupportedRef (void)
+{
+	if (!vid_ref || !vid_ref->string[0])
+		return;
+	if (!Q_stricmp (vid_ref->string, "gl") || !Q_stricmp (vid_ref->string, "ncgl"))
+	{
+		Com_Printf ("vid_ref %s is unsupported; using r1gl\n", LOG_CLIENT, vid_ref->string);
+		Cvar_Set ("vid_ref", "r1gl");
+		Cvar_Set ("gl_driver", "opengl32");
+	}
+}
+
 /*
 ============
 VID_CheckChanges
@@ -1156,6 +1175,8 @@ void VID_ReloadRefresh (void)
 	CL_ClearTEnts();
 
 	//MessageBox (cl_hwnd, "video restarts!", "what", MB_OK);
+
+	VID_RemapUnsupportedRef ();
 
 	while (vid_ref->modified)
 	{
@@ -1348,6 +1369,7 @@ void VID_Init (void)
 
 	/* Create the video variables so we know how to start the graphics drivers */
 	vid_ref = Cvar_Get ("vid_ref", "r1gl", CVAR_ARCHIVE);
+	VID_RemapUnsupportedRef ();
 	vid_xpos = Cvar_Get ("vid_xpos", "3", CVAR_ARCHIVE);
 	vid_ypos = Cvar_Get ("vid_ypos", "22", CVAR_ARCHIVE);
 	vid_fullscreen = Cvar_Get ("vid_fullscreen", "0", CVAR_ARCHIVE);
@@ -1415,8 +1437,10 @@ void VID_Shutdown (void)
 {
 	if ( reflib_active )
 	{
+		closing_reflib = true;
 		re.Shutdown ();
 		VID_FreeReflib ();
+		closing_reflib = false;
 	}
 
 	if (g_hKeyboardHook)

@@ -1524,6 +1524,7 @@ void CL_ClearState (void)
 
 	//r1: reset
 	cl.maxclients = MAX_CLIENTS;
+	Cvar_ForceSet ("r_water_alpha_ok", "0");
 	SZ_Clear (&cls.netchan.message);
 
 	SZ_Init (&cl.demoBuff, cl.demoFrame, sizeof(cl.demoFrame));
@@ -4481,6 +4482,9 @@ void CL_InitLocal (void)
 
 	cl_async = Cvar_Get ("cl_async", "1", CVAR_ARCHIVE);
 	cl_async->changed = _async_changed;
+
+	/* Renderer reads this; client ForceSet from CS_MAXCLIENTS. Console-protected. */
+	Cvar_Get ("r_water_alpha_ok", "0", CVAR_NOSET);
 
 	cl_upspeed = Cvar_Get ("cl_upspeed", "200", 0);
 	cl_forwardspeed = Cvar_Get ("cl_forwardspeed", "200", 0);

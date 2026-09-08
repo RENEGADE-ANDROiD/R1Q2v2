@@ -10,7 +10,7 @@ Useful client settings for **R1Q2v2 (Build 8041+)**. Defaults are engine default
 - `writeconfig` / `writecfg` â€” save binds + archived cvars to `<gamedir>/config.cfg` immediately (same as quit; no filename arg)
 - Many Video Options rows already map to the cvars below
 
-**Not in this client:** Q2PRO-only names like `cl_movement_feel_mode`, `cl_mouse_behavior_mode`, `scr_scale` (HUD uses `scr_hudscale`). There is no Q2PRO pmove. For classic jump *timing* use **sync physics** (`cl_async 0`) â€” that only locks render FPS to `cl_maxfps`. Default `cl_async 1` is stock R1Q2 async and is the natural R1Q2 feel.
+**Not in this client:** Q2PRO-only names like `cl_movement_feel_mode`, `cl_mouse_behavior_mode`, `scr_scale` (HUD uses `scr_hudscale`), `sys_viewlog` (no AllocConsole client window). There is no Q2PRO pmove. For classic jump *timing* use **sync physics** (`cl_async 0`) â€” that only locks render FPS to `cl_maxfps`. Default `cl_async 1` is stock R1Q2 async and is the natural R1Q2 feel. Capture with **F12** / `screenshot`, not the Win10 Print Screen key.
 
 ---
 
@@ -20,7 +20,7 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 
 | Cvar | Default | Notes |
 |------|---------|--------|
-| `vid_ref` | `r1gl` | Renderer module. Prefer `r1gl` (`ref_r1gl.dll`). |
+| `vid_ref` | `r1gl` | Renderer module. **R1GL only** on the Video menu (`ref_r1gl.dll`). Saved `vid_ref gl` / `ncgl` remaps to `r1gl` on init. Stock `ref_gl.dll` is not selectable (black on Win10). |
 | `vid_fullscreen` | `0` | `1` fullscreen, `0` windowed. |
 | `vid_borderless` | `0` | `1` = borderless windowed fullscreen (no exclusive `ChangeDisplaySettings`). **Archived.** Also used automatically when the requested size matches the current desktop mode. Prefer this on ultrawide if exclusive fullscreen fails. Alias intent: same idea as a `vid_desktopfs` flag. |
 | `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid indexed values fall back to the previous mode (often 320Ã—240 if mode `0`). Custom `-1` stays sticky when force dims are set. |
@@ -117,6 +117,7 @@ Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolut
 | `gl_lightmap_filter` | `1` | Lightmap texture sampling. **`1`** = linear (smoother LM; aniso-friendly when anisotropy is on). **`0`** = nearest (blockier classic LM). Does not change visibility or reveal occluded geometry. **Archived.** Video -> **Advanced Settings**. |
 | `gl_light_corona` | `0` | Soft corona sprite at dynamic-light origins. Depth-tested so occluded lights do **not** show (no wallhack). **`0`** = off (default). Try `0.25`-`0.5` for a subtle glow. Menu yes/no writes `0`/`1`. Not bloom / shafts / player ESP. **Archived.** Video -> **Advanced Settings**. |
 | `gl_ambient_lift` | `0` | Tiny fill added to lightmaps (and matching entity light samples) so pitch-black is less crushed. Hard-capped at **0.1** linear (~25/255). **`0`** = off (default). Keep at `0.03`-`0.05` if used - not night-vision. **Archived.** Video -> **Advanced Settings**. |
+| `gl_wateralpha` | `0` | **Single-player only.** `0` = use the map’s TRANS33/66 (0.33 / 0.66) on warp water. `>0` = override alpha (clamped 0.15–1). **Ignored when `maxclients > 1`** (RA / DM / coop stay opaque). Not archived; a leftover autoexec cannot turn water clear on a server. Console only — not on the Video menu. |
 | `gl_warp_amp` | `1` | Water/slime warp amplitude scale (`1` = classic). Range about `0`-`2`. Does not change transparency / SURF_TRANS rules. **Archived.** Video -> **Advanced Settings**. |
 | `gl_warp_speed` | `1` | Water/slime warp timing scale (`1` = classic). Range about `0`-`3`. **Archived.** Video -> **Advanced Settings**. |
 | `gl_subdivide` | `64` | Warp surface tessellation size at map load (`64` = classic). Lower (e.g. `32`) = finer water mesh. Needs a map reload / reconnect. Clamped ~16-128. **Archived.** Video -> **Advanced Settings** (64/48/32). |
@@ -318,7 +319,7 @@ These are often **not** written to `config.cfg` â€” keep them in `autoexec.
 | `cl_quietstartup` | `1` | Quieter engine startup. |
 | `gl_fontscale` | `1` | Renderer-side font scale helper. |
 
-**Commands (not cvars):** `screenshot` (PNG on Win32), `screenshot jpg`, `vid_restart`, `menu_video`, `connect`, `disconnect`, `ignore` / `unignore` / `mute` / `unmute` / `ignorelist` (persisted in `ignore.txt`), `demopause`, `demospeed`, `addloc`, `saveloc`, `writeconfig` / `writecfg`.
+**Commands (not cvars):** `screenshot` (PNG on Win32; bind is **F12**, not Print Screen), `screenshot jpg`, `vid_restart`, `menu_video`, `connect`, `disconnect`, `ignore` / `unignore` / `mute` / `unmute` / `ignorelist` (persisted in `ignore.txt`), `demopause`, `demospeed`, `addloc`, `saveloc`, `writeconfig` / `writecfg`.
 
 ### Config commands
 

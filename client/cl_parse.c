@@ -1207,8 +1207,16 @@ void CL_ParseConfigString (void)
 	}
 	else if (i == CS_MAXCLIENTS)
 	{
+		int	mc;
+
 		if (!cl.attractloop)
 			cl.maxclients = atoi(cl.configstrings[CS_MAXCLIENTS]);
+
+		/* SP-only TRANS water: default opaque until this string is parsed. */
+		mc = atoi(cl.configstrings[CS_MAXCLIENTS]);
+		if (mc < 1)
+			mc = MAX_CLIENTS;
+		Cvar_ForceSet ("r_water_alpha_ok", (mc <= 1) ? "1" : "0");
 	}
 	else if (i >= CS_PLAYERSKINS && i < CS_PLAYERSKINS+MAX_CLIENTS)
 	{

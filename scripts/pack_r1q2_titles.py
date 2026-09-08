@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Extract stock Quake II menu PCXs from pak0, 2x Scale2x + light sharpen, pack zz_r1q2_titles.pkz.
 
+Do NOT ship this pkz in the tester zip until M_Main_Draw uses logical PCX
+sizes. R1GL prefers the 2x PNG so DrawGetPicSize returns 2x and the plaque
+/ dogtags overlap (40-unit pitch vs 64px tags).
+
 Does not rewrite pak9. The pkz must load after numbered paks (named *.pkz).
 Ship both the original PCX (gl_pic_scale size hints) and a 2x PNG (what R1GL draws).
 Do not commit the generated pkz — it contains id Software art from pak0.
