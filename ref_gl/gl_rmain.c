@@ -48,10 +48,9 @@ float R_EffectiveHudScale (void)
 	if (!gl_hudscale)
 		return 1.0f;
 	hs = gl_hudscale->value;
-	if (hs < 0.5f)
-		hs = 0.5f;
-	if (hs > 3.0f)
-		hs = 3.0f;
+	/* 0/NaN/huge used to shrink viddef to 0. HUD size is scr_hudscale. */
+	if (!(hs >= 1.0f) || hs > 4.0f)
+		hs = 1.0f;
 	return hs;
 }
 
@@ -2493,31 +2492,19 @@ void EXPORT R_BeginFrame( float camera_separation )
 
 	if (gl_hudscale->modified)
 	{
-		int width, height;
 		float hs;
 
-		if (gl_hudscale->value < 0.5f)
-			ri.Cvar_Set ("gl_hudscale", "0.5");
-		else if (gl_hudscale->value > 3.0f)
-			ri.Cvar_Set ("gl_hudscale", "3.0");
+		if (!(gl_hudscale->value >= 1.0f) || gl_hudscale->value > 4.0f)
+			ri.Cvar_Set ("gl_hudscale", "1");
 
 		gl_hudscale->modified = false;
 		hs = R_EffectiveHudScale ();
 
+		/* viddef stays the real window size; do not Vid_NewWindow a shrunk pair. */
 		if (vid.width >= 64 && vid.height >= 48)
 		{
-			width = (int)ceilf((float)vid.width / hs);
-			height = (int)ceilf((float)vid.height / hs);
-
-			width = (width+7)&~7;
-			height = (height+1)&~1;
-
-			if (width >= 64 && height >= 48)
-			{
-				vid_scaled_width = vid.width / hs;
-				vid_scaled_height = vid.height / hs;
-				ri.Vid_NewWindow (width, height);
-			}
+			vid_scaled_width = vid.width / hs;
+			vid_scaled_height = vid.height / hs;
 		}
 	}
 

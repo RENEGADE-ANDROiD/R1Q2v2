@@ -217,24 +217,15 @@ int VID_CreateWindow( int width, int height, qboolean fullscreen )
 	SetForegroundWindow( glw_state.hWnd );
 	SetFocus( glw_state.hWnd );
 
-	//r1: hudscaling
-	{
-		float hs = R_EffectiveHudScale ();
-		width = (int)ceilf((float)width / hs);
-		height = (int)ceilf((float)height / hs);
-	}
-
-	//round to power of 8/2 to avoid blackbars
+	/* Pass the real CreateWindow size. HUD uses scr_hudscale; dividing
+	 * viddef by R_EffectiveHudScale (0/NaN/huge) left 0x0 and a black view. */
 	width = (width+7)&~7;
 	height = (height+1)&~1;
+	if (width < 64)
+		width = 64;
+	if (height < 48)
+		height = 48;
 
-	if (width < 64 || height < 48)
-	{
-		ri.Con_Printf( PRINT_ALL, "VID_CreateWindow: skip Vid_NewWindow %d/%d\n", width, height );
-		return VID_ERR_NONE;
-	}
-
-	// let the sound and input subsystems know about the new window
 	ri.Vid_NewWindow (width, height);
 
 	return VID_ERR_NONE;

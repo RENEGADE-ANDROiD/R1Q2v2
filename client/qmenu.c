@@ -810,8 +810,13 @@ void SpinControl_Draw( menulist_s *s )
 		Menu_DrawStringR2LDark( x + (int)(LCOLUMN_OFFSET * sc), y, s->generic.name );
 	}
 
-	if (!s->itemnames[s->curvalue])
-		Com_Error (ERR_DROP, "SpinControl_Draw: %s: NULL current value %d", s->generic.name, s->curvalue);
+	/* Saved curvalue can sit past a shortened list (stock GL spinner gone). */
+	if ( s->curvalue < 0 )
+		s->curvalue = 0;
+	while ( s->itemnames && s->curvalue > 0 && !s->itemnames[s->curvalue] )
+		s->curvalue--;
+	if ( !s->itemnames || !s->itemnames[s->curvalue] )
+		return;
 
 	if ( !strchr( s->itemnames[s->curvalue], '\n' ) )
 	{
