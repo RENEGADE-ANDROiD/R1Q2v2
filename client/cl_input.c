@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "client.h"
 
 cvar_t	*cl_nodelta;
+cvar_t	*cl_maxpackets;
 
 extern	uint32	sys_frame_time;
 uint32	frame_msec;
@@ -527,6 +528,9 @@ void CL_InitInput (void)
 	Cmd_AddCommand ("-klook", IN_KLookUp);
 
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0);
+	/* 0 = every physics frame. Nonzero caps UDP pps using the 2-cmd
+	 * backup already in each datagram (Q2PRO cl_fuzzhack). */
+	cl_maxpackets = Cvar_Get ("cl_maxpackets", "60", 0);
 }
 
 /*
@@ -684,6 +688,60 @@ usercmd_t CL_CreateCmd (void)
 	return cmd;
 }
 
+/*
+ * Protocol 34/35 cannot batch cmds. Each datagram already carries this
+ * move plus the previous two, so we may skip at most two UDP packets
+ * and the next datagram still delivers the dropped cmds. Attack / use /
+ * jump edges and pending reliable data always send immediately.
+ */
+static int	cl_last_transmit_time;
+static int	cl_dropped_moves;
+
+static qboolean CL_ReadyToTransmitMove (const usercmd_t *cmd)
+{
+	int				maxpackets;
+	int				interval;
+	const usercmd_t	*oldcmd;
+
+	if (cls.netchan.message.cursize)
+		return true;
+
+	if (send_packet_now)
+		return true;
+
+	oldcmd = &cl.cmds[(cls.netchan.outgoing_sequence - 1) & (CMD_BACKUP - 1)];
+	if (cmd->buttons != oldcmd->buttons || cmd->impulse || cmd->upmove != oldcmd->upmove)
+		return true;
+
+	if (!cl_maxpackets || cl_maxpackets->intvalue <= 0)
+		return true;
+
+	maxpackets = cl_maxpackets->intvalue;
+	if (maxpackets < 10)
+		maxpackets = 10;
+
+	if (cl_dropped_moves >= 2)
+		return true;
+
+	interval = 1000 / maxpackets;
+	if ((int)cls.realtime - cl_last_transmit_time < interval)
+		return false;
+
+	return true;
+}
+
+static void CL_DropMovePacket (void)
+{
+	cls.netchan.outgoing_sequence++;
+	cl_dropped_moves++;
+}
+
+static void CL_NoteMoveTransmitted (void)
+{
+	cl_last_transmit_time = cls.realtime;
+	cl_dropped_moves = 0;
+}
+
 void CL_SendCmd_Synchronous (void)
 {
 	sizebuf_t	buf;
@@ -744,6 +802,12 @@ void CL_SendCmd_Synchronous (void)
 		MSG_EndWriting (&cls.netchan.message);
 	}
 
+	if (!CL_ReadyToTransmitMove (cmd))
+	{
+		CL_DropMovePacket ();
+		return;
+	}
+
 	SZ_Init (&buf, data, sizeof(data));
 
 #ifdef CINEMATICS
@@ -802,7 +866,8 @@ void CL_SendCmd_Synchronous (void)
 	//
 	// deliver the message
 	//
-	Netchan_Transmit (&cls.netchan, buf.cursize, buf.data);	
+	Netchan_Transmit (&cls.netchan, buf.cursize, buf.data);
+	CL_NoteMoveTransmitted ();
 }
 
 /*
@@ -848,6 +913,13 @@ void CL_SendCmd (void)
 		MSG_WriteByte (clc_userinfo);
 		MSG_WriteString (Cvar_Userinfo());
 		MSG_EndWriting (&cls.netchan.message);
+	}
+
+	if (!CL_ReadyToTransmitMove (cmd))
+	{
+		CL_DropMovePacket ();
+		CL_InitCmd ();
+		return;
 	}
 
 	SZ_Init (&buf, data, sizeof(data));
@@ -909,7 +981,8 @@ void CL_SendCmd (void)
 	// deliver the message
 	//
 
-	Netchan_Transmit (&cls.netchan, buf.cursize, buf.data);	
+	Netchan_Transmit (&cls.netchan, buf.cursize, buf.data);
+	CL_NoteMoveTransmitted ();
 
 	CL_InitCmd(); //jec - init the next usercmd buffer.
 }

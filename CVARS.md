@@ -267,7 +267,9 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 | `r_maxfps` | `250` | Render FPS cap when `cl_async 1` (Video â€œMax FPSâ€). |
 | `cl_updaterate` | `0` | Requested update rate on R1Q2 protocol (`0` = server default). |
 | `cl_timeout` | `120` | Seconds with no packets before disconnect. |
-| `cl_instantpacket` | `1` | Send packets immediately when possible. |
+| `cl_instantpacket` | `1` | Send packets immediately on attack/use (and, with `cl_maxpackets`, jump edges). |
+| `cl_maxpackets` | `60` | Cap outgoing UDP packets/sec on protocol 34/35. **0** = send every physics frame (old behavior). Uses the 2-cmd backup already in each datagram — dropped packets are recovered by the next one, same as Q2PRO `cl_fuzzhack`. Never drops more than 2 in a row. Attack/use/jump edges always send. At `cl_maxfps 125` this is ~60 pps instead of 125. |
+| `net_ignore_icmp` | `1` | Ignore ICMP port-unreachable on the UDP socket. Windows otherwise surfaces those as `WSAECONNRESET` with a **stale** recv buffer. **Build 8050** also disables `SIO_UDP_CONNRESET` / `SIO_UDP_NETRESET` and skips `i < 0` in `CL_ReadPackets`. |
 | `cl_http_downloads` | `1` | Allow HTTP downloads when the server offers them (`dlserver=`). Needs a **USE_CURL** build and `libcurl.dll` beside the exe. |
 | `allow_download` | `1` | Master UDP download switch (maps / models / sounds / players have siblings). |
 

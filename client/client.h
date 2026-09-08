@@ -94,7 +94,7 @@ typedef struct
 extern char cl_weaponmodels[MAX_CLIENTWEAPONMODELS][MAX_QPATH];
 extern int num_cl_weaponmodels;
 
-#define	CMD_BACKUP		64	// allow a lot of command backups for very fast systems
+#define	CMD_BACKUP		128	// 125fps * ~1s unacked; Q2PRO also uses 128 (was 64)
 
 //r1: localents
 typedef struct localent_s localent_t;

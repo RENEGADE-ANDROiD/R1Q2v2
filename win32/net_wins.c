@@ -110,15 +110,12 @@ int	NET_GetPacket (netsrc_t sock, netadr_t *net_from, sizebuf_t *net_message)
 
 		if (err == WSAECONNRESET)
 		{
+			/* No payload. 0 = stop this read loop (do not return -2, which
+			 * is truthy and would spin on a stale buffer). */
 			if (net_ignore_icmp->intvalue)
-			{
-				return -2;
-			}
-			else
-			{
-				SockadrToNetadr (&from, net_from);
-				return -1; 
-			}
+				return 0;
+			SockadrToNetadr (&from, net_from);
+			return -1;
 		}
 #ifndef NO_SERVER
 		if (dedicated->intvalue)	// let dedicated servers continue after errors
@@ -224,7 +221,7 @@ int NET_SendPacket (netsrc_t sock, int length, const void *data, netadr_t *to)
 			}
 
 			//r1: ignore "errors" from connectionless info packets (FUCKING UGLY HACK)
-			//    if the first 4 bytes are connectionless and len=11 (ÿÿÿÿinfo 34) ignore.
+			//    if the first 4 bytes are connectionless and len=11 (ï¿½ï¿½ï¿½ï¿½info 34) ignore.
 
 			//r1: also ignore 10053 (connection reset by peer) messages if we are running
 			//    a server. 2k/xp ip stack seems to send a bunch of these if a client disconnects
@@ -295,6 +292,21 @@ int NET_IPSocket (char *net_interface, int port)
 	{
 		Com_Printf ("UDP_OpenSocket: Couldn't make non-blocking: %s\n", LOG_NET, NET_ErrorString());
 		return 0;
+	}
+
+	/* Windows turns ICMP port/net unreachable into WSAECONNRESET on
+	 * recvfrom (KB 263823). That yields -1/-2 with a stale buffer. */
+	{
+		DWORD	bytes = 0;
+		BOOL	off = FALSE;
+#ifndef SIO_UDP_CONNRESET
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
+#ifndef SIO_UDP_NETRESET
+#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)
+#endif
+		WSAIoctl (newsocket, SIO_UDP_CONNRESET, &off, sizeof(off), NULL, 0, &bytes, NULL, NULL);
+		WSAIoctl (newsocket, SIO_UDP_NETRESET, &off, sizeof(off), NULL, 0, &bytes, NULL, NULL);
 	}
 
 	//setsockopt (sckRaw, IPPROTO_IP, IP_TTL, (char *)&stIPInfo.Ttl, sizeof(stIPInfo.Ttl));

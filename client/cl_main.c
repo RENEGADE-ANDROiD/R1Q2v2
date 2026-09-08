@@ -2965,15 +2965,17 @@ void CL_ReadPackets (void)
 
 	while ((i = (NET_GetPacket (NS_CLIENT, &net_from, &net_message))))
 	{
+		/* ICMP / WSAECONNRESET: recvfrom failed, buffer is the previous
+		 * datagram. Do not re-parse it (connectionless or sequenced). */
+		if (i < 0)
+			continue;
+
 		//
 		// remote command packet
 		//
 		if (*(int *)net_message_buffer == -1)
 		{
-			if (i == -1 && cls.key_dest != key_game)
-				Com_Printf ("Port unreachable from %s\n", LOG_CLIENT|LOG_NOTICE, NET_AdrToString (&net_from));
-			else
-				CL_ConnectionlessPacket ();
+			CL_ConnectionlessPacket ();
 			continue;
 		}
 		else if (*(int *)net_message_buffer == -2)
@@ -3001,9 +3003,6 @@ void CL_ReadPackets (void)
 				,NET_AdrToString(&net_from));
 			continue;
 		}
-
-		if (i == -1)
-			Com_Error (ERR_HARD, "Connection reset by peer.");
 
 		if (!Netchan_Process(&cls.netchan, &net_message))
 			continue;		// wasn't accepted for some reason
@@ -5124,19 +5123,19 @@ void CL_Synchronous_Frame (int msec)
 	if (msec > 5000)
 		cls.netchan.last_received = Sys_Milliseconds ();
 
+	CL_RunServerPings ();
+
+	// fetch results from server before HTTP — a curl hitch must not stall acks
+	CL_ReadPackets ();
+
+	// send a new command message to the server
+	CL_SendCommand_Synchronous ();
+
 	send_packet_now = false;
 
 #ifdef USE_CURL
 	CL_RunHTTPDownloads ();
 #endif
-
-	CL_RunServerPings ();
-
-	// fetch results from server
-	CL_ReadPackets ();
-
-	// send a new command message to the server
-	CL_SendCommand_Synchronous ();
 
 	// predict all unacknowledged movements
 	CL_PredictMovement ();
@@ -5317,8 +5316,6 @@ void CL_Frame (int msec)
 		}
 	}
 
-	send_packet_now = false;
-
 	CL_RunServerPings ();
 
 	//jec- send commands to the server
@@ -5333,6 +5330,8 @@ void CL_Frame (int msec)
 		CL_RunHTTPDownloads ();
 #endif
 	}
+
+	send_packet_now = false;
 
 	//jec- Render the display
 	if(render_frame)

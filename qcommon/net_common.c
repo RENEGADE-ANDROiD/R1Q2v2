@@ -37,7 +37,7 @@ qboolean	net_proxy_active;
 
 void NET_Common_Init (void)
 {
-	net_ignore_icmp = Cvar_Get ("net_ignore_icmp", "0", 0);
+	net_ignore_icmp = Cvar_Get ("net_ignore_icmp", "1", 0);
 
 	Cmd_AddCommand ("net_restart", Net_Restart_f);
 	Cmd_AddCommand ("net_stats", Net_Stats_f);
