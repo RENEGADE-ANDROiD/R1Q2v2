@@ -1141,7 +1141,9 @@ void VID_RemapUnsupportedRef (void)
 {
 	if (!vid_ref || !vid_ref->string[0])
 		return;
-	if (!Q_stricmp (vid_ref->string, "gl") || !Q_stricmp (vid_ref->string, "ncgl"))
+	if (!Q_stricmp (vid_ref->string, "gl")
+		|| !Q_stricmp (vid_ref->string, "ncgl")
+		|| !Q_stricmp (vid_ref->string, "soft"))
 	{
 		Com_Printf ("vid_ref %s is unsupported; using r1gl\n", LOG_CLIENT, vid_ref->string);
 		Cvar_Set ("vid_ref", "r1gl");

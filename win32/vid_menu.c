@@ -22,7 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 enum
 {
-	REF_SOFT,
 	REF_R1GL
 };
 
@@ -117,19 +116,10 @@ static menuaction_s		s_adv_back_action;
 
 static void DriverCallback( void *unused )
 {
-	s_ref_list[!s_current_menu_index].curvalue = s_ref_list[s_current_menu_index].curvalue;
-
-	if ( s_ref_list[s_current_menu_index].curvalue == 0 )
-	{
-		s_current_menu = &s_software_menu;
-		s_current_menu_index = 0;
-	}
-	else
-	{
-		s_current_menu = &s_opengl_menu;
-		s_current_menu_index = 1;
-	}
-
+	s_ref_list[SOFTWARE_MENU].curvalue = REF_R1GL;
+	s_ref_list[OPENGL_MENU].curvalue = REF_R1GL;
+	s_current_menu = &s_opengl_menu;
+	s_current_menu_index = OPENGL_MENU;
 }
 
 static void ScreenSizeCallback( void *s )
@@ -261,16 +251,8 @@ static void ApplyChanges( void *unused )
 	Cvar_SetValue( "sw_mode", (float)s_mode_list[SOFTWARE_MENU].curvalue );
 	Cvar_SetValue( "gl_mode", (float)s_mode_list[OPENGL_MENU].curvalue );
 
-	switch ( s_ref_list[s_current_menu_index].curvalue )
-	{
-		case REF_SOFT:
-			Cvar_Set( "vid_ref", "soft" );
-			break;
-		default:
-			Cvar_Set ( "vid_ref", "r1gl" );
-			Cvar_Set ( "gl_driver", "opengl32" );
-			break;
-	}
+	Cvar_Set ( "vid_ref", "r1gl" );
+	Cvar_Set ( "gl_driver", "opengl32" );
 
 	/*
 	** update appropriate stuff if we're running OpenGL and gamma
@@ -336,7 +318,6 @@ void EXPORT VID_MenuInit( void )
 
 	static const char *refs[] =
 	{
-		"[software      ]",
 		"[R1GL          ]",
 		0
 	};
@@ -471,16 +452,8 @@ void EXPORT VID_MenuInit( void )
 
 	VID_RemapUnsupportedRef ();
 
-	if ( strcmp( vid_ref->string, "soft" ) == 0 )
-	{
-		s_current_menu_index = SOFTWARE_MENU;
-		s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_SOFT;
-	}
-	else
-	{
-		s_current_menu_index = OPENGL_MENU;
-		s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_R1GL;
-	}
+	s_current_menu_index = OPENGL_MENU;
+	s_ref_list[0].curvalue = s_ref_list[1].curvalue = REF_R1GL;
 
 	s_software_menu.x = (int)(viddef.width * 0.50f);
 	s_software_menu.nitems = 0;
@@ -894,8 +867,9 @@ VID_MenuDraw
 void VID_MenuDraw (void)
 {
 	if ( s_current_menu_index == SOFTWARE_MENU )
-		s_current_menu = &s_software_menu;
-	else if ( s_current_menu_index == ADVANCED_MENU )
+		s_current_menu_index = OPENGL_MENU;
+
+	if ( s_current_menu_index == ADVANCED_MENU )
 		s_current_menu = &s_advanced_menu;
 	else
 		s_current_menu = &s_opengl_menu;

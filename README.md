@@ -45,7 +45,7 @@ Column menus are centered under the banner. New installs default to your desktop
 
 OpenGL / R1GL:
 
-- Driver (R1GL, plus software). Stock `[default OpenGL]` is not listed; saved `vid_ref gl` remaps to r1gl
+- Driver is **R1GL** only. Saved `vid_ref gl` / `ncgl` / `soft` remap to r1gl. Stock OpenGL and software are not listed.
 - Video mode, screen size, brightness, fullscreen
 - **Vsync** (off by default)
 - **Max fps** slider (about 60–300; default 250)

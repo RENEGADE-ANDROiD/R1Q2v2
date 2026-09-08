@@ -1,6 +1,5 @@
-#define BUILD "8054"
-/* BUILD 8054:
- * Vid_NewWindow gets the real window size (no hudscale divide / 0x0 viddef).
- * SpinControl clamps curvalue instead of ERR_DROP after hiding stock GL.
- * BUILD 8053: SP-only TRANS water. BUILD 8052: menu/VID_NewWindow guard.
+#define BUILD "8055"
+/* BUILD 8055:
+ * Video spinner is R1GL only; vid_ref soft/gl/ncgl remap to r1gl.
+ * BUILD 8054: real window size to Vid_NewWindow; spincontrol clamp.
  */

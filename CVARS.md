@@ -20,7 +20,7 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 
 | Cvar | Default | Notes |
 |------|---------|--------|
-| `vid_ref` | `r1gl` | Renderer module. **R1GL only** on the Video menu (`ref_r1gl.dll`). Saved `vid_ref gl` / `ncgl` remaps to `r1gl` on init. Stock `ref_gl.dll` is not selectable (black on Win10). |
+| `vid_ref` | `r1gl` | Renderer module. **R1GL only** on the Video menu (`ref_r1gl.dll`). Saved `vid_ref gl` / `ncgl` / `soft` remap to `r1gl` on init. Stock `ref_gl.dll` and software are not selectable (black / missing DLL on Win10). |
 | `vid_fullscreen` | `0` | `1` fullscreen, `0` windowed. |
 | `vid_borderless` | `0` | `1` = borderless windowed fullscreen (no exclusive `ChangeDisplaySettings`). **Archived.** Also used automatically when the requested size matches the current desktop mode. Prefer this on ultrawide if exclusive fullscreen fails. Alias intent: same idea as a `vid_desktopfs` flag. |
 | `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid indexed values fall back to the previous mode (often 320Ã—240 if mode `0`). Custom `-1` stays sticky when force dims are set. |
