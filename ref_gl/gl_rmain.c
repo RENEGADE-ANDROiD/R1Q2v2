@@ -384,6 +384,36 @@ void R_DrawNullModel (void)
 	else
 		R_LightPoint (currententity->origin, shadelight);
 
+	if (currententity->minlight > 0.0f && !(currententity->flags & RF_FULLBRIGHT))
+	{
+		float	m = currententity->minlight;
+		float	om;
+		int		c;
+
+		if (m > 0.666f)
+			m = 0.666f;
+		om = 1.0f - m;
+		for (c = 0; c < 3; c++)
+			shadelight[c] = shadelight[c] * om + m;
+	}
+
+	if (currententity->tint[0] > 0.0f || currententity->tint[1] > 0.0f || currententity->tint[2] > 0.0f)
+	{
+		float	lum = shadelight[0];
+
+		if (shadelight[1] > lum)
+			lum = shadelight[1];
+		if (shadelight[2] > lum)
+			lum = shadelight[2];
+		if (lum < 0.12f)
+			lum = 0.12f;
+		if (lum > 1.0f)
+			lum = 1.0f;
+		shadelight[0] = lum * currententity->tint[0];
+		shadelight[1] = lum * currententity->tint[1];
+		shadelight[2] = lum * currententity->tint[2];
+	}
+
     qglPushMatrix ();
 	R_RotateForEntity (currententity);
 

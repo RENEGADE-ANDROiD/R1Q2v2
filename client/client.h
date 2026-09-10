@@ -411,6 +411,11 @@ extern	cvar_t	*cl_backlerp;
 extern	cvar_t	*cl_footsteps;
 extern	cvar_t	*cl_smoothsteps;
 extern	cvar_t	*cl_noskins;
+extern	cvar_t	*cl_forcecolors;
+extern	cvar_t	*cl_enemycolor;
+extern	cvar_t	*cl_teamcolor;
+extern	cvar_t	*cl_forcecolor_alpha;
+extern	cvar_t	*cl_enemyfullbright;
 //extern	cvar_t	*cl_autoskins;
 
 extern	cvar_t	*cl_upspeed;

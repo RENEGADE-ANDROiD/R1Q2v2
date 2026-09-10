@@ -525,6 +525,8 @@ void LoadPCX (const char *filename, byte **pic, byte **palette, int *width, int 
 		|| pcx->version != 5
 		|| pcx->encoding != 1
 		|| pcx->bits_per_pixel != 8
+		|| pcx->xmax < pcx->xmin
+		|| pcx->ymax < pcx->ymin
 		|| pcx->xmax >= 640
 		|| pcx->ymax >= 480
 		|| pcx->data >= len)
@@ -764,6 +766,10 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 		if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
 			png_set_gray_to_rgb(png_ptr);
 
+		/* Gray expands to RGB after the RGB filler above — add alpha too. */
+		if (color_type == PNG_COLOR_TYPE_GRAY)
+			png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+
 		if (bit_depth == 16)
 			png_set_strip_16(png_ptr);
 
@@ -779,6 +785,14 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 		png_height = png_get_image_height(png_ptr, info_ptr);
 		png_width = png_get_image_width(png_ptr, info_ptr);
 
+		if (png_width < 1 || png_height < 1)
+		{
+			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+			ri.FS_FreeFile (PngFileBuffer.Buffer);
+			ri.Con_Printf (PRINT_ALL, "Empty PNG file: %s\n", name);
+			return;
+		}
+
 		*pic = malloc (png_height * rowbytes);
 		if (!*pic)
 		{
@@ -792,6 +806,56 @@ void LoadPNG (const char *name, byte **pic, int *width, int *height)
 			row_pointers[i] = *pic + i*rowbytes;
 
 		png_read_image(png_ptr, row_pointers);
+
+		/* GL_Upload32 / GL_MipMap treat skins as RGBA. A 24-bit RGB PNG
+		   (Arena r2*.png is 568x390 RGB) used to be uploaded as 32-bit and
+		   crashed in the software mipmap box filter. */
+		{
+			png_byte	channels = png_get_channels (png_ptr, info_ptr);
+
+			if (channels == 3)
+			{
+				byte			*rgba;
+				unsigned int	x, y;
+
+				rgba = malloc (png_height * png_width * 4);
+				if (!rgba)
+				{
+					free (*pic);
+					*pic = NULL;
+					png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+					ri.FS_FreeFile (PngFileBuffer.Buffer);
+					ri.Con_Printf (PRINT_ALL, "Out of memory for PNG: %s\n", name);
+					return;
+				}
+				for (y = 0; y < png_height; y++)
+				{
+					byte	*src = *pic + y * rowbytes;
+					byte	*dst = rgba + y * png_width * 4;
+
+					for (x = 0; x < png_width; x++)
+					{
+						dst[0] = src[0];
+						dst[1] = src[1];
+						dst[2] = src[2];
+						dst[3] = 255;
+						src += 3;
+						dst += 4;
+					}
+				}
+				free (*pic);
+				*pic = rgba;
+			}
+			else if (channels != 4)
+			{
+				free (*pic);
+				*pic = NULL;
+				png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+				ri.FS_FreeFile (PngFileBuffer.Buffer);
+				ri.Con_Printf (PRINT_ALL, "PNG %s: unsupported channel count %u\n", name, (unsigned)channels);
+				return;
+			}
+		}
 
 		*width = (int)png_width;
 		*height = (int)png_height;
@@ -2217,9 +2281,15 @@ void GL_ResampleTexture (unsigned *in, int inwidth, int inheight, unsigned *out,
 	int		i, j;
 	unsigned	*inrow, *inrow2;
 	unsigned	frac, fracstep;
-	unsigned	p1[1024], p2[1024];
+	static unsigned	p1[MAX_TEXTURE_DIMENSIONS];
+	static unsigned	p2[MAX_TEXTURE_DIMENSIONS];
 	//byte		noalpha[4] = {255,255,255,255};
 	byte		*pix1, *pix2, *pix3, *pix4;
+
+	if (outwidth < 1 || outheight < 1 || inwidth < 1 || inheight < 1)
+		return;
+	if (outwidth > MAX_TEXTURE_DIMENSIONS)
+		return;
 
 	fracstep = inwidth*0x10000/outwidth;
 
@@ -2624,6 +2694,26 @@ qboolean GL_Upload32 (unsigned *data, int width, int height, qboolean mipmap, in
 	if (scaled_height < 1)
 		scaled_height = 1;
 
+	/* Software mipmaps assume POT rows (box filter steps 8 bytes, linear
+	   uses x-1 as a wrap mask). Arena player PNGs are 568x390 / 520x388.
+	   Keep NPOT for non-mipmapped pics; round mipmapped uploads up to POT. */
+	if (mipmap)
+	{
+		int	pot_w = 1;
+		int	pot_h = 1;
+
+		while (pot_w < scaled_width)
+			pot_w <<= 1;
+		while (pot_h < scaled_height)
+			pot_h <<= 1;
+		if (pot_w > MAX_TEXTURE_DIMENSIONS)
+			pot_w = MAX_TEXTURE_DIMENSIONS;
+		if (pot_h > MAX_TEXTURE_DIMENSIONS)
+			pot_h = MAX_TEXTURE_DIMENSIONS;
+		scaled_width = pot_w;
+		scaled_height = pot_h;
+	}
+
 	upload_width = scaled_width;
 	upload_height = scaled_height;
 
@@ -2905,6 +2995,17 @@ image_t *GL_LoadPic (const char *name, byte *pic, int width, int height, imagety
 
 	strcpy (image->name, name);
 	image->registration_sequence = registration_sequence;
+
+	if (!pic || width < 1 || height < 1 || width > MAX_TEXTURE_DIMENSIONS || height > MAX_TEXTURE_DIMENSIONS)
+	{
+		static unsigned	blank = 0xFF000000;
+
+		ri.Con_Printf (PRINT_ALL, "GL_LoadPic: %s: bad image %dx%d\n", name, width, height);
+		pic = (byte *)&blank;
+		width = height = 1;
+		bits = 32;
+		type = it_pic;
+	}
 
 	image->width = width;
 	image->height = height;

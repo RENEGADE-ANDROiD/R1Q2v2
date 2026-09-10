@@ -57,6 +57,127 @@ const float	r_avertexnormal_dots[SHADEDOT_QUANT][256] =
 
 const float	*shadedots = r_avertexnormal_dots[0];
 
+static qboolean GL_EntityIsShell (void)
+{
+	return (currententity->flags & (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM)) != 0;
+}
+
+/* Force-color: lighting multiply; keep the skin so players stay identifiable. */
+static qboolean GL_EntitySolidTint (void)
+{
+	if (GL_EntityIsShell ())
+		return false;
+	if (currententity->flags & RF_WEAPONMODEL)
+		return false;
+	return currententity->tint[0] > 0.0f || currententity->tint[1] > 0.0f || currententity->tint[2] > 0.0f;
+}
+
+/* Enemy brightmaps: lerp world light toward fullbright by minlight (50% / 66.6% cap).
+   Replacing light with a flat 0.666 made enemies dimmer than a bright room. */
+static void GL_ApplyMinLight (void)
+{
+	float	m;
+	float	om;
+	int		i;
+
+	m = currententity->minlight;
+	if (m <= 0.0f)
+		return;
+	if (GL_EntityIsShell ())
+		return;
+	if (currententity->flags & RF_WEAPONMODEL)
+		return;
+	if (m > 0.666f)
+		m = 0.666f;
+	om = 1.0f - m;
+	for (i = 0; i < 3; i++)
+		shadelight[i] = shadelight[i] * om + m;
+}
+
+/* Recolor alias lighting from entity.tint. Uses current shade (world or minlight). */
+static void GL_TintShadeLight (void)
+{
+	float	lum;
+
+	if (!GL_EntitySolidTint ())
+		return;
+
+	lum = shadelight[0];
+	if (shadelight[1] > lum)
+		lum = shadelight[1];
+	if (shadelight[2] > lum)
+		lum = shadelight[2];
+	if (lum < 0.12f)
+		lum = 0.12f;
+	if (lum > 1.0f)
+		lum = 1.0f;
+	shadelight[0] = lum * currententity->tint[0];
+	shadelight[1] = lum * currententity->tint[1];
+	shadelight[2] = lum * currententity->tint[2];
+}
+
+static float GL_TintAlpha (void)
+{
+	float	a = currententity->tint_alpha;
+
+	if (a < 0.0f)
+		return 0.0f;
+	if (a > 1.0f)
+		return 1.0f;
+	return a;
+}
+
+static vec3_t	gl_saved_shadelight;
+static int		gl_saved_tint_flags;
+static float	gl_saved_tint_alpha;
+static qboolean	gl_tint_overlay_blend;
+
+static qboolean GL_BeginTintOverlay (void)
+{
+	float	a;
+
+	if (!GL_EntitySolidTint ())
+		return false;
+	a = GL_TintAlpha ();
+	if (a <= 0.005f)
+		return false;
+
+	gl_saved_shadelight[0] = shadelight[0];
+	gl_saved_shadelight[1] = shadelight[1];
+	gl_saved_shadelight[2] = shadelight[2];
+	GL_TintShadeLight ();
+
+	qglDisable (GL_TEXTURE_2D);
+	gl_tint_overlay_blend = (a < 0.995f);
+	if (gl_tint_overlay_blend)
+	{
+		qglEnable (GL_BLEND);
+		qglBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		qglDepthMask (0);
+		gl_saved_tint_flags = currententity->flags;
+		gl_saved_tint_alpha = currententity->alpha;
+		currententity->flags |= RF_TRANSLUCENT;
+		currententity->alpha = a;
+	}
+	return true;
+}
+
+static void GL_EndTintOverlay (void)
+{
+	if (gl_tint_overlay_blend)
+	{
+		currententity->flags = gl_saved_tint_flags;
+		currententity->alpha = gl_saved_tint_alpha;
+		qglDepthMask (1);
+		qglDisable (GL_BLEND);
+		gl_tint_overlay_blend = false;
+	}
+	qglEnable (GL_TEXTURE_2D);
+	shadelight[0] = gl_saved_shadelight[0];
+	shadelight[1] = gl_saved_shadelight[1];
+	shadelight[2] = gl_saved_shadelight[2];
+}
+
 void GL_LerpVerts( int nverts, dtrivertx_t *v, dtrivertx_t *ov, dtrivertx_t *verts, float *lerp, float move[3], float frontv[3], float backv[3] )
 {
 	int i;
@@ -127,7 +248,7 @@ void GL_DrawAliasFrameLerp (dmdl_t *paliashdr, float backlerp)
 		alpha = 1.0f;
 
 	// PMM - added double shell
-	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM) )
+	if ( GL_EntityIsShell () )
 		qglDisable( GL_TEXTURE_2D );
 
 	frontlerp = 1.0f - backlerp;
@@ -325,7 +446,7 @@ void GL_DrawAliasFrameLerp (dmdl_t *paliashdr, float backlerp)
 
 //	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE ) )
 	// PMM - added double damage shell
-	if ( currententity->flags & ( RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE | RF_SHELL_DOUBLE | RF_SHELL_HALF_DAM) )
+	if ( GL_EntityIsShell () )
 	{
 		qglEnable( GL_TEXTURE_2D );
 		GL_CheckForError ();
@@ -865,6 +986,8 @@ void R_DrawAliasMD3Model (entity_t *e)
 		shadelight[1] = 0.0f;
 		shadelight[2] = 0.0f;
 	}
+	else
+		GL_ApplyMinLight ();
 
 	an = currententity->angles[1] / 180 * M_PI;
 	shadevector[0] = (float)cos(-an);
@@ -899,31 +1022,47 @@ void R_DrawAliasMD3Model (entity_t *e)
 	if (FLOAT_EQ_ZERO (r_lerpmodels->value))
 		currententity->backlerp = 0;
 
-	for (m = 0; m < md3->num_meshes; m++)
+	if (GL_EntitySolidTint () && GL_TintAlpha () >= 0.995f)
 	{
-		md3mesh_mem_t *mesh = &md3->meshes[m];
+		GL_BeginTintOverlay ();
+		for (m = 0; m < md3->num_meshes; m++)
+			GL_DrawMD3MeshLerp (md3, &md3->meshes[m], currententity->backlerp);
+		GL_EndTintOverlay ();
+	}
+	else
+	{
+		for (m = 0; m < md3->num_meshes; m++)
+		{
+			md3mesh_mem_t *mesh = &md3->meshes[m];
 
-		if (currententity->skin)
-			skin = currententity->skin;
-		else if (mesh->num_skins > 0 && mesh->skins[0])
-			skin = mesh->skins[0];
-		else if (currentmodel->skins[0])
-			skin = currentmodel->skins[0];
-		else
-			skin = r_notexture;
+			if (currententity->skin)
+				skin = currententity->skin;
+			else if (mesh->num_skins > 0 && mesh->skins[0])
+				skin = mesh->skins[0];
+			else if (currentmodel->skins[0])
+				skin = currentmodel->skins[0];
+			else
+				skin = r_notexture;
 
-		if (!skin)
-			skin = r_notexture;
+			if (!skin)
+				skin = r_notexture;
 
-		GL_Bind (skin->texnum);
+			GL_Bind (skin->texnum);
 
-		if (currententity->flags & RF_TRANSLUCENT || (skin->has_alpha && FLOAT_NE_ZERO(gl_alphaskins->value)))
-			qglEnable (GL_BLEND);
+			if (currententity->flags & RF_TRANSLUCENT || (skin->has_alpha && FLOAT_NE_ZERO(gl_alphaskins->value)))
+				qglEnable (GL_BLEND);
 
-		GL_DrawMD3MeshLerp (md3, mesh, currententity->backlerp);
+			GL_DrawMD3MeshLerp (md3, mesh, currententity->backlerp);
 
-		if (currententity->flags & RF_TRANSLUCENT || (skin->has_alpha && FLOAT_NE_ZERO(gl_alphaskins->value)))
-			qglDisable (GL_BLEND);
+			if (currententity->flags & RF_TRANSLUCENT || (skin->has_alpha && FLOAT_NE_ZERO(gl_alphaskins->value)))
+				qglDisable (GL_BLEND);
+		}
+		if (GL_BeginTintOverlay ())
+		{
+			for (m = 0; m < md3->num_meshes; m++)
+				GL_DrawMD3MeshLerp (md3, &md3->meshes[m], currententity->backlerp);
+			GL_EndTintOverlay ();
+		}
 	}
 
 	GL_TexEnv (GL_REPLACE);
@@ -1163,6 +1302,8 @@ void R_DrawAliasModel (entity_t *e)
 		shadelight[1] = 0.0f;
 		shadelight[2] = 0.0f;
 	}
+	else
+		GL_ApplyMinLight ();
 // PGM	
 // =================
 
@@ -1257,7 +1398,21 @@ void R_DrawAliasModel (entity_t *e)
 	if ( FLOAT_EQ_ZERO(r_lerpmodels->value) )
 		currententity->backlerp = 0;
 
-	GL_DrawAliasFrameLerp (paliashdr, currententity->backlerp);
+	if (GL_EntitySolidTint () && GL_TintAlpha () >= 0.995f)
+	{
+		GL_BeginTintOverlay ();
+		GL_DrawAliasFrameLerp (paliashdr, currententity->backlerp);
+		GL_EndTintOverlay ();
+	}
+	else
+	{
+		GL_DrawAliasFrameLerp (paliashdr, currententity->backlerp);
+		if (GL_BeginTintOverlay ())
+		{
+			GL_DrawAliasFrameLerp (paliashdr, currententity->backlerp);
+			GL_EndTintOverlay ();
+		}
+	}
 
 	GL_TexEnv( GL_REPLACE );
 	qglShadeModel (GL_FLAT);

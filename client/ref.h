@@ -77,7 +77,11 @@ typedef struct entity_s
 	struct image_s	*skin;			// NULL for inline skin
 	int		flags;
 
-	//WARNING: This struct size cannot be changed.
+	/* Client-only player color force (R1Q2v2). 0,0,0 = off.
+	   Rebuild client + ref_r1gl together; do not mix with an older renderer. */
+	float	tint[3];
+	float	minlight;	/* 0 = off; else 0–1 blend toward fullbright */
+	float	tint_alpha;	/* 0 = skin only, 1 = solid tint (force-color opacity) */
 } entity_t;
 
 #define ENTITY_FLAGS  68

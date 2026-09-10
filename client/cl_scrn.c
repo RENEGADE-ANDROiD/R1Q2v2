@@ -1970,6 +1970,51 @@ static qboolean SCR_LayoutStringIsMenu (const char *s)
 	return false;
 }
 
+/*
+ * CS_STATUSBAR is a server supplied layout program.  Most deathmatch mods
+ * use it for far more than the stock health/ammo strip, so it is not safe to
+ * infer which coordinates belong to the player HUD from xv/y* opcodes.
+ *
+ * Keep the optional top/scale/wide transforms limited to the two stock game
+ * programs.  Comparing whitespace-insensitively accepts the same programs
+ * from a stock server even if its source formatted the string differently.
+ */
+static qboolean SCR_LayoutProgramMatches (const char *layout, const char *program)
+{
+	while (*layout)
+	{
+		if (*layout == ' ' || *layout == '\t' || *layout == '\r' || *layout == '\n')
+		{
+			layout++;
+			continue;
+		}
+		if (*layout != *program)
+			return false;
+		layout++;
+		program++;
+	}
+	return *program == 0;
+}
+
+static qboolean SCR_IsStockStatusbar (const char *layout)
+{
+	static const char stock_single[] =
+		"yb-24xv0hnumxv50pic0if2xv100anumxv150pic2endif"
+		"if4xv200rnumxv250pic4endifif6xv296pic6endif"
+		"yb-50if7xv0pic7xv26yb-42stat_string8yb-50endif"
+		"if9xv262num210xv296pic9endifif11xv148pic11endif";
+	static const char stock_dm[] =
+		"yb-24xv0hnumxv50pic0if2xv100anumxv150pic2endif"
+		"if4xv200rnumxv250pic4endifif6xv296pic6endif"
+		"yb-50if7xv0pic7xv26yb-42stat_string8yb-50endif"
+		"if9xv246num210xv296pic9endifif11xv148pic11endif"
+		"xr-50yt2num314if17xv0yb-58string2\"SPECTATORMODE\"endif"
+		"if16xv0yb-68string\"Chasing\"xv64stat_string16endif";
+
+	return SCR_LayoutProgramMatches (layout, stock_single) ||
+		SCR_LayoutProgramMatches (layout, stock_dm);
+}
+
 static void SCR_RunLayoutMenu (char *s)
 {
 	float	sc;
@@ -2014,6 +2059,16 @@ void SCR_DrawStats (void)
 	if (SCR_LayoutStringIsMenu (cl.configstrings[CS_STATUSBAR]))
 	{
 		SCR_RunLayoutMenu (cl.configstrings[CS_STATUSBAR]);
+		if (re.DrawSetColor)
+			re.DrawSetColor (1.0f, 1.0f, 1.0f, 1.0f);
+		return;
+	}
+
+	/* Preserve custom multiplayer statusbar programs exactly as the original
+	   R1Q2 client did.  Their xv coordinates have mod-defined meanings. */
+	if (!SCR_IsStockStatusbar (cl.configstrings[CS_STATUSBAR]))
+	{
+		SCR_ExecuteLayoutString (cl.configstrings[CS_STATUSBAR]);
 		if (re.DrawSetColor)
 			re.DrawSetColor (1.0f, 1.0f, 1.0f, 1.0f);
 		return;

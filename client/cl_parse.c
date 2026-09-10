@@ -839,15 +839,18 @@ badskin:
 			break; // only one when vwep is off
 	}
 
-	// must have loaded all data types to be valud
-	if (!ci->skin || !ci->icon || !ci->model || !ci->weaponmodel[0])
+	/* Missing icon/vwep must not hide the player mesh (that used to draw R_DrawNullModel). */
+	if (!ci->model)
+		ci->model = re.RegisterModel ("players/male/tris.md2");
+	if (!ci->skin)
+		ci->skin = re.RegisterSkin ("players/male/grunt.pcx");
+	if (!ci->icon)
 	{
-		ci->skin = NULL;
-		ci->icon = NULL;
-		ci->model = NULL;
-		ci->weaponmodel[0] = NULL;
-		return;
+		strcpy (ci->iconname, "/players/male/grunt_i.pcx");
+		ci->icon = re.RegisterPic (ci->iconname);
 	}
+	if (!ci->weaponmodel[0])
+		ci->weaponmodel[0] = re.RegisterModel ("players/male/weapon.md2");
 }
 
 
@@ -1048,13 +1051,23 @@ qboolean CL_LoadClientinfoStep (int player, int step)
 		return true;
 
 finalize:
-	if (!ci->skin || !ci->icon || !ci->model || !ci->weaponmodel[0])
+	if (!ci->model)
+		ci->model = re.RegisterModel ("players/male/tris.md2");
+	if (!ci->skin)
+		ci->skin = re.RegisterSkin ("players/male/grunt.pcx");
+	if (!ci->icon)
 	{
-		ci->skin = NULL;
-		ci->icon = NULL;
-		ci->model = NULL;
-		ci->weaponmodel[0] = NULL;
+		if (!ci->iconname[0])
+			strcpy (ci->iconname, "/players/male/grunt_i.pcx");
+		ci->icon = re.RegisterPic (ci->iconname);
+		if (!ci->icon)
+		{
+			strcpy (ci->iconname, "/players/male/grunt_i.pcx");
+			ci->icon = re.RegisterPic (ci->iconname);
+		}
 	}
+	if (!ci->weaponmodel[0])
+		ci->weaponmodel[0] = re.RegisterModel ("players/male/weapon.md2");
 	return false;
 }
 

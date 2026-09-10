@@ -337,6 +337,11 @@ cvar_t	*rcon_client_password;
 cvar_t	*rcon_address;
 
 cvar_t	*cl_noskins;
+cvar_t	*cl_forcecolors;
+cvar_t	*cl_enemycolor;
+cvar_t	*cl_teamcolor;
+cvar_t	*cl_forcecolor_alpha;
+cvar_t	*cl_enemyfullbright;
 //cvar_t	*cl_autoskins;
 cvar_t	*cl_footsteps;
 cvar_t	*cl_timeout;
@@ -4469,6 +4474,11 @@ void CL_InitLocal (void)
 
 	cl_footsteps = Cvar_Get ("cl_footsteps", "1", 0);
 	cl_noskins = Cvar_Get ("cl_noskins", "0", 0);
+	cl_forcecolors = Cvar_Get ("cl_forcecolors", "0", CVAR_ARCHIVE);
+	cl_enemycolor = Cvar_Get ("cl_enemycolor", "1", CVAR_ARCHIVE);
+	cl_teamcolor = Cvar_Get ("cl_teamcolor", "6", CVAR_ARCHIVE);
+	cl_forcecolor_alpha = Cvar_Get ("cl_forcecolor_alpha", "0.5", CVAR_ARCHIVE);
+	cl_enemyfullbright = Cvar_Get ("cl_enemyfullbright", "0", CVAR_ARCHIVE);
 //	cl_autoskins = Cvar_Get ("cl_autoskins", "0", 0);
 	cl_predict = Cvar_Get ("cl_predict", "1", 0);
 	cl_backlerp = Cvar_Get ("cl_backlerp", "1", 0);

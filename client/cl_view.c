@@ -109,10 +109,20 @@ V_AddEntity
 */
 void V_AddEntity (entity_t *ent)
 {
+	entity_t	add;
+
 	if (r_numentities >= MAX_ENTITIES)
 		return;
 
-	r_entities[r_numentities++] = *ent;
+	add = *ent;
+	/* First-person view gun: never take force-color / enemy brightmaps. */
+	if (add.flags & RF_WEAPONMODEL)
+	{
+		add.tint[0] = add.tint[1] = add.tint[2] = 0.0f;
+		add.tint_alpha = 0.0f;
+		add.minlight = 0.0f;
+	}
+	r_entities[r_numentities++] = add;
 }
 
 

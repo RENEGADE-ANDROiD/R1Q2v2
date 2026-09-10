@@ -28,6 +28,182 @@ extern	struct model_s	*cl_mod_powerscreen;
 int	vidref_val;
 //PGM
 
+/* 0 = off/default, 1..14 = saturated then pastel. Defaults: enemy red, team blue. */
+static const float cl_forcecolor_rgb[][3] = {
+	{ 0.00f, 0.00f, 0.00f },
+	{ 1.00f, 0.18f, 0.18f },	/* red */
+	{ 1.00f, 0.48f, 0.10f },	/* orange */
+	{ 1.00f, 0.92f, 0.15f },	/* yellow */
+	{ 0.18f, 1.00f, 0.22f },	/* green */
+	{ 0.12f, 0.90f, 1.00f },	/* cyan */
+	{ 0.22f, 0.38f, 1.00f },	/* blue */
+	{ 1.00f, 0.18f, 0.90f },	/* magenta */
+	{ 1.00f, 1.00f, 1.00f },	/* white (modulate: original skin) */
+	{ 1.00f, 0.42f, 0.62f },	/* pink */
+	{ 1.00f, 0.55f, 0.32f },	/* peach */
+	{ 1.00f, 0.82f, 0.38f },	/* cream */
+	{ 0.28f, 1.00f, 0.48f },	/* mint */
+	{ 0.28f, 0.62f, 1.00f },	/* sky */
+	{ 0.62f, 0.38f, 1.00f }		/* lilac */
+};
+#define CL_FORCECOLOR_MAX  ((int)(sizeof(cl_forcecolor_rgb) / sizeof(cl_forcecolor_rgb[0])) - 1)
+
+/* 0 unknown, 1 red, 2 blue. Arena uses r2red/r2blue; CTF uses ctf_r/ctf_b. */
+static int CL_SkinTeamId (const char *cinfo)
+{
+	char		skin[MAX_QPATH];
+	const char	*src;
+	char		*cut;
+	int			i;
+
+	if (!cinfo || !cinfo[0])
+		return 0;
+
+	src = cinfo;
+	cut = strrchr (src, '/');
+	if (!cut)
+		cut = strrchr (src, '\\');
+	src = cut ? cut + 1 : src;
+	Q_strncpy (skin, src, sizeof(skin) - 1);
+	cut = strchr (skin, '.');
+	if (cut)
+		*cut = 0;
+	if (!skin[0])
+		return 0;
+
+	if (!Q_stricmp (skin, "red")
+		|| !Q_strncasecmp (skin, "ctf_r", 5)
+		|| !Q_strncasecmp (skin, "r2red", 5)
+		|| !Q_strncasecmp (skin, "ra2red", 6))
+		return 1;
+	if (!Q_stricmp (skin, "blue")
+		|| !Q_strncasecmp (skin, "ctf_b", 5)
+		|| !Q_strncasecmp (skin, "r2blue", 6)
+		|| !Q_strncasecmp (skin, "ra2blue", 7))
+		return 2;
+
+	for (i = 0; skin[i]; i++)
+	{
+		if (!Q_strncasecmp (skin + i, "r2red", 5) || !Q_strncasecmp (skin + i, "ctf_r", 5))
+			return 1;
+		if (!Q_strncasecmp (skin + i, "r2blue", 6) || !Q_strncasecmp (skin + i, "ctf_b", 5))
+			return 2;
+	}
+	return 0;
+}
+
+static int CL_LocalTeamId (int localNum)
+{
+	int	team;
+
+	if (localNum >= 0 && localNum < MAX_CLIENTS)
+	{
+		team = CL_SkinTeamId (cl.clientinfo[localNum].cinfo);
+		if (team)
+			return team;
+		team = CL_SkinTeamId (cl.configstrings[CS_PLAYERSKINS + localNum]);
+		if (team)
+			return team;
+	}
+	return CL_SkinTeamId (Cvar_VariableString ("skin"));
+}
+
+/* -1 self/invalid, 0 enemy, 1 teammate (r2red/r2blue or ctf_r/ctf_b). */
+static int CL_PlayerForceSide (int clientnum)
+{
+	int	localNum;
+	int	localTeam;
+	int	otherTeam;
+
+	if (clientnum < 0 || clientnum >= MAX_CLIENTS)
+		return -1;
+	if (clientnum == cl.playernum)
+		return -1;
+
+	localNum = cl.playernum;
+	if (cl.frame.playerstate.stats[STAT_CHASE] > 0)
+	{
+		int	chase = cl.frame.playerstate.stats[STAT_CHASE] - 1;
+		if (chase >= 0 && chase < MAX_CLIENTS)
+			localNum = chase;
+	}
+
+	localTeam = CL_LocalTeamId (localNum);
+	otherTeam = CL_SkinTeamId (cl.clientinfo[clientnum].cinfo);
+	if (!otherTeam)
+		otherTeam = CL_SkinTeamId (cl.configstrings[CS_PLAYERSKINS + clientnum]);
+	if (localTeam && otherTeam)
+		return (localTeam == otherTeam) ? 1 : 0;
+	return 0;
+}
+
+static void CL_SetPlayerTint (entity_t *ent, int clientnum)
+{
+	int			idx;
+	int			side;
+	const float	*rgb;
+
+	ent->tint[0] = ent->tint[1] = ent->tint[2] = 0.0f;
+	ent->tint_alpha = 0.0f;
+
+	if (!cl_forcecolors || !cl_forcecolors->intvalue)
+		return;
+
+	side = CL_PlayerForceSide (clientnum);
+	if (side < 0)
+		return;
+
+	if (side == 1)
+		idx = cl_teamcolor ? cl_teamcolor->intvalue : 0;
+	else
+		idx = cl_enemycolor ? cl_enemycolor->intvalue : 0;
+
+	if (idx < 1 || idx > CL_FORCECOLOR_MAX)
+		return;
+	rgb = cl_forcecolor_rgb[idx];
+	ent->tint[0] = rgb[0];
+	ent->tint[1] = rgb[1];
+	ent->tint[2] = rgb[2];
+	{
+		float	a = cl_forcecolor_alpha ? cl_forcecolor_alpha->value : 0.5f;
+		if (a < 0.0f)
+			a = 0.0f;
+		if (a > 1.0f)
+			a = 1.0f;
+		ent->tint_alpha = a;
+	}
+}
+
+/* Last-chance mesh so force-color/fullbright never fall through to R_DrawNullModel. */
+static void CL_EnsurePlayerDrawModel (entity_t *ent)
+{
+	if (!ent->model)
+		ent->model = re.RegisterModel ("players/male/tris.md2");
+	if (!ent->skin)
+		ent->skin = re.RegisterSkin ("players/male/grunt.pcx");
+}
+
+#define CL_ENEMY_BRIGHT_CAP  0.666f	/* 66.6% */
+
+/* 0 = off. Legacy 1 (old Yes) and anything >= 66 (including old 100) cap at 66.6%. */
+static float CL_PlayerEnemyBrightScale (int clientnum)
+{
+	float	v;
+
+	if (!cl_enemyfullbright)
+		return 0.0f;
+	v = cl_enemyfullbright->value;
+	if (v <= 0.0f)
+		return 0.0f;
+	if (CL_PlayerForceSide (clientnum) != 0)
+		return 0.0f;
+	if (v == 1.0f)
+		return CL_ENEMY_BRIGHT_CAP;
+	if (v >= 50.0f && v < 66.0f)
+		return 0.50f;
+	return CL_ENEMY_BRIGHT_CAP;
+}
+
 /*
 =========================================================================
 
@@ -1598,6 +1774,7 @@ static void CL_AddPacketEntities (const frame_t *frame)
 	float					time;
 	float					entity_lerp, frame_lerp;
 	qboolean				regular;
+	float					player_minlight;
 	
 	time = (float)cl.time;
 
@@ -1617,6 +1794,10 @@ static void CL_AddPacketEntities (const frame_t *frame)
 
 		effects = s1->effects;
 		renderfx = s1->renderfx;
+		ent.tint[0] = ent.tint[1] = ent.tint[2] = 0.0f;
+		ent.tint_alpha = 0.0f;
+		ent.minlight = 0.0f;
+		player_minlight = 0.0f;
 
 		regular = false;
 
@@ -1876,11 +2057,14 @@ lerp_time;*/
 				ci = &cl.clientinfo[s1->skinnum & 0xff];
 				ent.skin = ci->skin;
 				ent.model = ci->model;
-				if (!ent.skin || !ent.model)
-				{
-					ent.skin = cl.baseclientinfo.skin;
+				if (!ent.model)
 					ent.model = cl.baseclientinfo.model;
-				}
+				if (!ent.skin)
+					ent.skin = cl.baseclientinfo.skin;
+				CL_EnsurePlayerDrawModel (&ent);
+				CL_SetPlayerTint (&ent, s1->skinnum & 0xff);
+				player_minlight = CL_PlayerEnemyBrightScale (s1->skinnum & 0xff);
+				ent.minlight = player_minlight;
 //============
 //PGM
 				if (renderfx & RF_USE_DISGUISE)
@@ -2026,6 +2210,7 @@ lerp_time;*/
 			if (s1->modelindex2 == 255)
 			{	
 				// custom weapon
+				ent.minlight = player_minlight;
 				ci = &cl.clientinfo[s1->skinnum & 0xff];
 				i = (s1->skinnum >> 8); // 0 is default weapon model
 				if (!cl_vwep->intvalue || i > MAX_CLIENTWEAPONMODELS - 1)
@@ -2037,6 +2222,8 @@ lerp_time;*/
 						ent.model = ci->weaponmodel[0];
 					if (!ent.model)
 						ent.model = cl.baseclientinfo.weaponmodel[0];
+					if (!ent.model)
+						ent.model = re.RegisterModel ("players/male/weapon.md2");
 				}
 			}
 			else
@@ -2051,7 +2238,8 @@ lerp_time;*/
 			}
 			// pmm
 
-			V_AddEntity (&ent);
+			if (ent.model)
+				V_AddEntity (&ent);
 
 			//PGM - make sure these get reset.
 			ent.flags = 0;
@@ -2059,16 +2247,23 @@ lerp_time;*/
 			//PGM
 		}
 
+		/* Flags / other links keep authored skins; only body + gun take force color / brightmaps. */
+		ent.tint[0] = ent.tint[1] = ent.tint[2] = 0.0f;
+		ent.tint_alpha = 0.0f;
+		ent.minlight = 0.0f;
+
 		if (s1->modelindex3)
 		{
 			ent.model = cl.model_draw[s1->modelindex3];
-			V_AddEntity (&ent);
+			if (ent.model)
+				V_AddEntity (&ent);
 		}
 
 		if (s1->modelindex4)
 		{
 			ent.model = cl.model_draw[s1->modelindex4];
-			V_AddEntity (&ent);
+			if (ent.model)
+				V_AddEntity (&ent);
 		}
 
 		if ( effects & EF_POWERSCREEN )
@@ -2359,7 +2554,10 @@ static void CL_AddViewWeapon (const player_state_t *ps, const player_state_t *op
 	}
 
 	gun.flags = RF_MINLIGHT | RF_DEPTHHACK | RF_WEAPONMODEL;
-	
+	gun.tint[0] = gun.tint[1] = gun.tint[2] = 0.0f;
+	gun.tint_alpha = 0.0f;
+	gun.minlight = 0.0f;
+
 	FastVectorCopy (gun.origin, gun.oldorigin);	// don't lerp at all
 
 	if (cl_test2->intvalue > 1)

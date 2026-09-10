@@ -158,10 +158,10 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_menuscale` | `0` | Menu text scale. `0` = auto (~height/480, clamped 1â€“6). Try `2.5` at 1080p. |
 | `scr_menupicscale` | `1.2` | Extra scale for menu PCX art (banners, plaques) on top of menu scale (clamped 1â€“2). |
 | `con_scale` | `0` | Console / notify text scale. `0` = auto (~height/540, clamped 1-6; ~2.0 at 1080p â€” softer than menu auto). Explicit values work; try `1.75`-`2.0` at 1080p if auto still feels large. Shipped `r1q2v2_visual.cfg` sets `2.0`. |
-| `scr_hudscale` | `1` | **Status bar only** (~0.5â€“2.5). Menus and crosshair stay unscaled. Presets must use this, not `gl_hudscale`. |
+| `scr_hudscale` | `1` | **Stock status bar only** (~0.5-2.5). Menus, crosshair, and custom server/mod statusbars keep their authored layout. Presets must use this, not `gl_hudscale`. |
 | `scr_layoutscale` | `0` | **In-game layout menus** (`STAT_LAYOUTS` / `cl.layout`, and `CS_STATUSBAR` strings that are menus — `picn`/`cstring` without `hnum`, e.g. TastySpleen/RA MOTD). `0` = auto (~height/480, clamped 1-6). `1` = classic tiny 8px. Maps `xv`/`xl`/`xr` onto a centered 320-wide canvas and `yt`/`yv`/`yb` onto a centered 240-tall canvas, including when scale is 1. Numeric status bar (`hnum`/`anum`) still uses `scr_hud_top` / `scr_hudwide` / `scr_hudscale`. |
-| `scr_hud_top` | `0` | **Status bar only.** `1` draws the status bar at the top. Does not affect Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs. |
-| `scr_hudwide` | `1` | **Status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = original 320-wide centered strip. Saved. Does not affect layout menus. |
+| `scr_hud_top` | `0` | **Stock status bar only.** `1` draws the status bar at the top. Does not affect custom server/mod statusbars, Arena/RA team menus, help, inventory, or other `STAT_LAYOUTS` UIs. |
+| `scr_hudwide` | `1` | **Stock status bar only.** On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = the original 320-wide centered strip. Saved. Custom server/mod statusbars keep their original coordinates. |
 | `gl_hudscale` | `1` | Legacy whole-2D scale. Any later `seta` is redirected into `scr_hudscale` (if still `1`) and forced back to `1`. |
 | `crosshair` | `0` | `crosshair N` loads `pics/chN` (TGA/PNG/PCX OK). `0` = off (does **not** draw `ch0`). `1`+ uses stock `ch1`â€¦`ch3`, or higher if the pic exists. |
 | `ch1` / `ch2` / `ch3` | empty | Free-name overlay slots (Q2PRO-style). Pic name only, e.g. `ch2` or `ch3`. Drawn on top of `crosshair` when non-empty and not cleared. **Clear with `chN 0`** (client treats `string[0]=='0'` as cleared in `cl_scrn.c`). Do **not** use `ch1 ""` — Quake tokenizes away empty quotes so the set never sticks (footgun). Drawn at native size × `ch_scale` × `chN_scale` (large vignettes need a high scale or a full-res asset). |
@@ -175,6 +175,11 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `scr_alpha` | `1` | Status-bar opacity (Options â†’ R1Q2). Saved. |
 | `loc_enable` | `1` | Draw nearest `.loc` name on the HUD. Saved. |
 | `cl_adjustfov` | `1` | Hor+ FOV: keep 4:3 vertical FOV, widen on widescreen. Saved. |
+| `cl_forcecolors` | `0` | **Client-side only.** Tint other players’ skins with the enemy/team color (skin stays visible). Does not change your first-person view weapon. Multiplayer → Multiplayer settings. Saved. Does not change what the server or other clients see. |
+| `cl_enemycolor` | `1` | Forced enemy tint: `0` default (no tint), `1` red … `14` lilac (see Multiplayer settings). FFA: all other players. Team: opposite Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skin. Saved. |
+| `cl_teamcolor` | `6` | Forced teammate tint (same indices as `cl_enemycolor`). Matching Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skins. Saved. |
+| `cl_forcecolor_alpha` | `0.5` | Force-color opacity. `0` = original skin, `0.5` = mix (slider middle), `1` = solid chosen color (replaces skin). Saved. Only applies when `cl_forcecolors` is on. |
+| `cl_enemyfullbright` | `0` | **Client-side only.** Blend enemy lighting toward fullbright: `0` off, `50` = 50%, `66.6` = 66.6% (cap). Does not replace world light with a flat value. Legacy `1` / `66` / `100` are treated as 66.6%. Teammates, yourself, and the first-person view weapon/skin are unchanged. Works with or without `cl_forcecolors`. Saved. |
 | `scr_conspeed` | `3` | Console drop / raise speed. |
 | `scr_conheight` | `0.5` | Open console height as a fraction of the screen. |
 | `con_notifytime` | `3` | Seconds notify lines stay on screen. |
@@ -387,4 +392,3 @@ seta gl_texture_lodbias "-1"
 seta gl_linear_mipmaps "1"
 seta gl_texturemode "GL_LINEAR_MIPMAP_LINEAR"
 ```
-

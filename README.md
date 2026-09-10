@@ -4,7 +4,7 @@ A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8049)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8056)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 ## Play
 
@@ -53,10 +53,10 @@ OpenGL / R1GL:
 - **Lightmap** brightness
 - **Anisotropy** (1 / 2 / 4 / 8 / 16; default 16)
 - **Texture sharpen** (LOD bias on world textures; 0 = off)
-- **HUD scale** (`scr_hudscale`, about 0.5–2.5) — status bar only; menus stay unscaled
-- **Layout menu scale** (`scr_layoutscale`, default auto) — Arena team select, TastySpleen/RA MOTD, help, scoreboards, inventory. `0` = height/480. Centered 320×240 canvas even at scale 1 (widescreen). Does not use `scr_hud_top` / `scr_hudwide` (numeric HUD still does).
-- **HUD at top** (`scr_hud_top`) — flips status bar to the top (status bar only)
-- **Wide HUD** (`scr_hudwide`, on by default) — on 16:9, health/ammo sit left and armor/weapon sit right. 4:3 stays the old centered strip. Layout menus are unchanged by this.
+- **HUD scale** (`scr_hudscale`, about 0.5–2.5) — stock status bar only; menus and custom server HUDs keep their authored layout
+- **Layout menu scale** (`scr_layoutscale`, default auto) — Arena team select, TastySpleen/RA MOTD, help, scoreboards, inventory. `0` = height/480. Centered 320×240 canvas even at scale 1 (widescreen). Does not use `scr_hud_top` / `scr_hudwide` (stock numeric HUD still does).
+- **HUD at top** (`scr_hud_top`) — flips the stock status bar to the top
+- **Wide HUD** (`scr_hudwide`, on by default) — on 16:9, stock health/ammo sit left and armor/weapon sit right. 4:3 stays the old centered strip. Server/mod HUD layouts are unchanged.
 - **Shadows**
 - **Dynamic lights**
 
@@ -97,6 +97,8 @@ Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lo
 - Mouse wheel, [ / ], PgUp/PgDn, left/right — page through the full list (vanilla, Arena, q2rpg2, …)
 
 **Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser. Favorites are stored in `baseq2/bookmarks.cfg` so they survive `exec Q2config.cfg` and gamedir switches.
+
+**Multiplayer settings** (under Multiplayer) can tint enemy / team players on this client only, and optionally blend enemy lighting toward fullbright (`cl_enemyfullbright`: Off / 50% / 66.6%). 66.6% means two-thirds of the way from world light to fullbright, not a flat 66.6% lamp. Force color uses **Tint Opacity** (default 50%): original skin at 0%, mix in the middle, solid enemy/team color at 100%. White keeps the original skin at low opacity. Team vs enemy uses Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skins; FFA treats everyone else as enemy. Cvars: `cl_forcecolors`, `cl_enemycolor`, `cl_teamcolor`, `cl_enemyfullbright`.
 
 Chat filter: `ignore` / `mute` a name or snippet (same command). List with `ignorelist`, drop with `unignore` / `unmute`. The list is stored in `ignore.txt`.
 

@@ -40,6 +40,7 @@ static 		void M_Menu_PlayerConfig_f (void);
 static 			void M_Menu_DownloadOptions_f (void);
 static 		void M_Menu_Credits_f( void );
 static 	void M_Menu_Multiplayer_f( void );
+static 		void M_Menu_MPSettings_f (void);
 static 		void M_Menu_JoinServer_f (void);
 static 			void M_Menu_AddressBook_f( void );
 static 		void M_Menu_StartServer_f (void);
@@ -662,6 +663,7 @@ static menuframework_s	s_multiplayer_menu;
 static menuaction_s		s_join_network_server_action;
 static menuaction_s		s_start_network_server_action;
 static menuaction_s		s_player_setup_action;
+static menuaction_s		s_mp_settings_action;
 
 static void Multiplayer_MenuDraw (void)
 {
@@ -674,6 +676,11 @@ static void Multiplayer_MenuDraw (void)
 static void PlayerSetupFunc( void *unused )
 {
 	M_Menu_PlayerConfig_f();
+}
+
+static void MPSettingsFunc( void *unused )
+{
+	M_Menu_MPSettings_f();
 }
 
 static void JoinNetworkServerFunc( void *unused )
@@ -711,9 +718,18 @@ static void Multiplayer_MenuInit( void )
 	s_player_setup_action.generic.name	= " player setup";
 	s_player_setup_action.generic.callback = PlayerSetupFunc;
 
+	s_mp_settings_action.generic.type	= MTYPE_ACTION;
+	s_mp_settings_action.generic.flags  = QMF_LEFT_JUSTIFY;
+	s_mp_settings_action.generic.x		= 0;
+	s_mp_settings_action.generic.y		= 30;
+	s_mp_settings_action.generic.name	= " Multiplayer Settings";
+	s_mp_settings_action.generic.callback = MPSettingsFunc;
+	s_mp_settings_action.generic.statusbar = "Force enemy / team colors (client-side)";
+
 	Menu_AddItem( &s_multiplayer_menu, ( void * ) &s_join_network_server_action );
 	Menu_AddItem( &s_multiplayer_menu, ( void * ) &s_start_network_server_action );
 	Menu_AddItem( &s_multiplayer_menu, ( void * ) &s_player_setup_action );
+	Menu_AddItem( &s_multiplayer_menu, ( void * ) &s_mp_settings_action );
 
 	Menu_SetStatusBar( &s_multiplayer_menu, NULL );
 
@@ -733,6 +749,187 @@ static void M_Menu_Multiplayer_f( void )
 {
 	Multiplayer_MenuInit();
 	M_PushMenu( Multiplayer_MenuDraw, Multiplayer_MenuKey );
+}
+
+/*
+=======================================================================
+
+MULTIPLAYER SETTINGS (client-side enemy / team color)
+
+=======================================================================
+*/
+
+static menuframework_s	s_mpsettings_menu;
+static menulist_s		s_mpsettings_force;
+static menulist_s		s_mpsettings_enemy;
+static menulist_s		s_mpsettings_team;
+static menuslider_s		s_mpsettings_opacity;
+static menulist_s		s_mpsettings_bright;
+
+static const char *mp_yesno_names[] = {
+	"No",
+	"Yes",
+	0
+};
+
+static const char *mp_brightmap_names[] = {
+	"Off",
+	"50%",
+	"66.6%",
+	0
+};
+
+static const float mp_brightmap_values[] = { 0.0f, 50.0f, 66.6f };
+
+static int MP_BrightmapCurvalue (void)
+{
+	float	v = Cvar_VariableValue ("cl_enemyfullbright");
+
+	if (v <= 0.0f)
+		return 0;
+	if (v == 1.0f || v >= 66.0f)	/* old Yes / 66 / 100 → cap */
+		return 2;
+	if (v >= 50.0f)
+		return 1;
+	return 0;
+}
+
+static const char *mp_forcecolor_names[] = {
+	"Default",
+	"Red",
+	"Orange",
+	"Yellow",
+	"Green",
+	"Cyan",
+	"Blue",
+	"Magenta",
+	"White",
+	"Pink",
+	"Peach",
+	"Cream",
+	"Mint",
+	"Sky",
+	"Lilac",
+	0
+};
+
+static void MPSettingsForceFunc (void *unused)
+{
+	Cvar_SetValue ("cl_forcecolors", (float)s_mpsettings_force.curvalue);
+}
+
+static void MPSettingsEnemyFunc (void *unused)
+{
+	Cvar_SetValue ("cl_enemycolor", (float)s_mpsettings_enemy.curvalue);
+}
+
+static void MPSettingsTeamFunc (void *unused)
+{
+	Cvar_SetValue ("cl_teamcolor", (float)s_mpsettings_team.curvalue);
+}
+
+static void MPSettingsOpacityFunc (void *unused)
+{
+	float	a = s_mpsettings_opacity.curvalue / 10.0f;
+
+	if (a < 0.0f)
+		a = 0.0f;
+	if (a > 1.0f)
+		a = 1.0f;
+	Cvar_SetValue ("cl_forcecolor_alpha", a);
+}
+
+static void MPSettingsBrightFunc (void *unused)
+{
+	int	idx = s_mpsettings_bright.curvalue;
+
+	if (idx < 0)
+		idx = 0;
+	if (idx > 2)
+		idx = 2;
+	Cvar_SetValue ("cl_enemyfullbright", mp_brightmap_values[idx]);
+}
+
+static void MPSettings_MenuInit (void)
+{
+	s_mpsettings_menu.nitems = 0;
+
+	s_mpsettings_force.generic.type = MTYPE_SPINCONTROL;
+	s_mpsettings_force.generic.x = 0;
+	s_mpsettings_force.generic.y = 0;
+	s_mpsettings_force.generic.name = "Force Colors";
+	s_mpsettings_force.generic.callback = MPSettingsForceFunc;
+	s_mpsettings_force.generic.statusbar = "Tint other players (opacity slider; this client only)";
+	s_mpsettings_force.itemnames = mp_yesno_names;
+	s_mpsettings_force.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("cl_forcecolors"));
+
+	s_mpsettings_enemy.generic.type = MTYPE_SPINCONTROL;
+	s_mpsettings_enemy.generic.x = 0;
+	s_mpsettings_enemy.generic.y = 10;
+	s_mpsettings_enemy.generic.name = "Enemy Color";
+	s_mpsettings_enemy.generic.callback = MPSettingsEnemyFunc;
+	s_mpsettings_enemy.generic.statusbar = "FFA: everyone else. Team: r2red / ctf_r vs you";
+	s_mpsettings_enemy.itemnames = mp_forcecolor_names;
+	s_mpsettings_enemy.curvalue = (int)ClampCvar (0, 14, Cvar_VariableValue ("cl_enemycolor"));
+
+	s_mpsettings_team.generic.type = MTYPE_SPINCONTROL;
+	s_mpsettings_team.generic.x = 0;
+	s_mpsettings_team.generic.y = 20;
+	s_mpsettings_team.generic.name = "Team Color";
+	s_mpsettings_team.generic.callback = MPSettingsTeamFunc;
+	s_mpsettings_team.generic.statusbar = "Teammates: r2blue / ctf_b (or r2red if you are red)";
+	s_mpsettings_team.itemnames = mp_forcecolor_names;
+	s_mpsettings_team.curvalue = (int)ClampCvar (0, 14, Cvar_VariableValue ("cl_teamcolor"));
+
+	s_mpsettings_opacity.generic.type = MTYPE_SLIDER;
+	s_mpsettings_opacity.generic.x = 0;
+	s_mpsettings_opacity.generic.y = 30;
+	s_mpsettings_opacity.generic.name = "Tint Opacity";
+	s_mpsettings_opacity.generic.callback = MPSettingsOpacityFunc;
+	s_mpsettings_opacity.generic.statusbar = "0% skin, 50% mix, 100% solid enemy/team color";
+	s_mpsettings_opacity.minvalue = 0;
+	s_mpsettings_opacity.maxvalue = 10;
+	s_mpsettings_opacity.curvalue = Cvar_VariableValue ("cl_forcecolor_alpha") * 10.0f;
+	if (s_mpsettings_opacity.curvalue < 0)
+		s_mpsettings_opacity.curvalue = 0;
+	if (s_mpsettings_opacity.curvalue > 10)
+		s_mpsettings_opacity.curvalue = 10;
+
+	s_mpsettings_bright.generic.type = MTYPE_SPINCONTROL;
+	s_mpsettings_bright.generic.x = 0;
+	s_mpsettings_bright.generic.y = 40;
+	s_mpsettings_bright.generic.name = "Enemy Brightmaps";
+	s_mpsettings_bright.generic.callback = MPSettingsBrightFunc;
+	s_mpsettings_bright.generic.statusbar = "Blend toward fullbright, capped at 66.6% (this client only)";
+	s_mpsettings_bright.itemnames = mp_brightmap_names;
+	s_mpsettings_bright.curvalue = MP_BrightmapCurvalue ();
+
+	Menu_AddItem (&s_mpsettings_menu, (void *)&s_mpsettings_force);
+	Menu_AddItem (&s_mpsettings_menu, (void *)&s_mpsettings_enemy);
+	Menu_AddItem (&s_mpsettings_menu, (void *)&s_mpsettings_team);
+	Menu_AddItem (&s_mpsettings_menu, (void *)&s_mpsettings_opacity);
+	Menu_AddItem (&s_mpsettings_menu, (void *)&s_mpsettings_bright);
+
+	Menu_Center (&s_mpsettings_menu);
+	M_PlaceMenuBelowBanner (&s_mpsettings_menu, "MULTIPLAYER");
+}
+
+static void MPSettings_MenuDraw (void)
+{
+	M_BannerText ("MULTIPLAYER");
+	Menu_AdjustCursor (&s_mpsettings_menu, 1);
+	Menu_Draw (&s_mpsettings_menu);
+}
+
+static const char *MPSettings_MenuKey (int key)
+{
+	return Default_MenuKey (&s_mpsettings_menu, key);
+}
+
+static void M_Menu_MPSettings_f (void)
+{
+	MPSettings_MenuInit ();
+	M_PushMenu (MPSettings_MenuDraw, MPSettings_MenuKey);
 }
 
 /*
@@ -5827,6 +6024,7 @@ void M_Init (void)
 			Cmd_AddCommand ("menu_downloadoptions", M_Menu_DownloadOptions_f);
 		Cmd_AddCommand ("menu_credits", M_Menu_Credits_f );
 	Cmd_AddCommand ("menu_multiplayer", M_Menu_Multiplayer_f );
+		Cmd_AddCommand ("menu_mpsettings", M_Menu_MPSettings_f);
 	Cmd_AddCommand ("menu_video", M_Menu_Video_f);
 	Cmd_AddCommand ("menu_options", M_Menu_Options_f);
 		Cmd_AddCommand ("menu_r1q2", M_Menu_R1Q2_f);
