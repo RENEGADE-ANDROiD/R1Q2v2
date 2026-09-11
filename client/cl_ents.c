@@ -48,47 +48,113 @@ static const float cl_forcecolor_rgb[][3] = {
 };
 #define CL_FORCECOLOR_MAX  ((int)(sizeof(cl_forcecolor_rgb) / sizeof(cl_forcecolor_rgb[0])) - 1)
 
-/* 0 unknown, 1 red, 2 blue. Arena uses r2red/r2blue; CTF uses ctf_r/ctf_b. */
+/* 0 unknown, 1 red, 2 blue. */
+static int CL_TokenTeamId (const char *s)
+{
+	int	i;
+
+	if (!s || !s[0])
+		return 0;
+	if (!Q_stricmp (s, "red")
+		|| !Q_stricmp (s, "r")
+		|| !Q_stricmp (s, "1")
+		|| !Q_strncasecmp (s, "ctf_r", 5)
+		|| !Q_strncasecmp (s, "r2red", 5)
+		|| !Q_strncasecmp (s, "ra2red", 6))
+		return 1;
+	if (!Q_stricmp (s, "blue")
+		|| !Q_stricmp (s, "b")
+		|| !Q_stricmp (s, "2")
+		|| !Q_strncasecmp (s, "ctf_b", 5)
+		|| !Q_strncasecmp (s, "r2blue", 6)
+		|| !Q_strncasecmp (s, "ra2blue", 7))
+		return 2;
+	for (i = 0; s[i]; i++)
+	{
+		if (!Q_strncasecmp (s + i, "r2red", 5) || !Q_strncasecmp (s + i, "ctf_r", 5))
+			return 1;
+		if (!Q_strncasecmp (s + i, "r2blue", 6) || !Q_strncasecmp (s + i, "ctf_b", 5))
+			return 2;
+	}
+	return 0;
+}
+
+static void CL_ParseModelSkin (const char *cinfo, char *model, size_t msz, char *skin, size_t ssz)
+{
+	const char	*s;
+	char		tmp[MAX_QPATH];
+	char		*slash;
+	char		*dot;
+
+	model[0] = skin[0] = 0;
+	if (!cinfo || !cinfo[0])
+		return;
+	s = strchr (cinfo, '\\');
+	s = s ? s + 1 : cinfo;
+	Q_strncpy (tmp, s, sizeof(tmp) - 1);
+	slash = strchr (tmp, '/');
+	if (!slash)
+		slash = strchr (tmp, '\\');
+	if (slash)
+	{
+		*slash = 0;
+		Q_strncpy (model, tmp, msz - 1);
+		Q_strncpy (skin, slash + 1, ssz - 1);
+	}
+	else
+		Q_strncpy (skin, tmp, ssz - 1);
+	dot = strchr (skin, '.');
+	if (dot)
+		*dot = 0;
+	slash = strchr (skin, ' ');
+	if (slash)
+		*slash = 0;
+}
+
 static int CL_SkinTeamId (const char *cinfo)
 {
-	char		skin[MAX_QPATH];
-	const char	*src;
-	char		*cut;
-	int			i;
+	char	model[MAX_QPATH];
+	char	skin[MAX_QPATH];
+	int		t;
 
 	if (!cinfo || !cinfo[0])
 		return 0;
-
-	src = cinfo;
-	cut = strrchr (src, '/');
-	if (!cut)
-		cut = strrchr (src, '\\');
-	src = cut ? cut + 1 : src;
-	Q_strncpy (skin, src, sizeof(skin) - 1);
-	cut = strchr (skin, '.');
-	if (cut)
-		*cut = 0;
-	if (!skin[0])
-		return 0;
-
-	if (!Q_stricmp (skin, "red")
-		|| !Q_strncasecmp (skin, "ctf_r", 5)
-		|| !Q_strncasecmp (skin, "r2red", 5)
-		|| !Q_strncasecmp (skin, "ra2red", 6))
-		return 1;
-	if (!Q_stricmp (skin, "blue")
-		|| !Q_strncasecmp (skin, "ctf_b", 5)
-		|| !Q_strncasecmp (skin, "r2blue", 6)
-		|| !Q_strncasecmp (skin, "ra2blue", 7))
-		return 2;
-
-	for (i = 0; skin[i]; i++)
+	if (strstr (cinfo, "\\team\\"))
 	{
-		if (!Q_strncasecmp (skin + i, "r2red", 5) || !Q_strncasecmp (skin + i, "ctf_r", 5))
-			return 1;
-		if (!Q_strncasecmp (skin + i, "r2blue", 6) || !Q_strncasecmp (skin + i, "ctf_b", 5))
-			return 2;
+		t = CL_TokenTeamId (Info_ValueForKey ((char *)cinfo, "team"));
+		if (t)
+			return t;
 	}
+	CL_ParseModelSkin (cinfo, model, sizeof(model), skin, sizeof(skin));
+	t = CL_TokenTeamId (skin);
+	if (t)
+		return t;
+	t = CL_TokenTeamId (model);
+	if (t)
+		return t;
+	return CL_TokenTeamId (cinfo);
+}
+
+static int CL_UserinfoTeamId (void)
+{
+	const char	*t;
+
+	t = Info_ValueForKey (Cvar_Userinfo (), "team");
+	if (!t || !t[0])
+		t = Cvar_VariableString ("team");
+	return CL_TokenTeamId (t);
+}
+
+/* Threewave CTF: STAT_CTF_JOINED_TEAM1/2_PIC at 22/23. */
+static int CL_CtfJoinedTeam (void)
+{
+	int	a = cl.frame.playerstate.stats[22];
+	int	b = cl.frame.playerstate.stats[23];
+
+	if (a && !b)
+		return 1;
+	if (b && !a)
+		return 2;
 	return 0;
 }
 
@@ -105,15 +171,40 @@ static int CL_LocalTeamId (int localNum)
 		if (team)
 			return team;
 	}
+	team = CL_UserinfoTeamId ();
+	if (team)
+		return team;
+	team = CL_CtfJoinedTeam ();
+	if (team)
+		return team;
 	return CL_SkinTeamId (Cvar_VariableString ("skin"));
 }
 
-/* -1 self/invalid, 0 enemy, 1 teammate (r2red/r2blue or ctf_r/ctf_b). */
+static qboolean CL_IsTeamGamedir (void)
+{
+	const char	*g = cl.gamedir;
+
+	if (!g || !g[0])
+		g = Cvar_VariableString ("game");
+	if (!g || !g[0])
+		return false;
+	if (!Q_stricmp (g, "arena") || !Q_stricmp (g, "ctf") || !Q_stricmp (g, "ra2")
+		|| !Q_stricmp (g, "opentdm") || !Q_stricmp (g, "3zb2") || !Q_stricmp (g, "tdm"))
+		return true;
+	if (strstr (g, "ctf") || strstr (g, "tdm") || strstr (g, "arena"))
+		return true;
+	return false;
+}
+
+/* -1 self/unknown (no tint, no enemy brightmaps), 0 enemy, 1 teammate. */
 static int CL_PlayerForceSide (int clientnum)
 {
-	int	localNum;
-	int	localTeam;
-	int	otherTeam;
+	int		localNum;
+	int		localTeam;
+	int		otherTeam;
+	int		dmflags;
+	char	lm[MAX_QPATH], ls[MAX_QPATH];
+	char	om[MAX_QPATH], os[MAX_QPATH];
 
 	if (clientnum < 0 || clientnum >= MAX_CLIENTS)
 		return -1;
@@ -134,6 +225,24 @@ static int CL_PlayerForceSide (int clientnum)
 		otherTeam = CL_SkinTeamId (cl.configstrings[CS_PLAYERSKINS + clientnum]);
 	if (localTeam && otherTeam)
 		return (localTeam == otherTeam) ? 1 : 0;
+
+	dmflags = (int)Cvar_VariableValue ("dmflags");
+	CL_ParseModelSkin (cl.configstrings[CS_PLAYERSKINS + localNum], lm, sizeof(lm), ls, sizeof(ls));
+	if (!ls[0] && !lm[0])
+		CL_ParseModelSkin (cl.clientinfo[localNum].cinfo, lm, sizeof(lm), ls, sizeof(ls));
+	CL_ParseModelSkin (cl.configstrings[CS_PLAYERSKINS + clientnum], om, sizeof(om), os, sizeof(os));
+	if (!os[0] && !om[0])
+		CL_ParseModelSkin (cl.clientinfo[clientnum].cinfo, om, sizeof(om), os, sizeof(os));
+
+	if ((dmflags & DF_SKINTEAMS) && ls[0] && os[0])
+		return Q_stricmp (ls, os) ? 0 : 1;
+	if ((dmflags & DF_MODELTEAMS) && lm[0] && om[0])
+		return Q_stricmp (lm, om) ? 0 : 1;
+
+	/* Countdown / custom skins on a team server: do not paint everyone as an enemy. */
+	if (CL_IsTeamGamedir () || (dmflags & (DF_SKINTEAMS | DF_MODELTEAMS | DF_NO_FRIENDLY_FIRE))
+		|| localTeam || otherTeam)
+		return -1;
 	return 0;
 }
 
@@ -183,9 +292,9 @@ static void CL_EnsurePlayerDrawModel (entity_t *ent)
 		ent->skin = re.RegisterSkin ("players/male/grunt.pcx");
 }
 
-#define CL_ENEMY_BRIGHT_CAP  0.666f	/* 66.6% */
+#define CL_ENEMY_BRIGHT_CAP  0.88f	/* 88% */
 
-/* 0 = off. Legacy 1 (old Yes) and anything >= 66 (including old 100) cap at 66.6%. */
+/* 0 = off. 33.3 / 66.6 / 88. Legacy 1 (old Yes) is 66.6%; old 50 is 33.3%. */
 static float CL_PlayerEnemyBrightScale (int clientnum)
 {
 	float	v;
@@ -198,10 +307,14 @@ static float CL_PlayerEnemyBrightScale (int clientnum)
 	if (CL_PlayerForceSide (clientnum) != 0)
 		return 0.0f;
 	if (v == 1.0f)
+		return 0.666f;
+	if (v >= 88.0f)
 		return CL_ENEMY_BRIGHT_CAP;
-	if (v >= 50.0f && v < 66.0f)
-		return 0.50f;
-	return CL_ENEMY_BRIGHT_CAP;
+	if (v >= 66.0f)
+		return 0.666f;
+	if (v >= 33.0f)
+		return 0.333f;
+	return 0.333f;
 }
 
 /*

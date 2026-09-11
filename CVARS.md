@@ -179,7 +179,7 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `cl_enemycolor` | `1` | Forced enemy tint: `0` default (no tint), `1` red … `14` lilac (see Multiplayer settings). FFA: all other players. Team: opposite Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skin. Saved. |
 | `cl_teamcolor` | `6` | Forced teammate tint (same indices as `cl_enemycolor`). Matching Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skins. Saved. |
 | `cl_forcecolor_alpha` | `0.5` | Force-color opacity. `0` = original skin, `0.5` = mix (slider middle), `1` = solid chosen color (replaces skin). Saved. Only applies when `cl_forcecolors` is on. |
-| `cl_enemyfullbright` | `0` | **Client-side only.** Blend enemy lighting toward fullbright: `0` off, `50` = 50%, `66.6` = 66.6% (cap). Does not replace world light with a flat value. Legacy `1` / `66` / `100` are treated as 66.6%. Teammates, yourself, and the first-person view weapon/skin are unchanged. Works with or without `cl_forcecolors`. Saved. |
+| `cl_enemyfullbright` | `0` | **Client-side only.** Blend enemy lighting toward fullbright: `0` off, `33.3`, `66.6`, `88` (cap). Does not replace world light with a flat value. Legacy `1` is 66.6%; old `50` is 33.3%. Teammates, yourself, unknown-team players (countdown), and the first-person view weapon are unchanged. Works with or without `cl_forcecolors`. Saved. |
 | `scr_conspeed` | `3` | Console drop / raise speed. |
 | `scr_conheight` | `0.5` | Open console height as a fraction of the screen. |
 | `con_notifytime` | `3` | Seconds notify lines stay on screen. |

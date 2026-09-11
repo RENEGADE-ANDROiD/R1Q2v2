@@ -390,8 +390,8 @@ void R_DrawNullModel (void)
 		float	om;
 		int		c;
 
-		if (m > 0.666f)
-			m = 0.666f;
+		if (m > 0.88f)
+			m = 0.88f;
 		om = 1.0f - m;
 		for (c = 0; c < 3; c++)
 			shadelight[c] = shadelight[c] * om + m;

@@ -72,8 +72,7 @@ static qboolean GL_EntitySolidTint (void)
 	return currententity->tint[0] > 0.0f || currententity->tint[1] > 0.0f || currententity->tint[2] > 0.0f;
 }
 
-/* Enemy brightmaps: lerp world light toward fullbright by minlight (50% / 66.6% cap).
-   Replacing light with a flat 0.666 made enemies dimmer than a bright room. */
+/* Enemy brightmaps: lerp world light toward fullbright by minlight (33.3 / 66.6 / 88% cap). */
 static void GL_ApplyMinLight (void)
 {
 	float	m;
@@ -87,8 +86,8 @@ static void GL_ApplyMinLight (void)
 		return;
 	if (currententity->flags & RF_WEAPONMODEL)
 		return;
-	if (m > 0.666f)
-		m = 0.666f;
+	if (m > 0.88f)
+		m = 0.88f;
 	om = 1.0f - m;
 	for (i = 0; i < 3; i++)
 		shadelight[i] = shadelight[i] * om + m;

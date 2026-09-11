@@ -98,7 +98,7 @@ Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lo
 
 **Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser. Favorites are stored in `baseq2/bookmarks.cfg` so they survive `exec Q2config.cfg` and gamedir switches.
 
-**Multiplayer settings** (under Multiplayer) can tint enemy / team players on this client only, and optionally blend enemy lighting toward fullbright (`cl_enemyfullbright`: Off / 50% / 66.6%). 66.6% means two-thirds of the way from world light to fullbright, not a flat 66.6% lamp. Force color uses **Tint Opacity** (default 50%): original skin at 0%, mix in the middle, solid enemy/team color at 100%. White keeps the original skin at low opacity. Team vs enemy uses Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skins; FFA treats everyone else as enemy. Cvars: `cl_forcecolors`, `cl_enemycolor`, `cl_teamcolor`, `cl_enemyfullbright`.
+**Multiplayer settings** (under Multiplayer) can tint enemy / team players on this client only, and optionally blend enemy lighting toward fullbright (`cl_enemyfullbright`: Off / 33.3% / 66.6% / 88%). Force color uses **Tint Opacity** (default 50%): original skin at 0%, mix in the middle, solid enemy/team color at 100%. Team vs enemy uses Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b`, plus `team` userinfo and CTF join stats. On team servers, unknown skins (countdown) are **not** painted as enemies. FFA still treats everyone else as enemy. Cvars: `cl_forcecolors`, `cl_enemycolor`, `cl_teamcolor`, `cl_forcecolor_alpha`, `cl_enemyfullbright`.
 
 Chat filter: `ignore` / `mute` a name or snippet (same command). List with `ignorelist`, drop with `unignore` / `unmute`. The list is stored in `ignore.txt`.
 
