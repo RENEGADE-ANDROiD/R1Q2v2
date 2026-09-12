@@ -132,7 +132,8 @@ typedef struct
 
 
 
-#define	API_VERSION		3
+/* entity_t includes R1Q2v2 tint fields; reject pre-extension renderers. */
+#define	API_VERSION		8057
 
 //
 // these are the functions exported by the refresh module

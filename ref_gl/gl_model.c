@@ -1554,7 +1554,8 @@ qboolean Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 		return false;
 	}
 	if (hdr.ofs_frames < 0 || hdr.ofs_meshes < 0 ||
-		hdr.ofs_frames + hdr.num_frames * (int)sizeof(dmd3frame_t) > filesize ||
+		hdr.ofs_frames > filesize ||
+		hdr.num_frames > (filesize - hdr.ofs_frames) / (int)sizeof(dmd3frame_t) ||
 		hdr.ofs_meshes > filesize)
 	{
 		ri.Con_Printf (PRINT_ALL, "%s has bad MD3 offsets\n", mod->name);
@@ -1642,11 +1643,15 @@ qboolean Mod_LoadMD3Model (model_t *mod, void *buffer, int filesize)
 			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad tris %i\n", mod->name, m, meshhdr.num_tris);
 			return false;
 		}
-		if (meshhdr.ofs_skins < 0 || meshhdr.ofs_tcs < 0 || meshhdr.ofs_indexes < 0 || meshhdr.ofs_verts < 0 ||
-			meshhdr.ofs_skins + meshhdr.num_skins * (int)sizeof(dmd3skin_t) > meshhdr.meshsize ||
-			meshhdr.ofs_tcs + meshhdr.num_verts * (int)sizeof(dmd3coord_t) > meshhdr.meshsize ||
-			meshhdr.ofs_indexes + meshhdr.num_tris * 3 * (int)sizeof(int) > meshhdr.meshsize ||
-			meshhdr.ofs_verts + meshhdr.num_verts * hdr.num_frames * (int)sizeof(dmd3vertex_t) > meshhdr.meshsize)
+		if (meshhdr.num_skins < 0 || meshhdr.num_skins > MD3_MAX_SKINS ||
+			meshhdr.ofs_skins < 0 || meshhdr.ofs_skins > meshhdr.meshsize ||
+			meshhdr.ofs_tcs < 0 || meshhdr.ofs_tcs > meshhdr.meshsize ||
+			meshhdr.ofs_indexes < 0 || meshhdr.ofs_indexes > meshhdr.meshsize ||
+			meshhdr.ofs_verts < 0 || meshhdr.ofs_verts > meshhdr.meshsize ||
+			meshhdr.num_skins > (meshhdr.meshsize - meshhdr.ofs_skins) / (int)sizeof(dmd3skin_t) ||
+			meshhdr.num_verts > (meshhdr.meshsize - meshhdr.ofs_tcs) / (int)sizeof(dmd3coord_t) ||
+			meshhdr.num_tris > (meshhdr.meshsize - meshhdr.ofs_indexes) / (3 * (int)sizeof(int)) ||
+			meshhdr.num_verts * hdr.num_frames > (meshhdr.meshsize - meshhdr.ofs_verts) / (int)sizeof(dmd3vertex_t))
 		{
 			ri.Con_Printf (PRINT_ALL, "%s mesh %i bad offsets\n", mod->name, m);
 			return false;

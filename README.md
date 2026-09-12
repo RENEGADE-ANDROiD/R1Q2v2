@@ -4,7 +4,9 @@ A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8056)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8057)** — bump `BUILD` in [`build.h`](build.h) each release.
+
+Build 8057 includes [incoming-data and asset safety fixes](SECURITY-FIXES-8057.md). Update the executable and both renderer DLLs together; older renderer DLLs are now rejected because their entity layout is incompatible.
 
 ## Play
 

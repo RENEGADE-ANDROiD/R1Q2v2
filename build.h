@@ -1,4 +1,6 @@
-#define BUILD "8056"
+#define BUILD "8057"
+/* BUILD 8057: validate incoming packets, downloads, JPEG/WAV/MD3 assets;
+ * version the extended renderer interface. Input/send timing is unchanged. */
 /* BUILD 8056:
  * Stock-only HUD top/scale/wide; custom CS_STATUSBAR as original R1Q2.
  * MP force colors (r2red/r2blue), tint opacity, enemy brightmaps (33.3/66.6/88).

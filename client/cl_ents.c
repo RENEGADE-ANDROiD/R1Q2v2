@@ -363,7 +363,7 @@ int CL_ParseEntityBits (uint32 *bits)
 	if (total & U_NUMBER16)
 	{
 		number = MSG_ReadShort (&net_message);
-		if (number > MAX_EDICTS)
+		if (number >= MAX_EDICTS)
 			Com_Error (ERR_DROP, "CL_ParseEntityBits: Bad entity number %u", number);
 	}
 	else
@@ -372,6 +372,8 @@ int CL_ParseEntityBits (uint32 *bits)
 	}
 
 	*bits = total;
+	if (number >= MAX_EDICTS || net_message.readcount > net_message.cursize)
+		Com_Error (ERR_DROP, "CL_ParseEntityBits: invalid entity header");
 
 	return number;
 }
@@ -1669,6 +1671,9 @@ void CL_ParseFrame (int extrabits)
 
 	// read areabits
 	len = MSG_ReadByte (&net_message);
+	if (len < 0 || len > sizeof(cl.frame.areabits) ||
+		net_message.readcount > net_message.cursize || len > net_message.cursize - net_message.readcount)
+		Com_Error (ERR_DROP, "CL_ParseFrame: invalid area bits length");
 	MSG_ReadData (&net_message, &cl.frame.areabits, len);
 
 	// read playerinfo

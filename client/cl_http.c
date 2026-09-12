@@ -40,6 +40,7 @@ static int		pendingCount = 0;
 static int		abortDownloads = HTTPDL_ABORT_NONE;
 static qboolean	downloading_pak = false;
 static qboolean	httpDown = false;
+#define MAX_HTTP_FILELIST_SIZE (16 * 1024 * 1024)
 /*
 ===============================
 R1Q2 HTTP Downloading Functions
@@ -69,7 +70,10 @@ static int EXPORT CL_HTTP_Progress (void *clientp, double dltotal, double dlnow,
 
 	dl = (dlhandle_t *)clientp;
 
-	dl->position = (unsigned)dlnow;
+	/* Filelists use position as their decoded write cursor; curl's progress
+	 * count can describe compressed bytes and must not replace it. */
+	if (dl->file)
+		dl->position = (size_t)dlnow;
 
 	//don't care which download shows as long as something does :)
 	if (!abortDownloads)
@@ -203,27 +207,33 @@ libcurl callback for filelists.
 static size_t EXPORT CL_HTTP_Recv (void *ptr, size_t size, size_t nmemb, void *stream)
 {
 	size_t		bytes;
+	size_t		required, capacity;
 	dlhandle_t	*dl;
 
 	dl = (dlhandle_t *)stream;
 
+	if (size && nmemb > MAX_HTTP_FILELIST_SIZE / size)
+		return 0;
 	bytes = size * nmemb;
-
-	if (!dl->fileSize)
-	{
-		dl->fileSize = bytes > 131072 ? bytes : 131072;
-		dl->tempBuffer = Z_TagMalloc ((int)dl->fileSize, TAGMALLOC_CLIENT_DOWNLOAD);
-	}
-	else if (dl->position + bytes >= dl->fileSize - 1)
+	if (!bytes)
+		return 0;
+	if (dl->position > MAX_HTTP_FILELIST_SIZE || bytes > MAX_HTTP_FILELIST_SIZE - dl->position)
+		return 0;
+	required = dl->position + bytes + 1;
+	if (required > dl->fileSize)
 	{
 		char		*tmp;
-
 		tmp = dl->tempBuffer;
-
-		dl->tempBuffer = Z_TagMalloc ((int)(dl->fileSize*2), TAGMALLOC_CLIENT_DOWNLOAD);
-		memcpy (dl->tempBuffer, tmp, dl->fileSize);
-		Z_Free (tmp);
-		dl->fileSize *= 2;
+		capacity = dl->fileSize ? dl->fileSize * 2 : 131072;
+		if (capacity < required) capacity = required;
+		if (capacity > MAX_HTTP_FILELIST_SIZE + 1) capacity = MAX_HTTP_FILELIST_SIZE + 1;
+		dl->tempBuffer = Z_TagMalloc ((int)capacity, TAGMALLOC_CLIENT_DOWNLOAD);
+		if (tmp)
+		{
+			memcpy (dl->tempBuffer, tmp, dl->position);
+			Z_Free (tmp);
+		}
+		dl->fileSize = capacity;
 	}
 
 	memcpy (dl->tempBuffer + dl->position, ptr, bytes);
@@ -273,8 +283,7 @@ static void CL_StartHTTPDownload (dlqueue_t *entry, dlhandle_t *dl)
 	{
 		Com_sprintf (tempFile, sizeof(tempFile), "%s/%s", cl.gamedir, entry->quakePath);
 		/* Escape path used in URL; append .tmp via Com_sprintf (no strcat overflow). */
-		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s", FS_Gamedir(), entry->quakePath);
-		CL_EscapeHTTPPath (dl->filePath, escapedFilePath, sizeof(escapedFilePath));
+		CL_EscapeHTTPPath (tempFile, escapedFilePath, sizeof(escapedFilePath));
 		Com_sprintf (dl->filePath, sizeof(dl->filePath), "%s/%s.tmp", FS_Gamedir(), entry->quakePath);
 
 		FS_CreatePath (dl->filePath);
@@ -682,6 +691,9 @@ static void CL_ParseFileList (dlhandle_t *dl)
 		return;
 
 	list = dl->tempBuffer;
+	/* HTTP 200 with an empty body never invokes the receive callback. */
+	if (!list)
+		return;
 
 	for (;;)
 	{

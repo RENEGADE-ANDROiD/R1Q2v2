@@ -83,6 +83,13 @@ qboolean	CL_CheckOrDownloadFile (const char *filename)
 	char	name[MAX_OSPATH];
 	static char lastfilename[MAX_OSPATH] = {0};
 
+	/* Validate before copying into download state or consulting the cache. */
+	if (!filename || !filename[0] || strlen(filename) >= MAX_QPATH)
+	{
+		Com_Printf ("Refusing invalid download filename length.\n", LOG_CLIENT);
+		return true;
+	}
+
 	//r1: don't attempt same file many times
 	if (!strcmp (filename, lastfilename))
 		return true;
@@ -148,7 +155,7 @@ qboolean	CL_CheckOrDownloadFile (const char *filename)
 		}
 
 		//r1: verify we are giving the server a legal path
-		if (cls.downloadname[length-1] == '/')
+		if (!length || cls.downloadname[0] == '/' || cls.downloadname[length-1] == '/')
 		{
 			Com_Printf ("Refusing to download bad path (%s)\n", LOG_CLIENT, filename);
 			return true;
@@ -350,11 +357,14 @@ A download message has been received from the server
 void CL_ParseDownload (qboolean dataIsCompressed)
 {
 	int		size, percent;
+	int		uncompressedLen = 0;
 	char	name[MAX_OSPATH];
 
 	// read the data
 	size = MSG_ReadShort (&net_message);
 	percent = MSG_ReadByte (&net_message);
+	if (net_message.readcount > net_message.cursize || percent < 0 || percent > 100)
+		Com_Error (ERR_DROP, "CL_ParseDownload: invalid header");
 
 	if (size < 0)
 	{
@@ -379,6 +389,17 @@ void CL_ParseDownload (qboolean dataIsCompressed)
 		CL_RequestNextDownload ();
 		return;
 	}
+
+	/* Consume and validate the complete header before any skip or file write. */
+	if (dataIsCompressed)
+	{
+		uncompressedLen = (uint16)MSG_ReadShort (&net_message);
+		if (!uncompressedLen)
+			Com_Error (ERR_DROP, "CL_ParseDownload: empty compressed output");
+	}
+	if (net_message.readcount > net_message.cursize ||
+		size > net_message.cursize - net_message.readcount)
+		Com_Error (ERR_DROP, "CL_ParseDownload: truncated data");
 
 	// open the file if not opened yet
 	if (!cls.download)
@@ -411,15 +432,10 @@ void CL_ParseDownload (qboolean dataIsCompressed)
 	if (dataIsCompressed)
 	{
 #ifndef NO_ZLIB
-		uint16		uncompressedLen;
 		byte		uncompressed[0xFFFF];
 
-		uncompressedLen = MSG_ReadShort (&net_message);
-
-		if (!uncompressedLen)
-			Com_Error (ERR_DROP, "uncompressedLen == 0");
-
-		ZLibDecompress (net_message_buffer + net_message.readcount, size, uncompressed, uncompressedLen, -15);
+		if (ZLibDecompress (net_message.data + net_message.readcount, size, uncompressed, uncompressedLen, -15) != uncompressedLen)
+			Com_Error (ERR_DROP, "CL_ParseDownload: invalid decompressed length");
 		fwrite (uncompressed, 1, uncompressedLen, cls.download);
 		Com_DPrintf ("svc_zdownload(%s): %d -> %d\n", cls.downloadname, size, uncompressedLen);
 #else
@@ -428,7 +444,7 @@ void CL_ParseDownload (qboolean dataIsCompressed)
 	}
 	else
 	{
-		fwrite (net_message_buffer + net_message.readcount, 1, size, cls.download);
+		fwrite (net_message.data + net_message.readcount, 1, size, cls.download);
 	}
 
 	net_message.readcount += size;
@@ -622,6 +638,9 @@ void CL_ParseZPacket (void)
 
 	if (compressed_len <= 0)
 		Com_Error (ERR_DROP, "CL_ParseZPacket: compressed_len <= 0");
+	if (compressed_len > sizeof(buff_in) || net_message.readcount > net_message.cursize ||
+		compressed_len > net_message.cursize - net_message.readcount)
+		Com_Error (ERR_DROP, "CL_ParseZPacket: invalid compressed length");
 
 	MSG_ReadData (&net_message, buff_in, compressed_len);
 

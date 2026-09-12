@@ -1056,7 +1056,7 @@ qboolean VID_LoadRefresh( char *name, char *errstr )
 		re = GetRefAPI( ri );
 
 		switch (re.api_version) {
-			case 3:
+			case API_VERSION:
 				Com_DPrintf ("api version = %d, ok.\n", re.api_version);
 				break;
 			default:
@@ -1451,5 +1451,4 @@ void VID_Shutdown (void)
 		g_hKeyboardHook = NULL;
 	}
 }
-
 

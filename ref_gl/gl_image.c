@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gl_local.h"
 #include <png.h>
 #include <jpeglib.h>
+#include <jerror.h>
 #include <setjmp.h>
 
 image_t		gltextures[MAX_GLTEXTURES];
@@ -1600,13 +1601,19 @@ void EXPORT jpg_null(j_decompress_ptr cinfo)
 
 boolean EXPORT jpg_fill_input_buffer(j_decompress_ptr cinfo)
 {
-    ri.Con_Printf(PRINT_ALL, "Premature end of JPEG data\n");
-    return 1;
+    ERREXIT(cinfo, JERR_INPUT_EOF);
+    return FALSE;
 }
 
 void EXPORT jpg_skip_input_data(j_decompress_ptr cinfo, long num_bytes)
 {
-        
+    if (num_bytes <= 0)
+		return;
+	if ((size_t)num_bytes > cinfo->src->bytes_in_buffer)
+	{
+		ERREXIT(cinfo, JERR_INPUT_EOF);
+		return;
+	}
     cinfo->src->next_input_byte += (size_t) num_bytes;
     cinfo->src->bytes_in_buffer -= (size_t) num_bytes;
 }
@@ -1647,11 +1654,15 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 {
 	struct jpeg_decompress_struct	cinfo;
 	r1_jpeg_error_t					jerr;
-	byte							*rawdata, *rgbadata, *scanline, *p, *q;
+	byte							*rawdata, *p, *q;
+	byte * volatile rgbadata;
+	byte * volatile scanline;
 	unsigned int					rawsize, i;
-	int								created;
+	volatile int created;
 
 	*pic = NULL;
+	if (width) *width = 0;
+	if (height) *height = 0;
 	rawdata = NULL;
 	rgbadata = NULL;
 	scanline = NULL;
@@ -1696,9 +1707,22 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 	created = 1;
 	r1_jpeg_mem_src(&cinfo, rawdata, rawsize);
 	jpeg_read_header(&cinfo, true);
+	/* Bound allocations before decompression, and request a 3-byte RGB row.
+	 * CMYK/YCCK need a separate conversion; never decode them into RGB storage. */
+	if (!cinfo.image_width || !cinfo.image_height ||
+		cinfo.image_width > MAX_TEXTURE_DIMENSIONS || cinfo.image_height > MAX_TEXTURE_DIMENSIONS ||
+		(cinfo.jpeg_color_space != JCS_GRAYSCALE && cinfo.jpeg_color_space != JCS_RGB &&
+		 cinfo.jpeg_color_space != JCS_YCbCr))
+	{
+		ri.Con_Printf (PRINT_ALL, "Unsupported JPEG dimensions or colour space: %s\n", filename);
+		jpeg_destroy_decompress (&cinfo);
+		ri.FS_FreeFile (rawdata);
+		return;
+	}
+	cinfo.out_color_space = JCS_RGB;
 	jpeg_start_decompress(&cinfo);
 
-	if(cinfo.output_components != 3 && cinfo.output_components != 4)
+	if(cinfo.output_components != 3)
 	{
 		ri.Con_Printf(PRINT_ALL, "Invalid JPEG colour components\n");
 		jpeg_destroy_decompress(&cinfo);
@@ -1735,8 +1759,9 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 	q = rgbadata;
 	while (cinfo.output_scanline < cinfo.output_height)
 	{
+		JSAMPROW row = scanline;
 		p = scanline;
-		jpeg_read_scanlines(&cinfo, &scanline, 1);
+		jpeg_read_scanlines(&cinfo, &row, 1);
 
 		for (i = 0; i < cinfo.output_width; i++)
 		{
@@ -1750,6 +1775,7 @@ void LoadJPG (const char *filename, byte **pic, int *width, int *height)
 	}
 
 	free (scanline);
+	scanline = NULL;
 	jpeg_finish_decompress (&cinfo);
 	jpeg_destroy_decompress (&cinfo);
 
@@ -3990,4 +4016,3 @@ void	GL_ShutdownImages (void)
 	}
 	GL_ClearImageMissCache ();
 }
-
