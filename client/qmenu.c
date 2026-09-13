@@ -393,15 +393,12 @@ qboolean Menu_UpdateCursorFromMouse( menuframework_s *menu )
 			continue;
 		Menu_ScaledXY( item, &ix, &iy );
 
-		/*
-		 * Join Server (and other QMF_LEFT_JUSTIFY lists) store menu->x as the
-		 * LEFT edge of the row text, not the classic centered column. A
-		 * +/-160 span around that point misses most of the row on UW / scaled
-		 * layouts — clicks and hover never land on the visible hostname text.
-		 */
+		/* QMF_LEFT_JUSTIFY actions are drawn at LCOLUMN_OFFSET from ix.
+		 * Start the hit box at the same place so short labels (notably the
+		 * Game menu's easy/hard rows) are actually hoverable and clickable. */
 		if ( item->flags & QMF_LEFT_JUSTIFY )
 		{
-			x0 = ix - (int)(8 * s);
+			x0 = ix + (int)((LCOLUMN_OFFSET - 8) * s);
 			x1 = ix + (int)(360 * s);
 		}
 		else

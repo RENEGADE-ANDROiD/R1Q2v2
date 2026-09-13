@@ -254,6 +254,7 @@ static const char *Default_MenuKey( menuframework_s *m, int key )
 		return menu_out_sound;
 	case K_KP_UPARROW:
 	case K_UPARROW:
+	case K_MWHEELUP:
 		if ( m )
 		{
 			m->cursor--;
@@ -271,6 +272,7 @@ static const char *Default_MenuKey( menuframework_s *m, int key )
 		break;
 	case K_KP_DOWNARROW:
 	case K_DOWNARROW:
+	case K_MWHEELDOWN:
 		if ( m )
 		{
 			m->cursor++;
