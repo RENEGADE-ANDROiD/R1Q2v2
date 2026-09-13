@@ -130,7 +130,7 @@ qboolean CL_ParseServerMessage(void) { parsed++; return true; }
 int ZLibDecompress(byte *in,int n,byte *out,int cap,int bits) { memset(out,0,cap); return cap; }
 void SZ_Init(sizebuf_t *b,byte *data,int len) { memset(b,0,sizeof(*b)); b->data=data; b->maxsize=len; }
 '@
-foreach ($sig in @('int MSG_ReadByte (', 'int MSG_ReadShort (', 'void MSG_ReadData (')) {
+foreach ($sig in @('int MSG_ReadByte (', 'int MSG_ReadShort (', 'void MSG_ReadData (', 'char *MSG_ReadString (', 'char *MSG_ReadStringLine (')) {
     $network += Get-FunctionText 'qcommon/common.c' $sig
 }
 $network += Get-FunctionText 'client/cl_ents.c' 'int CL_ParseEntityBits ('
@@ -138,7 +138,7 @@ $network += Get-FunctionText 'client/cl_parse.c' 'void CL_ParseZPacket ('
 $network += @'
 static void message(byte *p,int len) { SZ_Init(&net_message,p,len); net_message.cursize=len; }
 int main(void) {
-    uint32 bits; byte data[16]={0}; int n;
+    uint32 bits; byte data[4096]={0}; int n; char *text;
     data[0]=U_MOREBITS1; data[1]=(byte)(U_NUMBER16>>8);
     n=MAX_EDICTS-1; memcpy(data+2,&n,2); message(data,4);
     CHECK(CL_ParseEntityBits(&bits)==MAX_EDICTS-1);
@@ -152,6 +152,14 @@ int main(void) {
     if(!setjmp(error_jump)) { CL_ParseZPacket(); CHECK(0); } else CHECK(parsed==1);
     data[0]=5; data[1]=0; message(data,4);
     if(!setjmp(error_jump)) { CL_ParseZPacket(); CHECK(0); } else CHECK(parsed==1);
+    memset(data,'a',sizeof(data)); data[2055]=0; data[2056]=svc_nop; message(data,2057);
+    text=MSG_ReadString(&net_message);
+    CHECK(strlen(text)==2047 && net_message.readcount==2056);
+    CHECK(MSG_ReadByte(&net_message)==svc_nop);
+    memset(data,'b',sizeof(data)); data[2055]='\n'; data[2056]=svc_nop; message(data,2057);
+    text=MSG_ReadStringLine(&net_message);
+    CHECK(strlen(text)==2047 && net_message.readcount==2056);
+    CHECK(MSG_ReadByte(&net_message)==svc_nop);
     printf("PASS network guards: %d checks (decompressor stubbed)\n",checks); return 0;
 }
 '@

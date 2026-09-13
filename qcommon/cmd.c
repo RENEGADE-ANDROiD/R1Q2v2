@@ -1493,8 +1493,6 @@ static void Cmd_Expand_Args (char *src, char *dst, int dstavail)
 
 		next = strchr (src, '$');
 
-		count = next - src;
-
 		if (!next)
 		{
 			if (strlen(src) >= dstavail)
@@ -1505,6 +1503,8 @@ static void Cmd_Expand_Args (char *src, char *dst, int dstavail)
 			strcat (dst, src);
 			return;
 		}
+
+		count = (int)(next - src);
 
 		//Insert what found before the $
 		if (count >= dstavail + 1)
@@ -1720,4 +1720,3 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("wait", Cmd_Wait_f);
 	Cmd_AddCommand ("if", Cmd_If_f);
 }
-

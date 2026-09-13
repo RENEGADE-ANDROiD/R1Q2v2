@@ -112,11 +112,32 @@ static int SCR_HudXv (int virt)
 		return viddef.width / 2 - 160 + virt;
 
 	margin = 8;
+	/* Top stock HUD swaps the armor and ammo groups.  Its armor icon lands
+	   at xv 150 after that swap and must remain with the left-hand group. */
+	if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue && virt == 150)
+		return margin + virt;
 	if (virt < 140)
 		return margin + virt;
 	if (virt > 180)
 		return viddef.width - 320 + virt - margin;
 	return viddef.width / 2 - 160 + virt;
+}
+
+static int SCR_HudTopXv (int virt)
+{
+	if (!scr_hud_top_active || !scr_hud_top || !scr_hud_top->intvalue)
+		return virt;
+
+	/* Stock bottom order is health, ammo, armor.  Across the top, keep
+	   armor beside health and place ammo beside the selected-weapon icon. */
+	switch (virt)
+	{
+	case 100: return 200;
+	case 150: return 250;
+	case 200: return 100;
+	case 250: return 150;
+	default:  return virt;
+	}
 }
 
 static float SCR_HudScaleValue (void)
@@ -1628,6 +1649,7 @@ void SCR_ExecuteLayoutString (char *s)
 				{
 					token = COM_Parse (&s);
 					virt = atoi(token);
+					virt = SCR_HudTopXv (virt);
 					/* Layout canvas: centered 320 even when ls==1 (widescreen). */
 					if (scr_layout_canvas)
 						x = viddef.width / 2 - (int)(160.0f * ls + 0.5f) + (int)(virt * ls);

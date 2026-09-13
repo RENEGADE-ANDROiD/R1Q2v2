@@ -3205,6 +3205,11 @@ qboolean CL_LoadLoc (const char *filename)
 		Com_DPrintf ("CL_LoadLoc: %s not found\n", filename);
 		return false;
 	}
+	if (len == 0)
+	{
+		Com_Printf ("CL_LoadLoc: %s is empty\n", LOG_CLIENT|LOG_WARNING, filename);
+		return false;
+	}
 
 	FS_FOpenFile (filename, &handle, HANDLE_OPEN, &closeFile);
 	if (!handle)
@@ -3220,8 +3225,8 @@ qboolean CL_LoadLoc (const char *filename)
 	if (closeFile)
 		FS_FCloseFile (handle);
 
-	//terminate if no EOL
-	locBuffer[len-1] = '\n';
+	// Append an EOL without discarding the file's final character.
+	locBuffer[len++] = '\n';
 	locBuffer[len] = 0;
 
 	linenum = 0;
@@ -5110,11 +5115,15 @@ void CL_SendCommand_Synchronous (void)
 void CL_Synchronous_Frame (int msec)
 {
 	static int	extratime;
+	float		maxfps;
 
 	if (dedicated->value)
 		return;
 
 	extratime += msec;
+	maxfps = cl_maxfps->value;
+	if (maxfps <= 0.0f)
+		maxfps = 60.0f;
 
 	if (!cl_timedemo->value)
 	{
@@ -5125,7 +5134,7 @@ void CL_Synchronous_Frame (int msec)
 		}
 		else
 		{
-			if (extratime < 1000/cl_maxfps->value)
+			if (extratime < 1000/maxfps)
 				return;
 		}
 	}
@@ -5238,6 +5247,8 @@ void CL_Frame (int msec)
 	qboolean	packet_frame=true,
 				render_frame=true,
 				misc_frame=true;
+	int			packet_fps;
+	int			render_fps;
 
 #ifndef NO_SERVER
 	if (dedicated->intvalue)
@@ -5262,6 +5273,13 @@ void CL_Frame (int msec)
 		CL_Synchronous_Frame (msec);
 		return;
 	}
+
+	packet_fps = cl_maxfps->intvalue;
+	if (packet_fps <= 0)
+		packet_fps = 60;
+	render_fps = r_maxfps->intvalue;
+	if (render_fps <= 0)
+		render_fps = 250;
 
 	//jec - set internal counters
 	packet_delta += msec;
@@ -5305,7 +5323,7 @@ void CL_Frame (int msec)
 	if (!cl_timedemo->intvalue)
 	{
 		// packet transmission rate is too high
-		if (packet_delta < 1000/cl_maxfps->intvalue)
+		if (packet_delta < 1000/packet_fps)
 			packet_frame = false;
 	
 		// don't need to do this stuff much.
@@ -5313,7 +5331,7 @@ void CL_Frame (int msec)
 			misc_frame = false;
 
 		// framerate is too high
-		if (render_delta < 1000/r_maxfps->intvalue)
+		if (render_delta < 1000/render_fps)
 			render_frame = false;
 	}
 

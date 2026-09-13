@@ -1241,8 +1241,8 @@ void SV_SendClientMessages (void)
 					return;
 				}
 
-				if (msglen > MAX_MSGLEN)
-					Com_Error (ERR_DROP, "SV_SendClientMessages: msglen %d > MAX_MSGLEN (%d)", msglen, MAX_MSGLEN);
+				if (msglen < 0 || msglen > MAX_MSGLEN)
+					Com_Error (ERR_DROP, "SV_SendClientMessages: invalid demo msglen %d (maximum %d)", msglen, MAX_MSGLEN);
 				else if (msglen == 0)
 					Com_DPrintf ("WARNING: Demo file contains zero byte message at 0x%lx, ignored.\n", ftell (sv.demofile) - 4);
 				else
@@ -1311,4 +1311,3 @@ void SV_SendClientMessages (void)
 		}
 	}
 }
-

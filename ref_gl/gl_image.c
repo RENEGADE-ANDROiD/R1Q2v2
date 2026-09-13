@@ -648,7 +648,8 @@ void EXPORT PngReadFunc(png_struct *Png, png_bytep buf, png_size_t size)
 {
     TPngFileBuffer *PngFileBuffer=(TPngFileBuffer*)png_get_io_ptr(Png);
     if (!PngFileBuffer || !PngFileBuffer->Buffer ||
-        PngFileBuffer->Pos + size > PngFileBuffer->Size)
+        PngFileBuffer->Pos > PngFileBuffer->Size ||
+        size > PngFileBuffer->Size - PngFileBuffer->Pos)
     {
         png_error(Png, "PNG read past end of file");
         return;

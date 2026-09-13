@@ -1044,8 +1044,18 @@ char *Sys_GetClipboardData( void )
 		{
 			if ( ( cliptext = GlobalLock( hClipboardData ) ) != 0 ) 
 			{
-				data = malloc( GlobalSize( hClipboardData ) + 1 );
-				strcpy( data, cliptext );
+				SIZE_T clipSize = GlobalSize( hClipboardData );
+				char *terminator = clipSize ? memchr( cliptext, '\0', clipSize ) : NULL;
+				if ( terminator )
+				{
+					SIZE_T textLength = terminator - cliptext;
+					data = malloc( textLength + 1 );
+					if ( data )
+					{
+						memcpy( data, cliptext, textLength );
+						data[textLength] = '\0';
+					}
+				}
 				GlobalUnlock( hClipboardData );
 			}
 		}

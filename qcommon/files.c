@@ -1240,7 +1240,7 @@ static pack_t /*@null@*/ *FS_LoadPackFile (const char *packfile, const char *ext
 			info[i].filelen = LittleLong(info[i].filelen);
 #endif
 			/* filepos+filelen == pakLen is valid (last byte is at pakLen-1). */
-			if (info[i].filepos + info[i].filelen > pakLen)
+			if (info[i].filepos > pakLen || info[i].filelen > pakLen - info[i].filepos)
 				Com_Error (ERR_FATAL, "FS_LoadPackFile: File '%.64s' in pak file %s has illegal offset %u past end of file %u. Pak file is possibly corrupt.", MakePrintable (info[i].name, 0), packfile, info[i].filepos, pakLen);
 			
 			newitem = rbsearch (info[i].name, pack->rb);

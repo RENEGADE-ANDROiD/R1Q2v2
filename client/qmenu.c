@@ -821,10 +821,10 @@ void SpinControl_Draw( menulist_s *s )
 	}
 	else
 	{
-		strcpy( buffer, s->itemnames[s->curvalue] );
+		Q_strncpy( buffer, s->itemnames[s->curvalue], sizeof(buffer)-1 );
 		*strchr( buffer, '\n' ) = 0;
 		Menu_DrawString( x + (int)(RCOLUMN_OFFSET * sc), y, buffer );
-		strcpy( buffer, strchr( s->itemnames[s->curvalue], '\n' ) + 1 );
+		Q_strncpy( buffer, strchr( s->itemnames[s->curvalue], '\n' ) + 1, sizeof(buffer)-1 );
 		Menu_DrawString( x + (int)(RCOLUMN_OFFSET * sc), y + (int)(10 * sc), buffer );
 	}
 }

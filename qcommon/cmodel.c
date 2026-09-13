@@ -636,6 +636,7 @@ cmodel_t *CM_LoadMap (const char *name, qboolean clientload, uint32 *checksum)
 	//
 
 	override_bits = 0;
+	memset (newname, 0, sizeof(newname));
 
 	//r1: allow transparent server-side map entity replacement
 	if (!clientload)
@@ -672,7 +673,13 @@ cmodel_t *CM_LoadMap (const char *name, qboolean clientload, uint32 *checksum)
 
 			if (closeFile)
 				FS_FCloseFile (script);
-			name = newname;
+			if (override_bits & 1)
+			{
+				newname[sizeof(newname)-1] = 0;
+				if (!newname[0])
+					Com_Error (ERR_DROP, "CM_LoadMap: empty replacement map in %s", csname);
+				name = newname;
+			}
 		}
 	}
 
@@ -741,6 +748,11 @@ cmodel_t *CM_LoadMap (const char *name, qboolean clientload, uint32 *checksum)
 			return &map_cmodels[0];
 		}
 	}
+	if (length < sizeof(dheader_t))
+	{
+		FS_FreeFile (buf);
+		Com_Error (ERR_DROP, "CM_LoadMap: %s has a truncated header", name);
+	}
 
 	if (!(override_bits & 2))
 		last_checksum = LittleLong (Com_BlockChecksum (buf, length));
@@ -760,7 +772,8 @@ cmodel_t *CM_LoadMap (const char *name, qboolean clientload, uint32 *checksum)
 			continue;
 
 		if (header.lumps[i].fileofs < 0 || header.lumps[i].filelen < 0 ||
-			header.lumps[i].fileofs + header.lumps[i].filelen > cmod_size)
+			header.lumps[i].fileofs > cmod_size ||
+			header.lumps[i].filelen > cmod_size - header.lumps[i].fileofs)
 			Com_Error (ERR_DROP, "CM_LoadMap: lump %d offset %d of size %d is out of bounds\n%s is probably truncated or otherwise corrupted", i, header.lumps[i].fileofs, header.lumps[i].filelen, name);
 	}
 
@@ -801,7 +814,7 @@ cmodel_t *CM_LoadMap (const char *name, qboolean clientload, uint32 *checksum)
 	memset (portalopen, 0, sizeof(portalopen));
 	FloodAreaConnections ();
 
-	strcpy (map_name, name);
+	Q_strncpy (map_name, name, sizeof(map_name)-1);
 
 	return &map_cmodels[0];
 }
@@ -2003,4 +2016,3 @@ qboolean CM_HeadnodeVisible (int nodenum, const byte *visbits)
 		return true;
 	return CM_HeadnodeVisible(node->children[1], visbits);
 }
-

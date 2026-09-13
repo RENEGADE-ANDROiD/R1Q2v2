@@ -3083,6 +3083,7 @@ static void Create_Savestrings (void)
 		else
 		{
 			FS_Read (m_savestrings[i], sizeof(m_savestrings[i]), f);
+			m_savestrings[i][sizeof(m_savestrings[i])-1] = 0;
 			fclose (f);
 			m_savevalid[i] = true;
 		}

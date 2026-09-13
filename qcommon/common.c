@@ -1096,9 +1096,9 @@ char *MSG_ReadString (sizebuf_t *msg_read)
 		c = MSG_ReadByte (msg_read);
 		if (c == -1 || c == 0)
 			break;
-		string[l] = c;
-		l++;
-	} while (l < sizeof(string)-1);
+		if (l < sizeof(string)-1)
+			string[l++] = c;
+	} while (1);
 	
 	string[l] = 0;
 	
@@ -1116,9 +1116,9 @@ char *MSG_ReadStringLine (sizebuf_t *msg_read)
 		c = MSG_ReadByte (msg_read);
 		if (c == -1 || c == 0 || c == '\n')
 			break;
-		string[l] = c;
-		l++;
-	} while (l < sizeof(string)-1);
+		if (l < sizeof(string)-1)
+			string[l++] = c;
+	} while (1);
 	
 	string[l] = 0;
 	return string;
@@ -2801,4 +2801,3 @@ void Z_CheckGameLeaks (void)
 		Com_Printf ("\n", LOG_GENERAL|LOG_WARNING);
 	}
 }
-

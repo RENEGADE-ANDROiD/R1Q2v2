@@ -1,4 +1,7 @@
-#define BUILD "8058"
+#define BUILD "8059"
+/* BUILD 8059: defensive cold-path validation for network strings, files,
+ * cinematics, demos, clipboard and renderer diagnostics; correct the stock
+ * top-HUD armor/ammo grouping without changing multiplayer hot paths. */
 /* BUILD 8058: keep Arena team/enemy classification stable through round
  * countdown skin flashes; defer initial player assets without blocking net;
  * player-only enemy brightmaps through 100%; classic packet cadence default. */

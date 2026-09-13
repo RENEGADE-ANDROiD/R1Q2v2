@@ -64,7 +64,7 @@ SCR_LoadPCX
 */
 void SCR_LoadPCX (char *filename, byte **pic, byte **palette, int *width, int *height)
 {
-	byte	*raw;
+	byte	*raw, *filebuf, *data_end;
 	pcx_t	*pcx;
 	int		x, y;
 	int		len;
@@ -72,28 +72,41 @@ void SCR_LoadPCX (char *filename, byte **pic, byte **palette, int *width, int *h
 	byte	*out, *pix;
 
 	*pic = NULL;
+	if (palette)
+		*palette = NULL;
 
 	//
 	// load the file
 	//
-	len = FS_LoadFile (filename, (void **)&raw);
-	if (!raw)
+	len = FS_LoadFile (filename, (void **)&filebuf);
+	if (!filebuf)
 		return;
+	if (len < (int)offsetof(pcx_t, data) + 1)
+	{
+		Com_Printf ("Bad pcx file %s (truncated header)\n", LOG_CLIENT, filename);
+		FS_FreeFile (filebuf);
+		return;
+	}
 
 	//
 	// parse the PCX file
 	//
-	pcx = (pcx_t *)raw;
+	pcx = (pcx_t *)filebuf;
 	raw = &pcx->data;
+	data_end = filebuf + len;
 
 	if (pcx->manufacturer != 0x0a
 		|| pcx->version != 5
 		|| pcx->encoding != 1
 		|| pcx->bits_per_pixel != 8
+		|| pcx->xmin != 0
+		|| pcx->ymin != 0
 		|| pcx->xmax >= 640
-		|| pcx->ymax >= 480)
+		|| pcx->ymax >= 480
+		|| (palette && (len < 769 || filebuf[len-769] != 0x0c)))
 	{
 		Com_Printf ("Bad pcx file %s\n", LOG_CLIENT, filename);
+		FS_FreeFile (filebuf);
 		return;
 	}
 
@@ -106,7 +119,8 @@ void SCR_LoadPCX (char *filename, byte **pic, byte **palette, int *width, int *h
 	if (palette)
 	{
 		*palette = Z_TagMalloc(768, TAGMALLOC_CLIENT_LOADPCX);
-		memcpy (*palette, (byte *)pcx + len - 768, 768);
+		memcpy (*palette, filebuf + len - 768, 768);
+		data_end = filebuf + len - 769;
 	}
 
 	if (width)
@@ -118,30 +132,44 @@ void SCR_LoadPCX (char *filename, byte **pic, byte **palette, int *width, int *h
 	{
 		for (x=0 ; x<=pcx->xmax ; )
 		{
+			if (raw >= data_end)
+				goto malformed;
 			dataByte = *raw++;
 
 			if((dataByte & 0xC0) == 0xC0)
 			{
 				runLength = dataByte & 0x3F;
+				if (raw >= data_end)
+					goto malformed;
 				dataByte = *raw++;
 			}
 			else
 				runLength = 1;
 
+			if (runLength > pcx->xmax + 1 - x)
+				goto malformed;
 			while(runLength-- > 0)
 				pix[x++] = dataByte;
 		}
 
 	}
 
-	if ( raw - (byte *)pcx > len)
+	FS_FreeFile (filebuf);
+	return;
+
+malformed:
+	Com_Printf ("PCX file %s was malformed\n", LOG_CLIENT, filename);
+	if (*pic)
 	{
-		Com_Printf ("PCX file %s was malformed", LOG_CLIENT, filename);
 		Z_Free (*pic);
 		*pic = NULL;
 	}
-
-	FS_FreeFile (pcx);
+	if (palette && *palette)
+	{
+		Z_Free (*palette);
+		*palette = NULL;
+	}
+	FS_FreeFile (filebuf);
 }
 
 //=============================================================
@@ -299,6 +327,7 @@ Huff1Decompress
 cblock_t Huff1Decompress (cblock_t in)
 {
 	byte		*input;
+	byte		*input_end;
 	byte		*out_p;
 	int			nodenum;
 	int			count;
@@ -307,9 +336,17 @@ cblock_t Huff1Decompress (cblock_t in)
 	int			*hnodes, *hnodesbase;
 //int		i;
 
+	if (!in.data || in.count < 4)
+		Com_Error (ERR_DROP, "Truncated cinematic frame");
+
 	// get decompressed count
-	count = in.data[0] + (in.data[1]<<8) + (in.data[2]<<16) + (in.data[3]<<24);
+	count = (int)((uint32)in.data[0] | ((uint32)in.data[1] << 8) |
+		((uint32)in.data[2] << 16) | ((uint32)in.data[3] << 24));
+	if (count <= 0 || cin.width <= 0 || cin.height <= 0 ||
+		cin.width > INT_MAX / cin.height || count != cin.width * cin.height)
+		Com_Error (ERR_DROP, "Bad cinematic frame dimensions");
 	input = in.data + 4;
+	input_end = in.data + in.count;
 	out_p = out.data = Z_TagMalloc (count, TAGMALLOC_CLIENT_CINEMA);
 
 	// read bits
@@ -320,6 +357,11 @@ cblock_t Huff1Decompress (cblock_t in)
 	nodenum = cin.numhnodes1[0];
 	while (count)
 	{
+		if (input >= input_end)
+		{
+			Z_Free (out.data);
+			Com_Error (ERR_DROP, "Truncated cinematic Huffman data");
+		}
 		inbyte = *input++;
 		//-----------
 		if (nodenum < 256)
@@ -446,6 +488,8 @@ byte *SCR_ReadNextFrame (void)
 	command = LittleLong(command);
 	if (command == 2)
 		return NULL;	// last frame marker
+	if (command != 0 && command != 1)
+		Com_Error (ERR_DROP, "Bad cinematic frame command %d", command);
 
 	if (command == 1)
 	{	// read palette
@@ -456,7 +500,7 @@ byte *SCR_ReadNextFrame (void)
 	// decompress the next frame
 	FS_Read (&size, 4, cl.cinematic_file);
 	size = LittleLong(size);
-	if (size > sizeof(compressed) || size < 1)
+	if (size > sizeof(compressed) || size < 4)
 		Com_Error (ERR_DROP, "Bad compressed frame size");
 	FS_Read (compressed, size, cl.cinematic_file);
 
@@ -464,6 +508,8 @@ byte *SCR_ReadNextFrame (void)
 	start = cl.cinematicframe*cin.s_rate/14;
 	end = (cl.cinematicframe+1)*cin.s_rate/14;
 	count = end - start;
+	if (count < 0 || count > (int)sizeof(samples) / (cin.s_width * cin.s_channels))
+		Com_Error (ERR_DROP, "Bad cinematic audio frame size");
 
 	FS_Read (samples, count*cin.s_width*cin.s_channels, cl.cinematic_file);
 
@@ -635,6 +681,16 @@ void SCR_PlayCinematic (char *arg)
 	cin.s_width = LittleLong(cin.s_width);
 	FS_Read (&cin.s_channels, 4, cl.cinematic_file);
 	cin.s_channels = LittleLong(cin.s_channels);
+	if (cin.width <= 0 || cin.height <= 0 || cin.width > 4096 || cin.height > 4096 ||
+		cin.width > INT_MAX / cin.height || cin.s_rate <= 0 || cin.s_rate > 22050 ||
+		(cin.s_width != 1 && cin.s_width != 2) ||
+		(cin.s_channels != 1 && cin.s_channels != 2))
+	{
+		Com_Printf ("Bad cinematic header: %dx%d, %d Hz, %d-byte, %d channel(s)\n",
+			LOG_CLIENT|LOG_WARNING, cin.width, cin.height, cin.s_rate, cin.s_width, cin.s_channels);
+		SCR_StopCinematic ();
+		return;
+	}
 
 	Huff1TableInit ();
 

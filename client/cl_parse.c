@@ -1375,7 +1375,7 @@ void CL_ParseStartSoundPacket(void)
 
 		ent = channel>>3;
 
-		if (ent < 0 || ent > MAX_EDICTS)
+		if (ent < 0 || ent >= MAX_EDICTS)
 			Com_Error (ERR_DROP,"CL_ParseStartSoundPacket: ent = %i", ent);
 
 		channel &= 7;
@@ -1508,7 +1508,8 @@ void CL_ParsePrint (void)
 		if (cl_filterchat->intvalue)
 		{
 			StripHighBits(s, (int)cl_filterchat->intvalue == 2);
-			strcat (s, "\n");
+			if (strlen(s) < 2047)
+				strcat (s, "\n");
 		}
 		con.ormask = 128;
 
@@ -1531,7 +1532,7 @@ void CL_ParsePrint (void)
 
 		//strip newline for trigger match
 		len = strlen(s);
-		if (s[len-1] == '\n')
+		if (len > 0 && s[len-1] == '\n')
 			s[len-1] = '\0';
 
 		Cmd_ExecTrigger (s); //Triggers

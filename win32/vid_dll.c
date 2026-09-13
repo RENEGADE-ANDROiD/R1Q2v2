@@ -1206,12 +1206,11 @@ void VID_ReloadRefresh (void)
 			ignore_vidprintf = 0;
 			cl_hwnd = NULL;
 			Com_Printf ("\2Failed to load %s: %s\n", LOG_GENERAL, name, errMessage);
-			if (attempted[0])
-				strcat (attempted, "\n");
-			strcat (attempted, name);
-			strcat (attempted, " (");
-			strcat (attempted, errMessage);
-			strcat (attempted, ")");
+			{
+				size_t used = strlen (attempted);
+				Com_sprintf (attempted + used, sizeof(attempted) - used, "%s%s (%s)",
+					used ? "\n" : "", name, errMessage);
+			}
 
 			if ( strcmp (vid_ref->string, "soft") == 0 )
 				Com_Error (ERR_FATAL, 	"Unable to initialize video output! Please check that your video card drivers are installed and up to date and that Quake II is installed properly. If you continue to get this error, try using R1GL from http://www.r1ch.net/stuff/r1gl/ and ensure your gl_driver is set to 'opengl32' in your autoexec.cfg\n\n"
@@ -1451,4 +1450,3 @@ void VID_Shutdown (void)
 		g_hKeyboardHook = NULL;
 	}
 }
-
