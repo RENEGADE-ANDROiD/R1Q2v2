@@ -72,7 +72,7 @@ static qboolean GL_EntitySolidTint (void)
 	return currententity->tint[0] > 0.0f || currententity->tint[1] > 0.0f || currententity->tint[2] > 0.0f;
 }
 
-/* Enemy brightmaps: lerp world light toward fullbright by minlight (33.3 / 66.6 / 88% cap). */
+/* Enemy brightmaps: lerp only this player entity's sampled light toward fullbright. */
 static void GL_ApplyMinLight (void)
 {
 	float	m;
@@ -86,8 +86,8 @@ static void GL_ApplyMinLight (void)
 		return;
 	if (currententity->flags & RF_WEAPONMODEL)
 		return;
-	if (m > 0.88f)
-		m = 0.88f;
+	if (m > 1.0f)
+		m = 1.0f;
 	om = 1.0f - m;
 	for (i = 0; i < 3; i++)
 		shadelight[i] = shadelight[i] * om + m;

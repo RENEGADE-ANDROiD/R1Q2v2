@@ -4,7 +4,7 @@ A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8057)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8058)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 Build 8057 includes [incoming-data and asset safety fixes](SECURITY-FIXES-8057.md). Update the executable and both renderer DLLs together; older renderer DLLs are now rejected because their entity layout is incompatible.
 
@@ -102,7 +102,7 @@ Useful cvars: `gl_ext_max_anisotropy` (or alias `gl_anisotropy`), `gl_texture_lo
 
 **Address Book** is the favorite list (`adr0`–`adr15`). It is separate from the public browser. Favorites are stored in `baseq2/bookmarks.cfg` so they survive `exec Q2config.cfg` and gamedir switches.
 
-**Multiplayer settings** (under Multiplayer) can tint enemy / team players on this client only, and optionally blend enemy lighting toward fullbright (`cl_enemyfullbright`: Off / 33.3% / 66.6% / 88%). Force color uses **Tint Opacity** (default 50%): original skin at 0%, mix in the middle, solid enemy/team color at 100%. Team vs enemy uses Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b`, plus `team` userinfo and CTF join stats. On team servers, unknown skins (countdown) are **not** painted as enemies. FFA still treats everyone else as enemy. Cvars: `cl_forcecolors`, `cl_enemycolor`, `cl_teamcolor`, `cl_forcecolor_alpha`, `cl_enemyfullbright`.
+**Multiplayer settings** (under Multiplayer) can tint enemy / team players on this client only, and optionally blend enemy-player lighting toward fullbright (`cl_enemyfullbright`: Off / 33.3% / 66.6% / 88% / 100%). This player-only effect leaves map lighting, monsters, items, teammates, and the first-person weapon unchanged. Force color uses **Tint Opacity** (default 50%): original skin at 0%, mix in the middle, solid enemy/team color at 100%. Team vs enemy uses Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b`, plus `team` userinfo and CTF join stats. On team servers, unknown skins (countdown) are **not** painted as enemies. FFA still treats everyone else as enemy. Cvars: `cl_forcecolors`, `cl_enemycolor`, `cl_teamcolor`, `cl_forcecolor_alpha`, `cl_enemyfullbright`.
 
 Chat filter: `ignore` / `mute` a name or snippet (same command). List with `ignorelist`, drop with `unignore` / `unmute`. The list is stored in `ignore.txt`.
 

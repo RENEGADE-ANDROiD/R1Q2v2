@@ -779,10 +779,11 @@ static const char *mp_brightmap_names[] = {
 	"33.3%",
 	"66.6%",
 	"88%",
+	"100%",
 	0
 };
 
-static const float mp_brightmap_values[] = { 0.0f, 33.3f, 66.6f, 88.0f };
+static const float mp_brightmap_values[] = { 0.0f, 33.3f, 66.6f, 88.0f, 100.0f };
 
 static int MP_BrightmapCurvalue (void)
 {
@@ -790,6 +791,8 @@ static int MP_BrightmapCurvalue (void)
 
 	if (v <= 0.0f)
 		return 0;
+	if (v >= 100.0f)
+		return 4;
 	if (v >= 88.0f)
 		return 3;
 	if (v == 1.0f || v >= 66.0f)	/* old Yes / 66.6 */
@@ -850,8 +853,8 @@ static void MPSettingsBrightFunc (void *unused)
 
 	if (idx < 0)
 		idx = 0;
-	if (idx > 3)
-		idx = 3;
+	if (idx > 4)
+		idx = 4;
 	Cvar_SetValue ("cl_enemyfullbright", mp_brightmap_values[idx]);
 }
 
@@ -905,7 +908,7 @@ static void MPSettings_MenuInit (void)
 	s_mpsettings_bright.generic.y = 40;
 	s_mpsettings_bright.generic.name = "Enemy Brightmaps";
 	s_mpsettings_bright.generic.callback = MPSettingsBrightFunc;
-	s_mpsettings_bright.generic.statusbar = "Blend toward fullbright: Off / 33.3% / 66.6% / 88%";
+	s_mpsettings_bright.generic.statusbar = "Enemy player models only; map lighting is unchanged";
 	s_mpsettings_bright.itemnames = mp_brightmap_names;
 	s_mpsettings_bright.curvalue = MP_BrightmapCurvalue ();
 

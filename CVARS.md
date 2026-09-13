@@ -180,7 +180,7 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `cl_enemycolor` | `1` | Forced enemy tint: `0` default (no tint), `1` red … `14` lilac (see Multiplayer settings). FFA: all other players. Team: opposite Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skin. Saved. |
 | `cl_teamcolor` | `6` | Forced teammate tint (same indices as `cl_enemycolor`). Matching Arena `r2red`/`r2blue` or CTF `ctf_r`/`ctf_b` skins. Saved. |
 | `cl_forcecolor_alpha` | `0.5` | Force-color opacity. `0` = original skin, `0.5` = mix (slider middle), `1` = solid chosen color (replaces skin). Saved. Only applies when `cl_forcecolors` is on. |
-| `cl_enemyfullbright` | `0` | **Client-side only.** Blend enemy lighting toward fullbright: `0` off, `33.3`, `66.6`, `88` (cap). Does not replace world light with a flat value. Legacy `1` is 66.6%; old `50` is 33.3%. Teammates, yourself, unknown-team players (countdown), and the first-person view weapon are unchanged. Works with or without `cl_forcecolors`. Saved. |
+| `cl_enemyfullbright` | `0` | **Client-side only.** Blend enemy-player lighting toward fullbright: `0` off, `33.3`, `66.6`, `88`, or `100`. Only multiplayer player bodies and their attached weapons receive it; map surfaces, monsters, items, teammates, yourself, unknown-team players (countdown), and the first-person view weapon are unchanged. Legacy `1` is 66.6%; old `50` is 33.3%. Works with or without `cl_forcecolors`. Saved. |
 | `scr_conspeed` | `3` | Console drop / raise speed. |
 | `scr_conheight` | `0.5` | Open console height as a fraction of the screen. |
 | `con_notifytime` | `3` | Seconds notify lines stay on screen. |
@@ -275,7 +275,7 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 | `cl_updaterate` | `0` | Requested update rate on R1Q2 protocol (`0` = server default). |
 | `cl_timeout` | `120` | Seconds with no packets before disconnect. |
 | `cl_instantpacket` | `1` | Send packets immediately on attack/use (and, with `cl_maxpackets`, jump edges). |
-| `cl_maxpackets` | `60` | Cap outgoing UDP packets/sec on protocol 34/35. **0** = send every physics frame (old behavior). Uses the 2-cmd backup already in each datagram — dropped packets are recovered by the next one, same as Q2PRO `cl_fuzzhack`. Never drops more than 2 in a row. Attack/use/jump edges always send. At `cl_maxfps 125` this is ~60 pps instead of 125. |
+| `cl_maxpackets` | `0` | **0** sends every physics frame (classic/default). A value such as `60` opts into the protocol 34/35 outgoing packet limiter. The limiter uses the two-command backup already in each datagram, never skips more than two sends in a row, and sends attack/use/jump edges immediately. |
 | `net_ignore_icmp` | `1` | Ignore ICMP port-unreachable on the UDP socket. Windows otherwise surfaces those as `WSAECONNRESET` with a **stale** recv buffer. **Build 8050** also disables `SIO_UDP_CONNRESET` / `SIO_UDP_NETRESET` and skips `i < 0` in `CL_ReadPackets`. |
 | `cl_http_downloads` | `1` | Allow HTTP downloads when the server offers them (`dlserver=`). Needs a **USE_CURL** build and `libcurl.dll` beside the exe. |
 | `allow_download` | `1` | Master UDP download switch (maps / models / sounds / players have siblings). |

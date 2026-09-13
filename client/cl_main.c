@@ -5029,6 +5029,20 @@ void CL_LoadDeferredModels (void)
 			unsigned	t0 = Sys_Milliseconds ();
 			CL_ProcessDeferredAsset (kind, index, step);
 			deferred_last_process_ms = Sys_Milliseconds () - t0;
+			if (deferred_last_process_ms >= 250)
+			{
+				const char *name = "";
+				if (kind == DA_MODEL && index < MAX_MODELS)
+					name = cl.configstrings[CS_MODELS + index];
+				else if (kind == DA_SOUND && index < MAX_SOUNDS)
+					name = cl.configstrings[CS_SOUNDS + index];
+				else if (kind == DA_IMAGE && index < MAX_IMAGES)
+					name = cl.configstrings[CS_IMAGES + index];
+				else if (kind == DA_PLAYERSKIN && index < MAX_CLIENTS)
+					name = cl.configstrings[CS_PLAYERSKINS + index];
+				Com_Printf ("Deferred asset hitch: %u ms kind=%d index=%d step=%d %s\n",
+					LOG_CLIENT, deferred_last_process_ms, kind, index, step, name);
+			}
 		}
 		did_work = true;
 	}

@@ -48,6 +48,20 @@ static const float cl_forcecolor_rgb[][3] = {
 };
 #define CL_FORCECOLOR_MAX  ((int)(sizeof(cl_forcecolor_rgb) / sizeof(cl_forcecolor_rgb[0])) - 1)
 
+typedef struct
+{
+	int	stable;
+	int	candidate;
+	unsigned candidate_since;
+} cl_playerteam_t;
+
+static cl_playerteam_t cl_playerteams[MAX_CLIENTS];
+
+void CL_ResetPlayerTeamCache (void)
+{
+	memset (cl_playerteams, 0, sizeof(cl_playerteams));
+}
+
 /* 0 unknown, 1 red, 2 blue. */
 static int CL_TokenTeamId (const char *s)
 {
@@ -158,16 +172,68 @@ static int CL_CtfJoinedTeam (void)
 	return 0;
 }
 
+/* Arena documents the status-bar face as the authoritative local team color. */
+static int CL_HudTeamId (void)
+{
+	int pic = cl.frame.playerstate.stats[STAT_HEALTH_ICON];
+
+	if (pic > 0 && pic < MAX_IMAGES)
+		return CL_TokenTeamId (cl.configstrings[CS_IMAGES + pic]);
+	return 0;
+}
+
+/* Arena may briefly alternate player team skins during its round countdown.
+ * Latch the established side and accept a real team switch only after the new
+ * skin has remained consistent, keeping force colors and brightmaps stable. */
+static int CL_StablePlayerTeamId (int clientnum)
+{
+	cl_playerteam_t *cached;
+	int raw;
+	unsigned now;
+
+	if (clientnum < 0 || clientnum >= MAX_CLIENTS)
+		return 0;
+	raw = CL_SkinTeamId (cl.clientinfo[clientnum].cinfo);
+	if (!raw)
+		raw = CL_SkinTeamId (cl.configstrings[CS_PLAYERSKINS + clientnum]);
+	cached = &cl_playerteams[clientnum];
+	if (!raw)
+		return cached->stable;
+	if (!cached->stable)
+	{
+		cached->stable = raw;
+		return raw;
+	}
+	if (raw == cached->stable)
+	{
+		cached->candidate = 0;
+		return raw;
+	}
+	now = Sys_Milliseconds ();
+	if (cached->candidate != raw)
+	{
+		cached->candidate = raw;
+		cached->candidate_since = now;
+	}
+	else if ((unsigned)(now - cached->candidate_since) >= 2000)
+	{
+		cached->stable = raw;
+		cached->candidate = 0;
+	}
+	return cached->stable;
+}
+
 static int CL_LocalTeamId (int localNum)
 {
 	int	team;
 
+	team = CL_HudTeamId ();
+	if (team)
+		return team;
+
 	if (localNum >= 0 && localNum < MAX_CLIENTS)
 	{
-		team = CL_SkinTeamId (cl.clientinfo[localNum].cinfo);
-		if (team)
-			return team;
-		team = CL_SkinTeamId (cl.configstrings[CS_PLAYERSKINS + localNum]);
+		team = CL_StablePlayerTeamId (localNum);
 		if (team)
 			return team;
 	}
@@ -220,9 +286,7 @@ static int CL_PlayerForceSide (int clientnum)
 	}
 
 	localTeam = CL_LocalTeamId (localNum);
-	otherTeam = CL_SkinTeamId (cl.clientinfo[clientnum].cinfo);
-	if (!otherTeam)
-		otherTeam = CL_SkinTeamId (cl.configstrings[CS_PLAYERSKINS + clientnum]);
+	otherTeam = CL_StablePlayerTeamId (clientnum);
 	if (localTeam && otherTeam)
 		return (localTeam == otherTeam) ? 1 : 0;
 
@@ -292,9 +356,9 @@ static void CL_EnsurePlayerDrawModel (entity_t *ent)
 		ent->skin = re.RegisterSkin ("players/male/grunt.pcx");
 }
 
-#define CL_ENEMY_BRIGHT_CAP  0.88f	/* 88% */
+#define CL_ENEMY_BRIGHT_CAP  1.0f
 
-/* 0 = off. 33.3 / 66.6 / 88. Legacy 1 (old Yes) is 66.6%; old 50 is 33.3%. */
+/* 0 = off. 33.3 / 66.6 / 88 / 100. Legacy 1 (old Yes) is 66.6%; old 50 is 33.3%. */
 static float CL_PlayerEnemyBrightScale (int clientnum)
 {
 	float	v;
@@ -308,8 +372,10 @@ static float CL_PlayerEnemyBrightScale (int clientnum)
 		return 0.0f;
 	if (v == 1.0f)
 		return 0.666f;
-	if (v >= 88.0f)
+	if (v >= 100.0f)
 		return CL_ENEMY_BRIGHT_CAP;
+	if (v >= 88.0f)
+		return 0.88f;
 	if (v >= 66.0f)
 		return 0.666f;
 	if (v >= 33.0f)

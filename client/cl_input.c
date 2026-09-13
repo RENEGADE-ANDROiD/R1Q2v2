@@ -530,7 +530,7 @@ void CL_InitInput (void)
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0);
 	/* 0 = every physics frame. Nonzero caps UDP pps using the 2-cmd
 	 * backup already in each datagram (Q2PRO cl_fuzzhack). */
-	cl_maxpackets = Cvar_Get ("cl_maxpackets", "60", 0);
+	cl_maxpackets = Cvar_Get ("cl_maxpackets", "0", 0);
 }
 
 /*
@@ -986,5 +986,4 @@ void CL_SendCmd (void)
 
 	CL_InitCmd(); //jec - init the next usercmd buffer.
 }
-
 

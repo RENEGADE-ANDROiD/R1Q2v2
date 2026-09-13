@@ -1,4 +1,7 @@
-#define BUILD "8057"
+#define BUILD "8058"
+/* BUILD 8058: keep Arena team/enemy classification stable through round
+ * countdown skin flashes; defer initial player assets without blocking net;
+ * player-only enemy brightmaps through 100%; classic packet cadence default. */
 /* BUILD 8057: validate incoming packets, downloads, JPEG/WAV/MD3 assets;
  * version the extended renderer interface. Input/send timing is unchanged. */
 /* BUILD 8056:

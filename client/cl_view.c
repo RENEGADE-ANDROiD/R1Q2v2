@@ -431,29 +431,38 @@ void CL_PrepRefresh (void)
 
 	//must be zeroed to flush out old model pointers
 	memset (&cl.clientinfo, 0, sizeof(cl.clientinfo));
+	CL_ResetPlayerTeamCache ();
+	/* Load one known-good placeholder first. Initial connected-player assets
+	 * are queued below so a busy Arena countdown cannot block networking while
+	 * every skin, icon, and vwep is decoded in one synchronous loop. */
+	CL_LoadClientinfo (&cl.baseclientinfo, "");
 
 	{
-		unsigned int last_scr = 0;
-
 		for (i=0 ; i<maxclients ; i++)
 		{
+			clientinfo_t *ci;
+			char *sep;
+
 			if (!cl.configstrings[CS_PLAYERSKINS+i][0])
 				continue;
 
-			/* One present per ~100ms — a SwapBuffers per player was a load hitch. */
-			if (!last_scr || (unsigned)(Sys_Milliseconds() - last_scr) >= 100)
+			if (cl_timedemo->intvalue)
 			{
-				SCR_UpdateScreen ();
-				last_scr = Sys_Milliseconds ();
+				CL_ParseClientinfo (i);
+				continue;
 			}
-			Sys_SendKeyEvents ();
-			CL_ParseClientinfo (i);
+
+			ci = &cl.clientinfo[i];
+			Q_strncpy (ci->cinfo, cl.configstrings[CS_PLAYERSKINS+i], sizeof(ci->cinfo)-1);
+			Q_strncpy (ci->name, ci->cinfo, sizeof(ci->name)-1);
+			sep = strchr (ci->name, '\\');
+			if (sep)
+				*sep = 0;
+			CL_QueueDeferredAsset (DA_PLAYERSKIN, i);
 		}
 	}
 
 	Netchan_Transmit (&cls.netchan, 0, NULL);
-
-	CL_LoadClientinfo (&cl.baseclientinfo, "");
 
 	// set sky textures and speed
 	Com_Printf ("sky             \r", LOG_CLIENT); 

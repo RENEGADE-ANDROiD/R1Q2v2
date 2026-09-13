@@ -646,6 +646,7 @@ void CL_RunDLights (void);
 void CL_RunLightStyles (void);
 
 void CL_AddEntities (void);
+void CL_ResetPlayerTeamCache (void);
 void CL_AddDLights (void);
 void CL_AddTEnts (void);
 void CL_AddLightStyles (void);

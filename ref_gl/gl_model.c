@@ -296,6 +296,14 @@ model_t *Mod_ForName (char *name, qboolean crash)
 		mod->name[0] = 0;
 		return NULL;
 	}
+	if (modfilelen < (int)sizeof(unsigned))
+	{
+		ri.FS_FreeFile (buf);
+		mod->name[0] = 0;
+		if (crash)
+			ri.Sys_Error (ERR_DROP, "Mod_ForName: %s is truncated", name);
+		return NULL;
+	}
 	
 	loadmodel = mod;
 
@@ -1118,6 +1126,8 @@ void Mod_LoadBrushModel (model_t *mod, void *buffer)
 	if (loadmodel != mod_known)
 		ri.Sys_Error (ERR_DROP, "Loaded a brush model after the world");
 
+	if (modfilelen < (int)sizeof(dheader_t))
+		ri.Sys_Error (ERR_DROP, "Mod_LoadBrushModel: %s is truncated", mod->name);
 	header = (dheader_t *)buffer;
 
 	i = LittleLong (header->version);
@@ -1140,7 +1150,8 @@ void Mod_LoadBrushModel (model_t *mod, void *buffer)
 			continue;
 
 		if (header->lumps[i].fileofs < 0 || header->lumps[i].filelen < 0 ||
-			header->lumps[i].fileofs + header->lumps[i].filelen > modfilelen)
+			header->lumps[i].fileofs > modfilelen ||
+			header->lumps[i].filelen > modfilelen - header->lumps[i].fileofs)
 			ri.Sys_Error (ERR_DROP, "Mod_LoadBrushModel: offset %d of size %d is out of bounds (%s is possibly truncated)", header->lumps[i].fileofs, header->lumps[i].filelen, mod->name);
 	}
 
@@ -1215,9 +1226,11 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	daliasframe_t		*pinframe, *poutframe;
 	int					*pincmd, *poutcmd;
 	int					version;
-	unsigned int		required;
+	size_t				required;
 	char				*skin_name;
 
+	if (modfilelen < (int)sizeof(dmdl_t))
+		ri.Sys_Error (ERR_DROP, "model %s has a truncated header", mod->name);
 	pinmodel = (dmdl_t *)buffer;
 
 	version = LittleLong (pinmodel->version);
@@ -1236,6 +1249,8 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	memcpy (pheader, buffer, sizeof(dmdl_t));
 #endif
 
+	if (pheader->skinwidth <= 0 || pheader->skinheight <= 0)
+		ri.Sys_Error (ERR_DROP, "model %s has invalid skin dimensions", mod->name);
 	if (pheader->skinheight > MAX_LBM_HEIGHT)
 		ri.Con_Printf (PRINT_DEVELOPER, "model %s has a skin taller than traditional maximum of %d", mod->name,
 				   MAX_LBM_HEIGHT);
@@ -1248,14 +1263,22 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 
 	if (pheader->num_st <= 0)
 		ri.Sys_Error (ERR_DROP, "model %s has no st vertices", mod->name);
+	if (pheader->num_st > MAX_VERTS)
+		ri.Sys_Error (ERR_DROP, "model %s has too many st vertices", mod->name);
 
 	if (pheader->num_tris <= 0)
 		ri.Sys_Error (ERR_DROP, "model %s has no triangles", mod->name);
+	if (pheader->num_tris > MAX_TRIANGLES)
+		ri.Sys_Error (ERR_DROP, "model %s has too many triangles", mod->name);
 
 	if (pheader->num_frames <= 0)
 		ri.Sys_Error (ERR_DROP, "model %s has no frames", mod->name);
+	if (pheader->num_frames > MAX_FRAMES)
+		ri.Sys_Error (ERR_DROP, "model %s has too many frames", mod->name);
+	if (pheader->num_glcmds <= 0 || pheader->num_glcmds > modfilelen / (int)sizeof(int))
+		ri.Sys_Error (ERR_DROP, "model %s has invalid glcmd count", mod->name);
 
-	if (pheader->num_skins >= 31)
+	if (pheader->num_skins < 0 || pheader->num_skins >= MAX_MD2SKINS)
 		ri.Sys_Error (ERR_DROP, "model %s has too many skins", mod->name);
 
 	if (pheader->ofs_st <= 0 || pheader->ofs_frames <= 0 || pheader->ofs_glcmds <= 0 ||
@@ -1276,28 +1299,34 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 	required += pheader->num_glcmds * sizeof(int);
 	required += pheader->num_skins * MAX_SKINNAME;
 
-	if (pheader->ofs_end != required)
-		ri.Sys_Error (ERR_DROP, "model %s has bad size header (%d != %d)", mod->name, pheader->ofs_end, required);
+	if (required > INT_MAX || pheader->ofs_end != (int)required || required > (size_t)modfilelen)
+		ri.Sys_Error (ERR_DROP, "model %s has bad size header (%d != %u, file %d)", mod->name,
+			pheader->ofs_end, (unsigned)required, modfilelen);
 
-	if (pheader->ofs_frames + pheader->num_frames * sizeof(daliasframe_t) > required)
+	if ((size_t)pheader->ofs_frames > required || pheader->framesize <= 0 ||
+		(size_t)pheader->num_frames > (required - pheader->ofs_frames) / (size_t)pheader->framesize)
 		ri.Sys_Error (ERR_DROP, "model %s has illegal frames offset", mod->name);
 
-	if (pheader->ofs_glcmds + pheader->num_glcmds * sizeof(int) > required)
+	if ((size_t)pheader->ofs_glcmds > required ||
+		(size_t)pheader->num_glcmds > (required - pheader->ofs_glcmds) / sizeof(int))
 		ri.Sys_Error (ERR_DROP, "model %s has illegal glcmds offset", mod->name);
 	
-	if (pheader->ofs_skins + pheader->num_skins * MAX_SKINNAME > required)
+	if ((size_t)pheader->ofs_skins > required ||
+		(size_t)pheader->num_skins > (required - pheader->ofs_skins) / MAX_SKINNAME)
 		ri.Sys_Error (ERR_DROP, "model %s has illegal skins offset", mod->name);
 
-	if (pheader->ofs_st + pheader->num_st * sizeof(dstvert_t) > required)
+	if ((size_t)pheader->ofs_st > required ||
+		(size_t)pheader->num_st > (required - pheader->ofs_st) / sizeof(dstvert_t))
 		ri.Sys_Error (ERR_DROP, "model %s has illegal vertices offset", mod->name);
 
-	if (pheader->ofs_tris + pheader->num_tris * sizeof(dtriangle_t) > required)
+	if ((size_t)pheader->ofs_tris > required ||
+		(size_t)pheader->num_tris > (required - pheader->ofs_tris) / sizeof(dtriangle_t))
 		ri.Sys_Error (ERR_DROP, "model %s has illegal triangles offset", mod->name);
 
-	if (pheader->framesize * pheader->num_frames != pheader->num_frames * (int)((sizeof(daliasframe_t)-4) + pheader->num_xyz*sizeof(dtrivertx_t)))
+	if (pheader->framesize != (int)((sizeof(daliasframe_t)-4) + pheader->num_xyz*sizeof(dtrivertx_t)))
 		ri.Sys_Error (ERR_DROP, "model %s has invalid frame size", mod->name);
 
-	pheader = Hunk_Alloc (required);
+	pheader = Hunk_Alloc ((int)required);
 	memcpy (pheader, &header, sizeof(dmdl_t));
 	//
 // load base s and t vertices (not used in gl version)
@@ -1334,6 +1363,16 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 #else
 	memcpy (pouttri, pintri, pheader->num_tris * sizeof(dtriangle_t));
 #endif
+	for (i=0 ; i<pheader->num_tris ; i++)
+	{
+		int j;
+		for (j=0 ; j<3 ; j++)
+		{
+			if (pouttri[i].index_xyz[j] >= pheader->num_xyz ||
+				pouttri[i].index_st[j] >= pheader->num_st)
+				ri.Sys_Error (ERR_DROP, "model %s has an invalid triangle index", mod->name);
+		}
+	}
 
 //
 // load the frames
@@ -1377,6 +1416,33 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 #else
 	memcpy (poutcmd, pincmd, pheader->num_glcmds * sizeof(int));
 #endif
+	{
+		int pos = 0;
+		qboolean terminated = false;
+		while (pos < pheader->num_glcmds)
+		{
+			int count = poutcmd[pos++];
+			int verts;
+			int j;
+			if (!count)
+			{
+				terminated = true;
+				break;
+			}
+			if (count == INT_MIN)
+				ri.Sys_Error (ERR_DROP, "model %s has an invalid glcmd count", mod->name);
+			verts = count < 0 ? -count : count;
+			if (verts > (pheader->num_glcmds - pos) / 3)
+				ri.Sys_Error (ERR_DROP, "model %s has a truncated glcmd list", mod->name);
+			for (j = 0; j < verts; j++, pos += 3)
+			{
+				if (poutcmd[pos + 2] < 0 || poutcmd[pos + 2] >= pheader->num_xyz)
+					ri.Sys_Error (ERR_DROP, "model %s has an invalid glcmd vertex", mod->name);
+			}
+		}
+		if (!terminated)
+			ri.Sys_Error (ERR_DROP, "model %s has an unterminated glcmd list", mod->name);
+	}
 
 
 	// register all skins
