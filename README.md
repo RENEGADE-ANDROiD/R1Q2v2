@@ -68,6 +68,8 @@ Escape applies driver / resolution / fullscreen. The FX toggles and sliders appl
 
 Warp water explicitly tagged `TRANS33`/`TRANS66` by the map is translucent in every mode, including DM, CTF, Arena, and coop. Plain warp water remains opaque. The console-only `gl_wateralpha` override is ignored in multiplayer, so clients cannot make untagged water transparent or reduce mapper-authored opacity.
 
+R1GL also offers upgraded projected model shadows (`gl_shadows 1` basic, `2` faded, `3` soft) and subtle liquid distance fog (`gl_waterfog`, default `0.35`). These are conventional raster effects, not hardware ray tracing.
+
 Older configs that used `gl_hudscale` for HUD size are redirected to `scr_hudscale`; `gl_hudscale` is forced back to `1` so it no longer shrinks the whole 2D layer (including after a later `exec`).
 
 ### Packs and high-res textures

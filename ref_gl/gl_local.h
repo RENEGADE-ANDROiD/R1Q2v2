@@ -310,6 +310,7 @@ extern	cvar_t	*gl_warp_amp;        /* water/slime warp amplitude scale */
 extern	cvar_t	*gl_warp_speed;      /* water/slime warp time scale */
 extern	cvar_t	*gl_subdivide;       /* warp tessellation size (map load); 64 classic */
 extern	cvar_t	*gl_wateralpha;      /* 0=map 0.33/0.66; >0 override. Ignored in MP */
+extern	cvar_t	*gl_waterfog;        /* underwater distance fog intensity, 0=off */
 extern	cvar_t	*r_water_alpha_ok;   /* 1 when CS_MAXCLIENTS <= 1; else opaque */
 extern	cvar_t	*gl_alphaskins;
 extern	cvar_t	*gl_defertext;

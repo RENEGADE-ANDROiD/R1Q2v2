@@ -213,6 +213,7 @@ cvar_t	*gl_warp_amp;
 cvar_t	*gl_warp_speed;
 cvar_t	*gl_subdivide;
 cvar_t	*gl_wateralpha;
+cvar_t	*gl_waterfog;
 cvar_t	*r_water_alpha_ok;
 cvar_t	*gl_alphaskins;
 cvar_t	*gl_defertext;
@@ -1288,6 +1289,7 @@ r_newrefdef must be set before the first call
 */
 void R_RenderView (refdef_t *fd)
 {
+	qboolean underwater_fog = false;
 	if (FLOAT_NE_ZERO(r_norefresh->value))
 		return;
 
@@ -1328,6 +1330,32 @@ void R_RenderView (refdef_t *fd)
 
 	R_SetupGL ();
 
+	if ((r_newrefdef.rdflags & RDF_UNDERWATER) && gl_waterfog->value > 0.0f)
+	{
+		GLfloat fog_color[4];
+		float amount = gl_waterfog->value;
+
+		if (amount > 1.0f)
+			amount = 1.0f;
+		fog_color[0] = r_newrefdef.blend[0];
+		fog_color[1] = r_newrefdef.blend[1];
+		fog_color[2] = r_newrefdef.blend[2];
+		fog_color[3] = 1.0f;
+		if (fog_color[0] + fog_color[1] + fog_color[2] < 0.05f)
+		{
+			fog_color[0] = 0.08f;
+			fog_color[1] = 0.16f;
+			fog_color[2] = 0.18f;
+		}
+		qglFogi (GL_FOG_MODE, GL_LINEAR);
+		qglFogf (GL_FOG_START, 96.0f + (1.0f - amount) * 224.0f);
+		qglFogf (GL_FOG_END, 1152.0f - amount * 448.0f);
+		qglFogfv (GL_FOG_COLOR, fog_color);
+		qglHint (GL_FOG_HINT, GL_NICEST);
+		qglEnable (GL_FOG);
+		underwater_fog = true;
+	}
+
 	R_MarkLeaves ();	// done here so we know if we're in water
 
 	if (gl_config.r1gl_QueryBits)
@@ -1343,6 +1371,9 @@ void R_RenderView (refdef_t *fd)
 	R_DrawParticles ();
 
 	R_DrawAlphaSurfaces ();
+
+	if (underwater_fog)
+		qglDisable (GL_FOG);
 
 	R_PolyBlend();
 	
@@ -1633,6 +1664,7 @@ gl_msaa = ri.Cvar_Get ("gl_msaa", "0", CVAR_ARCHIVE);
 	gl_warp_speed = ri.Cvar_Get ("gl_warp_speed", "1", CVAR_ARCHIVE);
 	gl_subdivide = ri.Cvar_Get ("gl_subdivide", "64", CVAR_ARCHIVE);
 	gl_wateralpha = ri.Cvar_Get ("gl_wateralpha", "0", 0);
+	gl_waterfog = ri.Cvar_Get ("gl_waterfog", "0.35", CVAR_ARCHIVE);
 	r_water_alpha_ok = ri.Cvar_Get ("r_water_alpha_ok", "0", CVAR_NOSET);
 	gl_alphaskins = ri.Cvar_Get ("gl_alphaskins", "0", 0);
 	gl_defertext = ri.Cvar_Get ("gl_defertext", "0", 0);

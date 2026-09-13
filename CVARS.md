@@ -110,7 +110,7 @@ Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolut
 | `gl_linear_mipmaps` | `1` | Prefer linear mipmap generation. |
 | `gl_modulate` | `2` | Lightmap / world brightness (video â€œLightmapâ€ slider). |
 | `intensity` | `2` | Texture intensity table (clamped â‰¥ 1). |
-| `gl_shadows` | `0` | Simple entity blob shadows. |
+| `gl_shadows` | `0` | Projected model shadows: **`0`** off, **`1`** basic, **`2`** height-faded, **`3`** soft multi-sample. **Archived.** Video menu row. |
 | `gl_dynamic` | `1` | Dynamic lights from weapons / explosions. |
 | `gl_flashblend` | `0` | Draw dlights as blend sprites instead of lighting surfaces. |
 | `gl_dlight_falloff` | `0` | Dynamic-light attenuation curve. **`0`** = classic linear (default). **`1`** (or up to `2`) = smoother quadratic falloff on the same dlights - softer edges, no extra through-wall brightness. **Archived.** Video -> **Advanced Settings**. |
@@ -118,6 +118,7 @@ Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolut
 | `gl_light_corona` | `0` | Soft corona sprite at dynamic-light origins. Depth-tested so occluded lights do **not** show (no wallhack). **`0`** = off (default). Try `0.25`-`0.5` for a subtle glow. Menu yes/no writes `0`/`1`. Not bloom / shafts / player ESP. **Archived.** Video -> **Advanced Settings**. |
 | `gl_ambient_lift` | `0` | Tiny fill added to lightmaps (and matching entity light samples) so pitch-black is less crushed. Hard-capped at **0.1** linear (~25/255). **`0`** = off (default). Keep at `0.03`-`0.05` if used - not night-vision. **Archived.** Video -> **Advanced Settings**. |
 | `gl_wateralpha` | `0` | **Single-player override only.** Map-authored TRANS33/66 warp water renders at its exact 0.33 / 0.66 alpha in every mode. In SP, `>0` overrides that alpha (clamped 0.15–1). The override is ignored when `maxclients > 1`; plain untagged warp water always stays opaque. Not archived. Console only — not on the Video menu. |
+| `gl_waterfog` | `0.35` | Subtle distance fog while the camera is inside water/slime/lava. **`0`** disables it; range **`0`–`1`** controls strength. Uses the liquid view tint and does not change surface transparency. **Archived.** Video -> **Advanced Settings**. |
 | `gl_warp_amp` | `1` | Water/slime warp amplitude scale (`1` = classic). Range about `0`-`2`. Does not change transparency / SURF_TRANS rules. **Archived.** Video -> **Advanced Settings**. |
 | `gl_warp_speed` | `1` | Water/slime warp timing scale (`1` = classic). Range about `0`-`3`. **Archived.** Video -> **Advanced Settings**. |
 | `gl_subdivide` | `64` | Warp surface tessellation size at map load (`64` = classic). Lower (e.g. `32`) = finer water mesh. Needs a map reload / reconnect. Clamped ~16-128. **Archived.** Video -> **Advanced Settings** (64/48/32). |

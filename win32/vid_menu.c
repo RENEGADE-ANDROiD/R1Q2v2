@@ -56,6 +56,7 @@ static cvar_t *gl_warp_speed;
 static cvar_t *gl_subdivide;
 static cvar_t *gl_light_corona;
 static cvar_t *gl_ambient_lift;
+static cvar_t *gl_waterfog;
 
 static cvar_t *sw_mode;
 static cvar_t *sw_stipplealpha;
@@ -111,6 +112,7 @@ static menuslider_s		s_adv_warpspeed_slider;
 static menulist_s		s_adv_subdivide_box;
 static menulist_s		s_adv_corona_box;
 static menuslider_s		s_adv_ambient_slider;
+static menuslider_s		s_adv_waterfog_slider;
 static menuseparator_s	s_adv_note;
 static menuaction_s		s_adv_back_action;
 
@@ -174,6 +176,7 @@ static void VID_ApplyAdvancedSettings( void )
 	if (ambient > 0.1f)
 		ambient = 0.1f;
 	Cvar_SetValue( "gl_ambient_lift", ambient );
+	Cvar_SetValue( "gl_waterfog", s_adv_waterfog_slider.curvalue / 10.0f );
 }
 
 static void VID_ApplyFxSettings( void )
@@ -340,6 +343,14 @@ void EXPORT VID_MenuInit( void )
 		"32",
 		0
 	};
+	static const char *shadow_names[] =
+	{
+		"off",
+		"basic",
+		"faded",
+		"soft",
+		0
+	};
 	int i;
 
 	if ( !gl_driver )
@@ -420,6 +431,8 @@ void EXPORT VID_MenuInit( void )
 		gl_light_corona = Cvar_Get( "gl_light_corona", "0", CVAR_ARCHIVE );
 	if ( !gl_ambient_lift )
 		gl_ambient_lift = Cvar_Get( "gl_ambient_lift", "0", CVAR_ARCHIVE );
+	if ( !gl_waterfog )
+		gl_waterfog = Cvar_Get( "gl_waterfog", "0.35", CVAR_ARCHIVE );
 
 	resolutions = VID_GetModeNames();
 	maxmode = VID_GetNumModes() - 1;
@@ -685,8 +698,12 @@ void EXPORT VID_MenuInit( void )
 	s_shadows_box.generic.y = 170;
 	s_shadows_box.generic.name = "shadows";
 	s_shadows_box.generic.callback = VidFxCallback;
-	s_shadows_box.itemnames = yesno_names;
-	s_shadows_box.curvalue = gl_shadows->intvalue ? 1 : 0;
+	s_shadows_box.itemnames = shadow_names;
+	s_shadows_box.curvalue = gl_shadows->intvalue;
+	if (s_shadows_box.curvalue < 0)
+		s_shadows_box.curvalue = 0;
+	if (s_shadows_box.curvalue > 3)
+		s_shadows_box.curvalue = 3;
 
 	s_dynamic_box.generic.type = MTYPE_SPINCONTROL;
 	s_dynamic_box.generic.x = 0;
@@ -795,15 +812,29 @@ void EXPORT VID_MenuInit( void )
 	if (s_adv_ambient_slider.curvalue > 10)
 		s_adv_ambient_slider.curvalue = 10;
 
+	s_adv_waterfog_slider.generic.type = MTYPE_SLIDER;
+	s_adv_waterfog_slider.generic.x = 0;
+	s_adv_waterfog_slider.generic.y = 70;
+	s_adv_waterfog_slider.generic.name = "underwater fog";
+	s_adv_waterfog_slider.generic.callback = AdvFxCallback;
+	s_adv_waterfog_slider.generic.statusbar = "subtle liquid distance fog; 0 = off";
+	s_adv_waterfog_slider.minvalue = 0;
+	s_adv_waterfog_slider.maxvalue = 10;
+	s_adv_waterfog_slider.curvalue = gl_waterfog->value * 10.0f;
+	if (s_adv_waterfog_slider.curvalue < 0)
+		s_adv_waterfog_slider.curvalue = 0;
+	if (s_adv_waterfog_slider.curvalue > 10)
+		s_adv_waterfog_slider.curvalue = 10;
+
 	s_adv_note.generic.type = MTYPE_SEPARATOR;
 	s_adv_note.generic.name = "fair-play polish only - no bloom / wallhack";
 	s_adv_note.generic.x = 160;
-	s_adv_note.generic.y = 80;
+	s_adv_note.generic.y = 90;
 
 	s_adv_back_action.generic.type = MTYPE_ACTION;
 	s_adv_back_action.generic.name = "back";
 	s_adv_back_action.generic.x = 0;
-	s_adv_back_action.generic.y = 100;
+	s_adv_back_action.generic.y = 110;
 	s_adv_back_action.generic.callback = AdvancedMenuBack;
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_ref_list[SOFTWARE_MENU] );
@@ -841,6 +872,7 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_subdivide_box );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_corona_box );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_ambient_slider );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_waterfog_slider );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_note );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_back_action );
 

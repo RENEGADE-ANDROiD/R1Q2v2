@@ -461,7 +461,7 @@ GL_DrawAliasShadow
 */
 extern	vec3_t			lightspot;
 
-void GL_DrawAliasShadow (dmdl_t *paliashdr)
+void GL_DrawAliasShadow (dmdl_t *paliashdr, float offset_x, float offset_y)
 {
 	//dtrivertx_t	*verts;
 	int		*order;
@@ -509,6 +509,8 @@ void GL_DrawAliasShadow (dmdl_t *paliashdr)
 
 			point[0] -= shadevector[0]*(point[2]+lheight);
 			point[1] -= shadevector[1]*(point[2]+lheight);
+			point[0] += offset_x;
+			point[1] += offset_y;
 			point[2] = height;
 //			height -= 0.001;
 			qglVertex3fv (point);
@@ -1437,12 +1439,43 @@ void R_DrawAliasModel (entity_t *e)
 #if 1
 	if (FLOAT_NE_ZERO(gl_shadows->value) && !(currententity->flags & (RF_TRANSLUCENT | RF_WEAPONMODEL)))
 	{
+		int shadow_mode = (int)gl_shadows->value;
+		float lheight = currententity->origin[2] - lightspot[2];
+		float alpha = 0.5f;
+
+		if (shadow_mode > 3)
+			shadow_mode = 3;
+		if (shadow_mode >= 2)
+		{
+			alpha *= 1.0f - lheight / 512.0f;
+			if (alpha < 0.10f)
+				alpha = 0.10f;
+			if (alpha > 0.5f)
+				alpha = 0.5f;
+		}
 		qglPushMatrix ();
 		R_RotateForEntity (e);
 		qglDisable (GL_TEXTURE_2D);
 		qglEnable (GL_BLEND);
-		qglColor4f (0,0,0,0.5);
-		GL_DrawAliasShadow (paliashdr);
+		qglDepthMask (GL_FALSE);
+		if (shadow_mode >= 3)
+		{
+			static const float offsets[5][2] = {
+				{ 0, 0 }, { -1.5f, 0 }, { 1.5f, 0 }, { 0, -1.5f }, { 0, 1.5f }
+			};
+			int si;
+			for (si = 0; si < 5; si++)
+			{
+				qglColor4f (0, 0, 0, alpha * 0.22f);
+				GL_DrawAliasShadow (paliashdr, offsets[si][0], offsets[si][1]);
+			}
+		}
+		else
+		{
+			qglColor4f (0, 0, 0, alpha);
+			GL_DrawAliasShadow (paliashdr, 0, 0);
+		}
+		qglDepthMask (GL_TRUE);
 		qglEnable (GL_TEXTURE_2D);
 		qglDisable (GL_BLEND);
 		qglPopMatrix ();
@@ -1450,5 +1483,3 @@ void R_DrawAliasModel (entity_t *e)
 #endif
 	qglColor4fv(colorWhite);
 }
-
-
