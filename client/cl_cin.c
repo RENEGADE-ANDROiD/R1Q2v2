@@ -357,12 +357,6 @@ cblock_t Huff1Decompress (cblock_t in)
 	nodenum = cin.numhnodes1[0];
 	while (count)
 	{
-		if (input >= input_end)
-		{
-			Z_Free (out.data);
-			Com_Error (ERR_DROP, "Truncated cinematic Huffman data");
-		}
-		inbyte = *input++;
 		//-----------
 		if (nodenum < 256)
 		{
@@ -372,6 +366,14 @@ cblock_t Huff1Decompress (cblock_t in)
 				break;
 			nodenum = cin.numhnodes1[nodenum];
 		}
+		/* Emit a pending leaf before asking for another byte: the final
+		   pixel may have completed on bit eight of the previous byte. */
+		if (input >= input_end)
+		{
+			Z_Free (out.data);
+			Com_Error (ERR_DROP, "Truncated cinematic Huffman data");
+		}
+		inbyte = *input++;
 		nodenum = hnodes[nodenum*2 + (inbyte&1)];
 		inbyte >>=1;
 		//-----------

@@ -221,10 +221,42 @@ int main(void) {
 '@
 [IO.File]::WriteAllText((Join-Path $out 'md3-safety.c'), $md3)
 
+$cinTest = $common + @'
+
+typedef struct { byte *data; int count; } cblock_t;
+#define TAGMALLOC_CLIENT_CINEMA 0
+static struct { int width, height; int *hnodes1; int numhnodes1[256]; } cin;
+'@
+$cinTest += Get-FunctionText 'client/cl_cin.c' 'cblock_t Huff1Decompress ('
+$cinTest += @'
+int main(void) {
+    byte data[7] = {0}; cblock_t in, out; int n, i;
+    int nodes[256*512+512] = {0};
+    cin.hnodes1 = nodes+512; cin.height=1;
+    for(i=0;i<256;i++) {
+        cin.numhnodes1[i]=256;
+        cin.hnodes1[i*512]=0; cin.hnodes1[i*512+1]=1;
+    }
+    in.data=data;
+    for(n=1;n<=17;n++) {
+        cin.width=n; data[0]=(byte)n; in.count=4+(n+7)/8;
+        if(setjmp(error_jump)) { puts("FAIL valid cinematic rejected"); return 1; }
+        out=Huff1Decompress(in); CHECK(out.count==n);
+        for(i=0;i<n;i++) CHECK(out.data[i]==0);
+        free(out.data);
+    }
+    cin.width=9; data[0]=9; in.count=5;
+    if(!setjmp(error_jump)) { out=Huff1Decompress(in); free(out.data); CHECK(0); }
+    CHECK(1);
+    printf("PASS cinematic byte-boundary checks: %d\n",checks); return 0;
+}
+'@
+[IO.File]::WriteAllText((Join-Path $out 'cin-safety.c'), $cinTest)
+
 $vs = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
 Push-Location $repo
 try {
-    foreach ($name in @('wav','http','network','md3')) {
+    foreach ($name in @('wav','http','network','md3','cin')) {
         $cmd = '"' + $vs + '\VC\Auxiliary\Build\vcvarsall.bat" x86 >nul && cl /nologo /O2 /MD /D_CRT_SECURE_NO_WARNINGS /DUSE_OPENAL /DUSE_CURL /I . /I build\vcpkg_installed\x86-windows\include build\security-audit\' + $name + '-safety.c /Fo:build\security-audit\' + $name + '-safety.obj /Fe:build\security-audit\' + $name + '-safety.exe'
         & cmd.exe /d /s /c $cmd
         if ($LASTEXITCODE) { throw "$name compile failed" }

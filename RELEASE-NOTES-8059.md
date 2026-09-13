@@ -12,6 +12,10 @@ Replace `R1Q2v2.exe`, `ref_r1gl.dll`, and `ref_gl.dll` together. Retail / Steam 
 
 **What's new in Build 8059**
 
+**Hotfix:** Corrects a crash when a multi-line menu label exceeds its display buffer and prevents complete cinematic frames ending on a byte boundary from being incorrectly rejected as truncated. The ZIP has been refreshed with these fixes.
+
+Refreshed ZIP source: [b8059-hotfix1](https://github.com/RENEGADE-ANDROiD/R1Q2v2/tree/b8059-hotfix1).
+
 This release focuses on defensive correctness in cold-path and event-driven code without changing multiplayer rendering cadence, input sampling, movement, prediction, or packet scheduling:
 
 - Prevents oversized network strings and lines from leaving unread bytes behind and desynchronizing subsequent packet commands
@@ -73,6 +77,7 @@ These safeguards run while parsing a message, opening a menu, loading a map/file
 - 10 HTTP file-list checks
 - 10 incoming-packet checks
 - 7 MD3 checks
+- 171 cinematic decoder assertions covering byte boundaries and truncated input
 - All 35 loose installed cinematics passed the new header compatibility validation
 - Local multiplayer and top-HUD placement verified before release
 
