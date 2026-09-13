@@ -85,6 +85,12 @@ static float	scr_hud_draw_scale = 1.0f;
 static qboolean	scr_hud_wide_xv;
 static qboolean	scr_hud_top_active;
 
+/* Extents of the stock deathmatch status-bar program.  Use these to move
+   anchored HUD groups as a unit; negating their coordinates would mirror
+   the elements and reverse their normal vertical order. */
+#define STOCK_HUD_BOTTOM_EXTENT 68
+#define STOCK_HUD_TOP_EXTENT    26
+
 /* Only set while drawing STAT_LAYOUTS / cl.layout (not status bar). */
 static float	scr_layout_draw_scale = 1.0f;
 /* True only inside SCR_DrawLayout. Canvas math even when scale is 1. */
@@ -1674,7 +1680,9 @@ void SCR_ExecuteLayoutString (char *s)
 					if (scr_layout_canvas)
 						y = viddef.height / 2 + (int)(120.0f * ls + 0.5f) + (int)(virt * ls);
 					else if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
-						y = -virt;
+						/* Translate the complete bottom HUD block to the top.
+						   This preserves the normal yb -68 .. -24 ordering. */
+						y = STOCK_HUD_BOTTOM_EXTENT + virt;
 					else
 						y = viddef.height + virt;
 					continue;
@@ -1687,7 +1695,9 @@ void SCR_ExecuteLayoutString (char *s)
 					if (scr_layout_canvas)
 						y = viddef.height / 2 - (int)(120.0f * ls + 0.5f) + (int)(virt * ls);
 					else if (scr_hud_top_active && scr_hud_top && scr_hud_top->intvalue)
-						y = viddef.height - virt;
+						/* Move the stock top-right frag counter to the bottom,
+						   retaining its inset instead of clipping it at the edge. */
+						y = viddef.height - STOCK_HUD_TOP_EXTENT - virt;
 					else
 						y = virt;
 					continue;
