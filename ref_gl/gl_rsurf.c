@@ -452,13 +452,19 @@ void R_BlendLightmaps (void)
 #define GL_COMBINE_ARB						0x8570
 #define GL_RGB_SCALE_ARB					0x8573
 
-/* TRANS33/66 warp only when the client says CS_MAXCLIENTS <= 1.
- * Default (unset / MP / coop) is classic opaque turb. */
+/* The client enables map-authored TRANS33/66 after CS_MAXCLIENTS arrives.
+ * Value 1 also permits the SP-only gl_wateralpha override; value 2 is the
+ * multiplayer-safe mode, which uses the exact alpha authored by the mapper. */
 static qboolean R_WaterAlphaAllowed (void)
 {
 	if (!r_water_alpha_ok || r_water_alpha_ok->intvalue <= 0)
 		return false;
 	return true;
+}
+
+static qboolean R_WaterAlphaOverrideAllowed (void)
+{
+	return r_water_alpha_ok && r_water_alpha_ok->intvalue == 1;
 }
 
 static qboolean R_IsTransWater (const msurface_t *s)
@@ -481,7 +487,7 @@ static float R_TransWaterAlpha (const msurface_t *s)
 	else if (s->texinfo->flags & SURF_TRANS66)
 		a = 0.66f;
 
-	if (gl_wateralpha && gl_wateralpha->value > 0.0f && R_WaterAlphaAllowed ())
+	if (gl_wateralpha && gl_wateralpha->value > 0.0f && R_WaterAlphaOverrideAllowed ())
 	{
 		a = gl_wateralpha->value;
 		if (a < 0.15f)
@@ -656,8 +662,8 @@ void R_DrawAlphaSurfaces (void)
 		GL_Bind(s->texinfo->image->texnum);
 		c_brush_polys++;
 
-		/* SP: TRANS+WARP water uses map alpha. MP: turb should not be here;
-		 * if it is, keep it opaque. Glass TRANS without WARP is unchanged. */
+		/* Map-authored TRANS+WARP uses its BSP alpha in every mode. Plain
+		 * WARP remains opaque; gl_wateralpha overrides are SP-only. */
 		if (s->flags & SURF_DRAWTURB)
 		{
 			if (R_WaterAlphaAllowed ()
@@ -996,7 +1002,7 @@ void R_DrawInlineBModel (void)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			/* Glass TRANS always alpha. TRANS+WARP water only in SP. */
+			/* Glass and map-authored TRANS+WARP surfaces use the alpha chain. */
 			if ((psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
 				&& (R_IsTransWater (psurf)
 					|| (!(psurf->flags & SURF_DRAWTURB)
@@ -1269,7 +1275,7 @@ static void R_RecursiveWorldNode (mnode_t *node, int planebits)
 			&& (R_IsTransWater (surf)
 				|| (!(surf->flags & SURF_DRAWTURB)
 					&& !(surf->texinfo->flags & SURF_WARP))))
-		{	// glass always; TRANS+WARP water in SP only
+		{	// glass and map-authored TRANS+WARP water
 			surf->texturechain = r_alpha_surfaces;
 			r_alpha_surfaces = surf;
 		}
@@ -1876,4 +1882,3 @@ void GL_EndBuildingLightmaps (void)
 	LM_UploadBlock( false );
 	GL_EnableMultitexture( false );
 }
-

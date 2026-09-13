@@ -1244,11 +1244,12 @@ void CL_ParseConfigString (void)
 		if (!cl.attractloop)
 			cl.maxclients = atoi(cl.configstrings[CS_MAXCLIENTS]);
 
-		/* SP-only TRANS water: default opaque until this string is parsed. */
+		/* 1 = SP map alpha plus gl_wateralpha override; 2 = multiplayer
+		 * map-authored TRANS33/66 only. Invalid/unset counts as MP-safe. */
 		mc = atoi(cl.configstrings[CS_MAXCLIENTS]);
 		if (mc < 1)
 			mc = MAX_CLIENTS;
-		Cvar_ForceSet ("r_water_alpha_ok", (mc <= 1) ? "1" : "0");
+		Cvar_ForceSet ("r_water_alpha_ok", (mc <= 1) ? "1" : "2");
 	}
 	else if (i >= CS_PLAYERSKINS && i < CS_PLAYERSKINS+MAX_CLIENTS)
 	{

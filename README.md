@@ -66,7 +66,7 @@ Widescreen Hor+ FOV (`cl_adjustfov`) and HUD opacity (`scr_alpha`) are under Opt
 
 Escape applies driver / resolution / fullscreen. The FX toggles and sliders apply as you change them. Cancel leaves without applying the video-mode change.
 
-Campaign / local SP (`maxclients` 1): warp water that the map tagged TRANS33/66 is translucent again. Rocket Arena, DM, CTF, and coop stay classic opaque turb. `gl_wateralpha` is console-only and ignored in multiplayer.
+Warp water explicitly tagged `TRANS33`/`TRANS66` by the map is translucent in every mode, including DM, CTF, Arena, and coop. Plain warp water remains opaque. The console-only `gl_wateralpha` override is ignored in multiplayer, so clients cannot make untagged water transparent or reduce mapper-authored opacity.
 
 Older configs that used `gl_hudscale` for HUD size are redirected to `scr_hudscale`; `gl_hudscale` is forced back to `1` so it no longer shrinks the whole 2D layer (including after a later `exec`).
 
