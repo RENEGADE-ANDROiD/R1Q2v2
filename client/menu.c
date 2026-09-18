@@ -1806,7 +1806,7 @@ static void R1Q2OptionsMenu ( void *unused )
 /*
 =======================================================================
 
-CROSSHAIR SETUP (color / health / per-layer scale — all CVAR_ARCHIVE)
+CROSSHAIR SETUP (color / health / per-hand offset / per-layer scale — all CVAR_ARCHIVE)
 
 =======================================================================
 */
@@ -1817,9 +1817,51 @@ static menuslider_s		s_chsetup_green;
 static menuslider_s		s_chsetup_blue;
 static menuslider_s		s_chsetup_alpha;
 static menulist_s		s_chsetup_health;
+static menuseparator_s	s_chsetup_pos_title;
+static char				s_chsetup_pos_title_text[32];
+static menuslider_s		s_chsetup_x;
+static menuslider_s		s_chsetup_y;
 static menuslider_s		s_chsetup_ch1scale;
 static menuslider_s		s_chsetup_ch2scale;
 static menuslider_s		s_chsetup_ch3scale;
+
+#define CH_POS_SLIDER_ZERO	64	/* slider 0..128 = -64..+64 px */
+
+static const char *Menu_HandName (void)
+{
+	int	h = Cvar_IntValue ("hand");
+
+	if (h == 1)
+		return "left";
+	if (h == 2)
+		return "center";
+	return "right";
+}
+
+static float Menu_ChPosToSlider (float px)
+{
+	float	v = px + (float)CH_POS_SLIDER_ZERO;
+
+	if (v < 0.0f)
+		v = 0.0f;
+	if (v > (float)(CH_POS_SLIDER_ZERO * 2))
+		v = (float)(CH_POS_SLIDER_ZERO * 2);
+	return v;
+}
+
+static void ChPosStatusUpdate (void)
+{
+	static char	xstatus[64];
+	static char	ystatus[64];
+	const char	*handname = Menu_HandName ();
+
+	Com_sprintf (xstatus, sizeof(xstatus), "ch_x for %s: %d px (saved)",
+		handname, Cvar_IntValue ("ch_x"));
+	Com_sprintf (ystatus, sizeof(ystatus), "ch_y for %s: %d px (saved)",
+		handname, Cvar_IntValue ("ch_y"));
+	s_chsetup_x.generic.statusbar = xstatus;
+	s_chsetup_y.generic.statusbar = ystatus;
+}
 
 static void ChRedFunc (void *unused)
 {
@@ -1844,6 +1886,18 @@ static void ChAlphaFunc (void *unused)
 static void ChHealthFunc (void *unused)
 {
 	Cvar_SetValue ("ch_health", (float)s_chsetup_health.curvalue);
+}
+
+static void ChXFunc (void *unused)
+{
+	Cvar_SetValue ("ch_x", s_chsetup_x.curvalue - (float)CH_POS_SLIDER_ZERO);
+	ChPosStatusUpdate ();
+}
+
+static void ChYFunc (void *unused)
+{
+	Cvar_SetValue ("ch_y", s_chsetup_y.curvalue - (float)CH_POS_SLIDER_ZERO);
+	ChPosStatusUpdate ();
 }
 
 static void ChLayerScaleFunc (void *self)
@@ -1929,9 +1983,53 @@ static void CrosshairSetup_MenuInit (void)
 	s_chsetup_health.itemnames = yesno_names;
 	s_chsetup_health.curvalue = (int)ClampCvar (0, 1, Cvar_VariableValue ("ch_health"));
 
+	{
+		const char	*sx = "ch_x_right", *sy = "ch_y_right";
+		int			h = Cvar_IntValue ("hand");
+
+		if (h == 1)
+		{
+			sx = "ch_x_left";
+			sy = "ch_y_left";
+		}
+		else if (h == 2)
+		{
+			sx = "ch_x_center";
+			sy = "ch_y_center";
+		}
+		Cvar_SetValue ("ch_x", Cvar_VariableValue (sx));
+		Cvar_SetValue ("ch_y", Cvar_VariableValue (sy));
+	}
+
+	Com_sprintf (s_chsetup_pos_title_text, sizeof(s_chsetup_pos_title_text),
+		"position (%s)", Menu_HandName ());
+	s_chsetup_pos_title.generic.type = MTYPE_SEPARATOR;
+	s_chsetup_pos_title.generic.name = s_chsetup_pos_title_text;
+	s_chsetup_pos_title.generic.x = 32;
+	s_chsetup_pos_title.generic.y = 70;
+
+	s_chsetup_x.generic.type = MTYPE_SLIDER;
+	s_chsetup_x.generic.x = 0;
+	s_chsetup_x.generic.y = 80;
+	s_chsetup_x.generic.name = "x offset";
+	s_chsetup_x.generic.callback = ChXFunc;
+	s_chsetup_x.minvalue = 0;
+	s_chsetup_x.maxvalue = (float)(CH_POS_SLIDER_ZERO * 2);
+	s_chsetup_x.curvalue = Menu_ChPosToSlider (Cvar_VariableValue ("ch_x"));
+
+	s_chsetup_y.generic.type = MTYPE_SLIDER;
+	s_chsetup_y.generic.x = 0;
+	s_chsetup_y.generic.y = 90;
+	s_chsetup_y.generic.name = "y offset";
+	s_chsetup_y.generic.callback = ChYFunc;
+	s_chsetup_y.minvalue = 0;
+	s_chsetup_y.maxvalue = (float)(CH_POS_SLIDER_ZERO * 2);
+	s_chsetup_y.curvalue = Menu_ChPosToSlider (Cvar_VariableValue ("ch_y"));
+	ChPosStatusUpdate ();
+
 	s_chsetup_ch1scale.generic.type = MTYPE_SLIDER;
 	s_chsetup_ch1scale.generic.x = 0;
-	s_chsetup_ch1scale.generic.y = 70;
+	s_chsetup_ch1scale.generic.y = 110;
 	s_chsetup_ch1scale.generic.name = "layer 1 scale";
 	s_chsetup_ch1scale.generic.callback = ChLayerScaleFunc;
 	s_chsetup_ch1scale.generic.statusbar = "ch1 overlay size vs ch_scale (saved)";
@@ -1941,7 +2039,7 @@ static void CrosshairSetup_MenuInit (void)
 
 	s_chsetup_ch2scale.generic.type = MTYPE_SLIDER;
 	s_chsetup_ch2scale.generic.x = 0;
-	s_chsetup_ch2scale.generic.y = 80;
+	s_chsetup_ch2scale.generic.y = 120;
 	s_chsetup_ch2scale.generic.name = "layer 2 scale";
 	s_chsetup_ch2scale.generic.callback = ChLayerScaleFunc;
 	s_chsetup_ch2scale.generic.statusbar = "ch2 overlay size vs ch_scale (saved)";
@@ -1951,7 +2049,7 @@ static void CrosshairSetup_MenuInit (void)
 
 	s_chsetup_ch3scale.generic.type = MTYPE_SLIDER;
 	s_chsetup_ch3scale.generic.x = 0;
-	s_chsetup_ch3scale.generic.y = 90;
+	s_chsetup_ch3scale.generic.y = 130;
 	s_chsetup_ch3scale.generic.name = "layer 3 scale";
 	s_chsetup_ch3scale.generic.callback = ChLayerScaleFunc;
 	s_chsetup_ch3scale.generic.statusbar = "ch3 overlay size vs ch_scale (saved)";
@@ -1964,6 +2062,9 @@ static void CrosshairSetup_MenuInit (void)
 	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_blue);
 	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_alpha);
 	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_health);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_pos_title);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_x);
+	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_y);
 	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_ch1scale);
 	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_ch2scale);
 	Menu_AddItem (&s_chsetup_menu, (void *)&s_chsetup_ch3scale);
@@ -1971,6 +2072,11 @@ static void CrosshairSetup_MenuInit (void)
 
 static void CrosshairSetup_MenuDraw (void)
 {
+	Com_sprintf (s_chsetup_pos_title_text, sizeof(s_chsetup_pos_title_text),
+		"position (%s)", Menu_HandName ());
+	s_chsetup_x.curvalue = Menu_ChPosToSlider (Cvar_VariableValue ("ch_x"));
+	s_chsetup_y.curvalue = Menu_ChPosToSlider (Cvar_VariableValue ("ch_y"));
+	ChPosStatusUpdate ();
 	M_BannerText( "CROSSHAIR" );
 	Menu_AdjustCursor (&s_chsetup_menu, 1);
 	Menu_Draw (&s_chsetup_menu);
@@ -2326,7 +2432,7 @@ static void Options_MenuInit( void )
 	s_options_crosshair_setup_action.generic.y	= 130;
 	s_options_crosshair_setup_action.generic.name	= "crosshair setup";
 	s_options_crosshair_setup_action.generic.callback = CrosshairSetupMenu;
-	s_options_crosshair_setup_action.generic.statusbar = "color, alpha, health tint, layer scales (saved)";
+	s_options_crosshair_setup_action.generic.statusbar = "color, per-hand offset, layer scales (saved)";
 
 	s_options_r1q2_action.generic.type = MTYPE_ACTION;
 	s_options_r1q2_action.generic.x		= 0;

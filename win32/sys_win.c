@@ -642,6 +642,36 @@ void Sys_Init (void)
 
 	timeBeginPeriod( 1 );
 
+	/* Win10/11 EcoQoS parks background processes. Alt-tab then sends a
+	 * stream of hitch-clamped cmds that q2admin flags as a timing bot. */
+	{
+		typedef BOOL (WINAPI *SetProcessInformation_t)(HANDLE, int, LPVOID, DWORD);
+		typedef struct {
+			ULONG	Version;
+			ULONG	ControlMask;
+			ULONG	StateMask;
+		} proc_power_throttling_t;
+		SetProcessInformation_t	fn;
+		proc_power_throttling_t	state;
+		HMODULE	k32;
+
+		k32 = GetModuleHandle ("kernel32.dll");
+		fn = k32 ? (SetProcessInformation_t)GetProcAddress (k32, "SetProcessInformation") : NULL;
+		if (fn)
+		{
+			memset (&state, 0, sizeof(state));
+			state.Version = 1;			/* PROCESS_POWER_THROTTLING_CURRENT_VERSION */
+			state.ControlMask = 0x1;	/* PROCESS_POWER_THROTTLING_EXECUTION_SPEED */
+#ifdef PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION
+			state.ControlMask |= PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
+#else
+			state.ControlMask |= 0x4;
+#endif
+			state.StateMask = 0;
+			fn (GetCurrentProcess (), 4 /*ProcessPowerThrottling*/, &state, sizeof(state));
+		}
+	}
+
 	//initializes base time
 	Sys_Milliseconds ();
 

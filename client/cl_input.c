@@ -373,13 +373,40 @@ __inline void CL_InitCmd (void)
 	memset(cmd, 0, sizeof(*cmd));
 }
 
+/*
+ * Stock Q2 remapped ms>250 to 100. A stream of 100ms cmds is the q2admin
+ * HT_MSEC / timing-bot signature (expected msec is 1000/cl_maxfps). Keep a
+ * legal value near the client's advertised rate instead.
+ */
+static int CL_CmdMsec (void)
+{
+	int	ms;
+	int	fps;
+	int	expected;
+
+	ms = (int)(cls.frametime * 1000);
+	if (ms < 1)
+		ms = 1;
+	if (ms <= 250)
+		return ms;
+
+	fps = Cvar_IntValue ("cl_maxfps");
+	if (fps <= 0)
+		fps = 60;
+	expected = 1000 / fps;
+	if (expected < 1)
+		expected = 1;
+	if (expected > 250)
+		expected = 250;
+	return expected;
+}
+
 // CL_RefreshCmd
 //jec - adds any new input changes to usercmd
 //	that occurred since last Init or RefreshCmd
 trace_t		EXPORT CL_PMTrace (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end);
 void CL_RefreshCmd (void)
 {	
-	int ms;
 	usercmd_t *cmd = &cl.cmds[ cls.netchan.outgoing_sequence & (CMD_BACKUP-1) ];
 
 	//get delta for this sample.
@@ -387,7 +414,11 @@ void CL_RefreshCmd (void)
 
 	// bounds checking
 	if (frame_msec < 1)
+	{
+		/* Do not skip: a 0 msec cmd after InitCmd is a freeze/bot flag. */
+		cmd->msec = CL_CmdMsec ();
 		return;
+	}
 
 	if (frame_msec > 200)
 		frame_msec = 200;
@@ -408,11 +439,7 @@ void CL_RefreshCmd (void)
 	cmd->angles[2] = ANGLE2SHORT(cl.viewangles[2]);
 
 	// update cmd->msec for CL_PredictMove
-	ms = (int)(cls.frametime * 1000);
-	if (ms > 250)
-		ms = 100;
-
-	cmd->msec = ms;
+	cmd->msec = CL_CmdMsec ();
 
 	//update counter
 	old_sys_frame_time = sys_frame_time;
@@ -446,6 +473,8 @@ void CL_FinalizeCmd (void)
 	in_use.state &= ~2;
 
 	if (anykeydown && cls.key_dest == key_game)
+		cmd->buttons |= BUTTON_ANY;
+	if (IN_ConsumeMouseActivity ())
 		cmd->buttons |= BUTTON_ANY;
 
 	//...
@@ -609,7 +638,6 @@ void CL_BaseMove_Synchronous (usercmd_t *cmd)
 
 void CL_FinishMove (usercmd_t *cmd)
 {
-	int		ms;
 	int		i;
 
 //
@@ -626,12 +654,11 @@ void CL_FinishMove (usercmd_t *cmd)
 
 	if (anykeydown && cls.key_dest == key_game)
 		cmd->buttons |= BUTTON_ANY;
+	if (IN_ConsumeMouseActivity ())
+		cmd->buttons |= BUTTON_ANY;
 
 	// send milliseconds of time to apply the move
-	ms = (int)(cls.frametime * 1000);
-	if (ms > 250)
-		ms = 100;		// time was unreasonable
-	cmd->msec = ms;
+	cmd->msec = CL_CmdMsec ();
 
 	CL_ClampPitch ();
 	for (i=0 ; i<3 ; i++)

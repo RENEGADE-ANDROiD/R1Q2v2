@@ -20,4 +20,4 @@ Close the game. Extract `R1Q2v2.exe`, `ref_r1gl.dll`, and `ref_gl.dll` together 
 
 The Windows x86 client and renderer build passed. Focused regression harnesses exercise actual source functions with isolated callbacks: 17 WAV checks, 10 HTTP checks, 6 network checks, 7 MD3 checks, and 6 JPEG cases with guarded output allocations. Network decompression is stubbed in its harness; JPEG tests use the real libjpeg library. These checks are not a complete security audit or gameplay integration test.
 
-Run `scripts/test-client-safety.ps1` for WAV, HTTP, packet, and MD3 regressions. `scripts/security-audit-jpeg.ps1` generates the separate JPEG harness in `build/security-audit/jpeg-audit.c`; compile it with the configured x86 MSVC headers and libjpeg library, and run it with `build/bin` on PATH.
+Local regression harnesses (WAV, HTTP, packet, MD3, JPEG) live under gitignored `tools/` and are not shipped.

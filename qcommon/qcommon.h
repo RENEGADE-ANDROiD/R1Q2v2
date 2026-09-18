@@ -961,6 +961,9 @@ char	*EXPORT FS_Gamedir (void);
 char	*FS_NextPath (const char *prevpath);
 void	FS_ExecConfig (const char *filename);
 void	FS_ExecIfExists (const char *filename);
+void	FS_AddStartupConfigs (void);
+qboolean FS_DiskFileExists (const char *filename);
+int		FS_LoadFileFromDisk (const char *path, void **buffer);
 
 qboolean FS_ExistsInGameDir (char *filename);
 

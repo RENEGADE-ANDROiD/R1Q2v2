@@ -40,6 +40,12 @@ cvar_t		*ch3;
 cvar_t		*ch_scale;
 cvar_t		*ch_x;
 cvar_t		*ch_y;
+cvar_t		*ch_x_right;
+cvar_t		*ch_y_right;
+cvar_t		*ch_x_left;
+cvar_t		*ch_y_left;
+cvar_t		*ch_x_center;
+cvar_t		*ch_y_center;
 cvar_t		*ch_red;
 cvar_t		*ch_green;
 cvar_t		*ch_blue;
@@ -615,6 +621,76 @@ static void SCR_DrawOneCrosshair (const char *pic, int pw, int ph, int ox, int o
 	re.DrawStretchPic (x, y, dw, dh, (char *)pic);
 }
 
+static qboolean	ch_hand_sync;
+
+static int CL_CrosshairHand (void)
+{
+	int	h = Cvar_IntValue ("hand");
+
+	if (h < 0 || h > 2)
+		h = 0;
+	return h;
+}
+
+static void CL_CrosshairSlot (cvar_t **px, cvar_t **py)
+{
+	switch (CL_CrosshairHand ())
+	{
+	case 1:
+		*px = ch_x_left;
+		*py = ch_y_left;
+		break;
+	case 2:
+		*px = ch_x_center;
+		*py = ch_y_center;
+		break;
+	default:
+		*px = ch_x_right;
+		*py = ch_y_right;
+		break;
+	}
+}
+
+static void CL_StoreCrosshairHand (void)
+{
+	cvar_t	*px, *py;
+
+	if (ch_hand_sync || !ch_x || !ch_y)
+		return;
+	CL_CrosshairSlot (&px, &py);
+	if (!px || !py)
+		return;
+	ch_hand_sync = true;
+	Cvar_SetValue (px->name, (float)ch_x->intvalue);
+	Cvar_SetValue (py->name, (float)ch_y->intvalue);
+	ch_hand_sync = false;
+}
+
+static void CL_ApplyCrosshairHand (void)
+{
+	cvar_t	*px, *py;
+
+	if (ch_hand_sync || !ch_x || !ch_y)
+		return;
+	CL_CrosshairSlot (&px, &py);
+	if (!px || !py)
+		return;
+	ch_hand_sync = true;
+	Cvar_SetValue ("ch_x", (float)px->intvalue);
+	Cvar_SetValue ("ch_y", (float)py->intvalue);
+	ch_hand_sync = false;
+}
+
+static void _ch_xy_changed (cvar_t *c, char *o, char *n)
+{
+	CL_StoreCrosshairHand ();
+}
+
+static void _ch_hand_changed (cvar_t *c, char *o, char *n)
+{
+	CL_ApplyCrosshairHand ();
+}
+
 static void SCR_CrosshairColor (float *r, float *g, float *b, float *a)
 {
 	*r = (ch_red) ? ch_red->value : 1.0f;
@@ -661,12 +737,19 @@ __inline void SCR_DrawCrosshair (void)
 	if (!crosshair->intvalue)
 		return;
 
-	ox = scr_crosshair_x->intvalue;
-	oy = scr_crosshair_y->intvalue;
-	if (ch_x)
-		ox += ch_x->intvalue;
-	if (ch_y)
-		oy += ch_y->intvalue;
+	{
+		cvar_t	*px, *py;
+
+		/* Offset comes from the slot for the current `hand` (right/left/center).
+		 * ch_x / ch_y mirror that slot for console and the setup sliders. */
+		CL_CrosshairSlot (&px, &py);
+		ox = scr_crosshair_x->intvalue;
+		oy = scr_crosshair_y->intvalue;
+		if (px)
+			ox += px->intvalue;
+		if (py)
+			oy += py->intvalue;
+	}
 
 	scale = (ch_scale && ch_scale->value > 0.0f) ? ch_scale->value : 1.0f;
 	SCR_CrosshairColor (&r, &g, &b, &a);
@@ -1016,6 +1099,30 @@ void V_Init (void)
 	ch_scale = Cvar_Get ("ch_scale", "1", CVAR_ARCHIVE);
 	ch_x = Cvar_Get ("ch_x", "0", CVAR_ARCHIVE);
 	ch_y = Cvar_Get ("ch_y", "0", CVAR_ARCHIVE);
+	ch_x_right = Cvar_Get ("ch_x_right", "0", CVAR_ARCHIVE);
+	ch_y_right = Cvar_Get ("ch_y_right", "0", CVAR_ARCHIVE);
+	ch_x_left = Cvar_Get ("ch_x_left", "0", CVAR_ARCHIVE);
+	ch_y_left = Cvar_Get ("ch_y_left", "0", CVAR_ARCHIVE);
+	ch_x_center = Cvar_Get ("ch_x_center", "0", CVAR_ARCHIVE);
+	ch_y_center = Cvar_Get ("ch_y_center", "0", CVAR_ARCHIVE);
+	ch_x->changed = _ch_xy_changed;
+	ch_y->changed = _ch_xy_changed;
+	{
+		cvar_t	*h = Cvar_Get ("hand", "0", CVAR_USERINFO | CVAR_ARCHIVE);
+		h->changed = _ch_hand_changed;
+	}
+	/* Old configs only had ch_x/ch_y. Copy them into the current hand's
+	 * slot when that slot is still 0. Otherwise the slot is source of truth. */
+	{
+		cvar_t	*px, *py;
+
+		CL_CrosshairSlot (&px, &py);
+		if (px && py && px->intvalue == 0 && py->intvalue == 0
+			&& (ch_x->intvalue || ch_y->intvalue))
+			CL_StoreCrosshairHand ();
+		else
+			CL_ApplyCrosshairHand ();
+	}
 	ch_red = Cvar_Get ("ch_red", "1", CVAR_ARCHIVE);
 	ch_green = Cvar_Get ("ch_green", "1", CVAR_ARCHIVE);
 	ch_blue = Cvar_Get ("ch_blue", "1", CVAR_ARCHIVE);

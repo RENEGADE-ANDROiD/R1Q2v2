@@ -90,7 +90,7 @@ Notes:
 - Hor+ FOV (`cl_adjustfov 1`) and wide HUD (`scr_hudwide 1`) already apply on 21:9.
 - The video menu lists the hard-coded modes even when the GPU did not enumerate them; selecting may use borderless / CDS fallback.
 
-Local install helper (Steam path only, not in repo): `scripts/_fix_video_resolution_cfg.py` patches a live Quake II tree; 1080p is now stable index **11**.
+Local install helper (Steam path only, gitignored `tools/`): patches a live Quake II tree; 1080p is now stable index **11**.
 
 ---
 
@@ -171,8 +171,11 @@ HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/
 | `ch_alpha` | `1` | Crosshair opacity 0.1â€“1. Saved. |
 | `ch_health` | `0` | `1` = greenâ†’yellowâ†’red from current HP (overrides RGB). Saved. |
 | `ch1_scale` / `ch2_scale` / `ch3_scale` | `1` | Per-layer scale on top of `ch_scale` (0.1â€“4). Final size = native Ã— `ch_scale` Ã— `chN_scale`. Saved. |
-| `ch_x` / `ch_y` | `0` / `0` | Extra pixel offset, added to `scr_crosshair_x` / `y`. |
-| `scr_crosshair_x` / `scr_crosshair_y` | `0` / `0` | Crosshair pixel offset. |
+| `ch_x` / `ch_y` | `0` / `0` | Live crosshair pixel offset for the **current** `hand`. Options → Crosshair setup sliders write these and the matching per-hand slot. Saved. |
+| `ch_x_right` / `ch_y_right` | `0` / `0` | Offset used when `hand` is right (0). Auto-applied when you switch handedness. Saved. |
+| `ch_x_left` / `ch_y_left` | `0` / `0` | Offset used when `hand` is left (1). Saved. |
+| `ch_x_center` / `ch_y_center` | `0` / `0` | Offset used when `hand` is center (2). Saved. |
+| `scr_crosshair_x` / `scr_crosshair_y` | `0` / `0` | Extra pixel offset added on top of the per-hand slot (session; not archived). |
 | `scr_alpha` | `1` | Status-bar opacity (Options â†’ R1Q2). Saved. |
 | `loc_enable` | `1` | Draw nearest `.loc` name on the HUD. Saved. |
 | `cl_adjustfov` | `1` | Hor+ FOV: keep 4:3 vertical FOV, widen on widescreen. Saved. |
@@ -244,7 +247,9 @@ OpenAL (when compiled in): player-local and `ATTN_NONE` sources are `AL_SOURCE_R
 
 `in_mouse` is the master switch for mouse look; `m_directinput` only picks the backend while mouse is enabled. DirectInput does **not** replace or bypass `in_mouse`. Recommended crisp combo: `in_mouse 1`, `m_directinput 2`, `m_filter 0`. `m_filter 1` averages deltas for a smoother feel and is independent of DI mode.
 
-**Alt-tab / multi-monitor (Build 8047):** the client keeps sending usercmds while unfocused so you do not time out. Prefer `vid_borderless 1` over exclusive fullscreen on more than one display. Default `m_directinput 0` (Win32 mouse) is the more reliable focus-restore path; DirectInput exclusive (`m_directinput 1`) can fail to reacquire until the window is truly foreground. No extra cvar is required.
+**Alt-tab / multi-monitor:** the client keeps sending usercmds while unfocused so you do not time out. Unfocused `cmd.msec` stays at `1000/cl_maxfps` (q2admin HT_MSEC expects that; a flat 50 or 100 looks like a timing bot). Desktop mouse movement is still applied as look without capturing the cursor. Prefer `vid_borderless 1` over exclusive fullscreen on more than one display. Default `m_directinput 0` (Win32 mouse) is the more reliable focus-restore path; DirectInput exclusive (`m_directinput 1`) can fail to reacquire until the window is truly foreground. No extra cvar is required.
+
+**`config.cfg` at startup:** `exec default.cfg` then the loose `config.cfg` (gamedir, then `baseq2`, then next to the exe). A `.pak`/`.pkz` cannot shadow it. If there is no disk `config.cfg`, `Q2config.cfg` is used (Q2PRO/Yamagi). Console prints `execing config.cfg` so a miss is visible. `autoexec.cfg` is still run from `CL_Init` (and on gamedir change). Hidden `autoexec.cfg` is no longer skipped.
 
 ---
 

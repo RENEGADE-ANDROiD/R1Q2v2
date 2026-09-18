@@ -5125,6 +5125,21 @@ void CL_Synchronous_Frame (int msec)
 	if (maxfps <= 0.0f)
 		maxfps = 60.0f;
 
+#ifdef _WIN32
+	if (!ActiveApp)
+	{
+		int	cap;
+
+		cap = (int)(1000.0f / maxfps);
+		if (cap < 1)
+			cap = 1;
+		if (extratime > cap)
+			extratime = cap;
+		if (msec > 200)
+			CL_ResetInputClock ();
+	}
+#endif
+
 	if (!cl_timedemo->value)
 	{
 		if (cls.state == ca_connected)
@@ -5288,14 +5303,21 @@ void CL_Frame (int msec)
 
 #ifdef _WIN32
 	/* Unfocused cmds must keep sending (timeouts) but with honest msec.
-	 * A 100ms sleep plus the stock "ms > 250 -> 100" clamp looks like a
-	 * timing bot to unused-msec / sv_enforcetime filters. */
+	 * q2admin HT_MSEC expects ~1000/cl_maxfps. Capping at 50 (or the
+	 * stock 250→100 remap) is itself a timing-bot signature. */
 	if (!ActiveApp)
 	{
-		int cap = 50;
+		int	fps;
+		int	cap;
 
-		if (cl_maxfps->intvalue > 0 && (1000 / cl_maxfps->intvalue) > cap)
-			cap = 1000 / cl_maxfps->intvalue;
+		fps = cl_maxfps->intvalue;
+		if (fps <= 0)
+			fps = 60;
+		cap = 1000 / fps;
+		if (cap < 1)
+			cap = 1;
+		if (cap > 200)
+			cap = 200;
 		if (packet_delta > cap)
 			packet_delta = cap;
 		if (msec > 200)

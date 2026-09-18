@@ -4,7 +4,7 @@ A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8058)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8060)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 Build 8057 includes [incoming-data and asset safety fixes](SECURITY-FIXES-8057.md). Update the executable and both renderer DLLs together; older renderer DLLs are now rejected because their entity layout is incompatible.
 
@@ -78,7 +78,7 @@ Older configs that used `gl_hudscale` for HUD size are redirected to `scr_hudsca
 
 - `Q3ArenaHUD.pkz` — Quake III–style status bar pics
 - `quake2-neural-upscale-textures-*.pkz` — HD wall replacements
-- Do **not** drop `zz_r1q2_titles.pkz` in `baseq2` yet — R1GL prefers the 2× PNG and `M_Main_Draw` still uses classic 40-unit tag pitch, so the plaque sits on GAME and the tags stack. Stock `pak0` PCX only. The generator script is `scripts/pack_r1q2_titles.py` (retail art, not in git) for when layout uses logical PCX sizes.
+- Do **not** drop `zz_r1q2_titles.pkz` in `baseq2` yet — R1GL prefers the 2× PNG and `M_Main_Draw` still uses classic 40-unit tag pitch, so the plaque sits on GAME and the tags stack. Stock `pak0` PCX only.
 
 R1GL also loads loose replacements next to retail WALs (keep the WALs for UV size):
 
@@ -131,19 +131,15 @@ Player-local and `ATTN_NONE` sources stay on the listener so your shots do not d
 
 ### Tester zip
 
-Regenerate the shareable Desktop package (binaries + visual cfgs + OpenAL runtime):
-
-```powershell
-py -3 scripts/pack_r1q2v2_desktop.py
-```
-
-Output: `R1Q2v2-8014-win32.zip` on your Desktop. Always includes `OpenAL32.dll`, `fmt.dll`, and `oal/hrtf` + `oal/presets` when those folders exist.
+A local packer (gitignored `tools/`) builds the Desktop tester zip with binaries, visual cfgs, and the OpenAL runtime (`OpenAL32.dll`, `fmt.dll`, `oal/hrtf`, `oal/presets`).
 
 ### Options → R1Q2 settings
 
 DirectInput mouse, XP mouse acceleration fix, deferred model loading, **sync physics** (`cl_async 0` locks render to `cl_maxfps` for classic jump *timing* — this is **not** Q2PRO pmove; off keeps stock R1Q2 async and is the default feel), widescreen Hor+ FOV, HUD alpha, location names, automatic demo record, and Xania rail trail.
 
-**Saved to `config.cfg`:** sync physics, Hor+ FOV, HUD alpha, location names, and everything under Crosshair setup. Mouse / defer / demo / rail on this page are still session-only unless you put them in `autoexec.cfg`. Details: [CVARS.md](CVARS.md).
+**Saved to `config.cfg`:** sync physics, Hor+ FOV, HUD alpha, location names, and everything under Crosshair setup (including per-hand `ch_x`/`ch_y`). Mouse / defer / demo / rail on this page are still session-only unless you put them in `autoexec.cfg`. Details: [CVARS.md](CVARS.md).
+
+Startup always `exec`s loose `config.cfg` (gamedir, `baseq2`, or next to the exe). A `.pak`/`.pkz` cannot hide it. If that file is missing, `Q2config.cfg` is used. The console prints `execing config.cfg`.
 
 ## Building
 

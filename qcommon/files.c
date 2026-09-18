@@ -1145,6 +1145,119 @@ int EXPORT FS_LoadFile (const char *path, void /*@out@*/ /*@null@*/**buffer)
 	return -1;
 }
 
+/*
+=============
+FS_LoadOSPath
+
+Load a file by absolute/OS path. Used so exec prefers a loose config.cfg
+over one stuffed inside a later .pak/.pkz (HD packs, zz_*.pkz, …).
+=============
+*/
+static int FS_LoadOSPath (const char *netpath, void **buffer)
+{
+	FILE	*h;
+	byte	*buf;
+	int		len;
+
+	if (!buffer)
+		return Sys_FileLength (netpath);
+
+	h = fopen (netpath, "rb");
+	if (!h)
+	{
+		*buffer = NULL;
+		return -1;
+	}
+
+	len = FS_filelength (h);
+	if (!len)
+	{
+		fclose (h);
+		Com_Printf ("WARNING: 0 byte file: %s\n", LOG_GENERAL|LOG_WARNING, netpath);
+		*buffer = CopyString ("", TAGMALLOC_FSLOADFILE);
+		return 0;
+	}
+
+	buf = Z_TagMalloc (len, TAGMALLOC_FSLOADFILE);
+	*buffer = buf;
+	current_filename = netpath;
+	FS_Read (buf, len, h);
+	current_filename = "unknown";
+	fclose (h);
+	return len;
+}
+
+/*
+=============
+FS_LoadFileFromDisk
+
+Loose files only: gamedir, then baseq2, then the install root (next to the
+exe). Never opens a pack. Missing file returns -1.
+=============
+*/
+int FS_LoadFileFromDisk (const char *path, void **buffer)
+{
+	searchpath_t	*search;
+	char			netpath[MAX_OSPATH];
+	int				len;
+
+	if (fs_noextern->intvalue)
+	{
+		if (buffer)
+			*buffer = NULL;
+		return -1;
+	}
+
+	for (search = fs_searchpaths ; search ; search = search->next)
+	{
+		if (search->pack)
+			continue;
+		Com_sprintf (netpath, sizeof(netpath), "%s/%s", search->filename, path);
+		len = FS_LoadOSPath (netpath, buffer);
+		if (len != -1)
+			return len;
+	}
+
+	/* Last chance: config dropped next to the exe instead of in baseq2. */
+	if (fs_basedir && fs_basedir->string[0])
+	{
+		Com_sprintf (netpath, sizeof(netpath), "%s/%s", fs_basedir->string, path);
+		len = FS_LoadOSPath (netpath, buffer);
+		if (len != -1)
+			return len;
+	}
+
+	if (buffer)
+		*buffer = NULL;
+	return -1;
+}
+
+qboolean FS_DiskFileExists (const char *filename)
+{
+	return FS_LoadFileFromDisk (filename, NULL) != -1;
+}
+
+/*
+=============
+FS_AddStartupConfigs
+
+default.cfg from pak0, then the player's config.cfg. Prefer a loose file so
+a pack cannot shadow it. Q2PRO/Yamagi keep binds in Q2config.cfg — use that
+only when there is no disk config.cfg.
+=============
+*/
+void FS_AddStartupConfigs (void)
+{
+	Cbuf_AddText ("exec default.cfg\n");
+
+	if (FS_DiskFileExists ("config.cfg"))
+		Cbuf_AddText ("exec config.cfg\n");
+	else if (FS_DiskFileExists ("Q2config.cfg"))
+		Cbuf_AddText ("exec Q2config.cfg\n");
+	else
+		Cbuf_AddText ("exec config.cfg\n");
+}
+
 
 /*
 =============
@@ -1613,10 +1726,11 @@ void FS_ExecConfig (const char *filename)
 	if (dir[0])
 		Com_sprintf(name, sizeof(name), "%s/%s/%s", fs_basedir->string, dir, filename); 
 	else
-		Com_sprintf(name, sizeof(name), "%s/%s/%s", fs_basedir->string, BASEDIRNAME, filename); 
-	if (Sys_FindFirst(name, 0, SFF_SUBDIR | SFF_HIDDEN | SFF_SYSTEM))
+		Com_sprintf(name, sizeof(name), "%s/%s/%s", fs_basedir->string, BASEDIRNAME, filename);
+	/* Sys_FindFirst skipped Hidden/System files, so a hidden autoexec.cfg
+	 * never ran. fopen/GetFileAttributes sees those. */
+	if (Sys_FileLength (name) != -1)
 		Cbuf_AddText (va ("exec %s\n", filename));
-	Sys_FindClose();
 }
 
 /*

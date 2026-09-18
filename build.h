@@ -1,4 +1,6 @@
-#define BUILD "8059"
+#define BUILD "8060"
+/* BUILD 8060: load loose config.cfg (Q2config.cfg fallback); unfocused
+ * msec/mouse so alt-tab is not flagged as a timing bot; per-hand ch_x/ch_y. */
 /* BUILD 8059: defensive cold-path validation for network strings, files,
  * cinematics, demos, clipboard and renderer diagnostics; correct the stock
  * top-HUD armor/ammo grouping without changing multiplayer hot paths. */

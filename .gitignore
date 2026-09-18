@@ -27,3 +27,12 @@ __pycache__/
 
 dist/
 
+# Local-only helpers (packers, audits, install patches) — not shipped
+/tools/
+/scripts/
+
+# Local release staging and one-off asset work
+/_release_artifacts/
+/_release_stage_*/
+/q2_skin_fix_xfer/
+

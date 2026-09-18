@@ -486,31 +486,44 @@ void Cmd_Exec_f (void)
 		}
 	}
 
-	//r1: sanity check length first so people don't exec pak0.pak and eat 300MB ram
-	len = FS_LoadFile (path, NULL);
+	/* Loose file first so a .pak/.pkz cannot shadow the player's config.cfg. */
+	len = FS_LoadFileFromDisk (path, NULL);
+	if (len < 0)
+		len = FS_LoadFile (path, NULL);
 	if (len > COMMAND_BUFFER_SIZE - 2)
 	{
 		Com_Printf ("WARNING: %s exceeds maximum config file length\n", LOG_GENERAL, Cmd_Argv(1));
 		len = COMMAND_BUFFER_SIZE - 2;
 	}
 
-	len = FS_LoadFile (path, (void **)&f);
+	len = FS_LoadFileFromDisk (path, (void **)&f);
 	if (!f || len <= 0)
 	{
-		//ugly hack to avoid printing missing config errors before startup finishes
-		if (q2_initialized)
+		if (f)
+			FS_FreeFile (f);
+		len = FS_LoadFile (path, (void **)&f);
+	}
+	if (!f || len <= 0)
+	{
+		/* Always report a missing player config; other missing execs stay
+		 * quiet until init finishes (stock default.cfg-from-pak is fine). */
+		if (q2_initialized
+			|| !Q_stricmp (path, "config.cfg")
+			|| !Q_stricmp (path, "Q2config.cfg")
+			|| !Q_stricmp (path, "autoexec.cfg"))
 			Com_Printf ("couldn't exec %s\n", LOG_GENERAL, path);
 		return;
 	}
 
-#ifndef DEDICATED_ONLY
-	if (Com_ServerState())
-#endif
+	/* Player configs always print so "it didn't load" is checkable. */
+	if (q2_initialized
+		|| !Q_stricmp (path, "config.cfg")
+		|| !Q_stricmp (path, "Q2config.cfg")
+		|| !Q_stricmp (path, "autoexec.cfg")
+		|| !Q_stricmp (path, "default.cfg"))
 		Com_Printf ("execing %s\n", LOG_GENERAL, path);
-#ifndef DEDICATED_ONLY
 	else
-		Com_DPrintf ("execing %s\n",path);
-#endif
+		Com_DPrintf ("execing %s\n", path);
 
 	// the file doesn't have a trailing 0, so we need to copy it off
 	//f2 = Z_TagMalloc(len+2, TAGMALLOC_CMDBUFF);

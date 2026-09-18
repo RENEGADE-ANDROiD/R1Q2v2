@@ -515,6 +515,11 @@ void IN_Move (usercmd_t *cmd)
 		RW_IN_Move_fp(cmd);
 }
 
+qboolean IN_ConsumeMouseActivity (void)
+{
+	return false;
+}
+
 void IN_Frame (void)
 {
 	if (RW_IN_Frame_fp)
