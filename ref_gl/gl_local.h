@@ -109,6 +109,7 @@ typedef struct image_s
 	int		has_alpha;
 	//unsigned int hash;
 	struct image_s	*hash_next;
+	struct image_s	*normalmap;			/* _norm/_bump; r_notexture = searched none */
 } image_t;
 
 #define	TEXNUM_LIGHTMAPS	1024
@@ -169,6 +170,8 @@ extern	int			numgltextures;
 
 extern	image_t		*r_notexture;
 extern	image_t		*r_particletexture;
+extern	image_t		*r_coronatexture; /* procedural soft disc; not particle.png */
+extern	image_t		*draw_chars;
 extern	entity_t	*currententity;
 extern	model_t		*currentmodel;
 extern	int			r_visframecount;
@@ -304,7 +307,14 @@ extern	cvar_t	*intensity;
 
 extern	cvar_t	*gl_dlight_falloff;
 extern	cvar_t	*gl_lightmap_filter; /* 0=NEAREST, 1=LINEAR (+aniso-friendly) */
-extern	cvar_t	*gl_light_corona;    /* soft depth-tested dlight corona scale; 0=off */
+extern	cvar_t	*gl_light_corona;    /* soft LOS-tested dlight corona scale; 0=off */
+extern	cvar_t	*gl_world_corona;    /* BSP light-entity coronas; 0=off */
+extern	cvar_t	*gl_light_shafts;    /* short LOS-tested shafts; 0=off */
+extern	cvar_t	*gl_bloom;           /* on-screen bloom on/off; intensity is hardcoded */
+extern	cvar_t	*gl_godrays;         /* radial shafts from visible lights; 0=off */
+extern	cvar_t	*gl_softparticles;   /* depth-fade particles; 0=off */
+extern	cvar_t	*gl_dlight_shader;   /* per-pixel world dlights; 0=off */
+extern	cvar_t	*gl_normalmaps;      /* use _norm/_bump if the pack ships them */
 extern	cvar_t	*gl_ambient_lift;    /* mild LM fill 0..0.1 hard cap; 0=off */
 extern	cvar_t	*gl_warp_amp;        /* water/slime warp amplitude scale */
 extern	cvar_t	*gl_warp_speed;      /* water/slime warp time scale */
@@ -339,6 +349,8 @@ extern	int		c_visible_lightmaps;
 extern	int		c_visible_textures;
 
 extern	float	r_world_matrix[16];
+extern	float	r_projection_matrix[16];
+extern	int		r_viewport[4];
 
 void R_TranslatePlayerSkin (int playernum);
 void GL_Bind (unsigned int texnum);
@@ -377,6 +389,22 @@ void R_DrawBeam( entity_t *e );
 void R_DrawWorld (void);
 void R_RenderDlights (void);
 void R_DrawDlightCoronas (void);
+void R_LoadWorldLights (model_t *world, byte *base, lump_t *l);
+qboolean R_LightOriginVisible (vec3_t origin);
+int R_NumWorldLights (void);
+void R_WorldLightOrigin (int i, vec3_t origin, float *intensity);
+void R_PostFX_Init (void);
+void R_PostFX_Shutdown (void);
+qboolean R_PostFX_BeginView (void);
+void R_PostFX_CaptureDepth (void);
+qboolean R_PostFX_SoftParticlesActive (void);
+void R_PostFX_BeginSoftParticles (void);
+void R_PostFX_EndSoftParticles (void);
+void R_PostFX_EndView (void);
+qboolean R_WorldShaderDlights (void);
+qboolean R_WorldShaderBegin (msurface_t *surf, image_t *image);
+void R_WorldShaderEnd (void);
+image_t	*GL_FindWallImage (const char *basename);
 void R_ApplyLightmapFilter (void);
 void R_DrawAlphaSurfaces (void);
 void R_RenderBrushPoly (msurface_t *fa);
@@ -531,6 +559,8 @@ typedef struct
 	qboolean	r1gl_WGL_EXT_swap_control_tear;
 	float		max_anisotropy;
 	qboolean	r1gl_GL_ARB_texture_non_power_of_two;
+	qboolean	r1gl_FBO;
+	qboolean	r1gl_GLSL;
 	qboolean	wglPFD;
 
 	int			bitDepth;

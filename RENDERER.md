@@ -36,6 +36,37 @@ Safe client-only smoothness work. **No net send, prediction, pmove, or `cl_async
 - **Modelview:** CPU matrix matching the classic rotate/translate sequence + `glLoadMatrixf` — no per-view `glGetFloatv` stall.
 - **Load hitch:** deferred models run on the render frame (not the send frame), at most one every ~16 ms. Map-load clientinfo no longer `SCR_UpdateScreen`s once per player.
 
+## Fair-play lighting sprites (Build 8061)
+
+Still fixed-function R1GL. Build 8061 new-player defaults match Advanced Settings playtest (coronas/shafts/bloom/god rays/soft particles/pixel dlights on).
+
+- **LOS test:** BSP walk from the camera to the light origin. `CONTENTS_SOLID` blocks; a 24-unit slop at the light end allows ceiling/wall mounts. Used for dlight coronas, world coronas, and shafts so sprites cannot poke through thin walls (depth test alone was not enough).
+- **`gl_world_corona`:** `classname light` entities from `LUMP_ENTITIES`. Sprite only — no extra dlights.
+- **`gl_light_shafts`:** short additive streak on visible lights. Not volumetric god rays.
+- **`gl_overbrights`:** existing 2× lightmap combine, now on Advanced Settings and archived. TexEnv follows the cvar immediately (the old `modified` short-circuit left it stuck on modulate).
+
+No FBO, bloom, or player glow in slice 1. Surface dlight marking is unchanged (classic Q2 can still light a floor through a thin wall).
+
+## FBO post-FX (Build 8061 slice 2)
+
+Still R1GL. Compatibility-context `GL_FRAMEBUFFER` + GLSL 2.0 entry points in `ref_gl/gl_fbo.c`. HUD is drawn after the blit.
+
+- 3D view renders into a color+depth FBO (`vid.width` × `vid.height`). Window MSAA does not apply to that 3D buffer while any of these are on.
+- **`gl_bloom`:** on/off only. Downsample + high threshold (~0.80) + **one** separable blur of **on-screen** bright texels, composited at a hardcoded ~0.20 add. The cvar magnitude is ignored so bloom cannot be cranked into a through-wall glow. Occluded lights are black in the scene.
+- **`gl_godrays`:** radial blur of that bright buffer toward one LOS-visible projected dlight/world light. No center if the light is behind a wall.
+- **`gl_softparticles`:** blit scene depth to a copy, then a particle shader fades alpha against linearised depth. Forced onto the triangle particle path.
+
+If FBO or GLSL is missing, the console prints that post-FX is unavailable and the cvars do nothing.
+
+## World-pass shaders (Build 8061 slice 3)
+
+Still R1GL compatibility-context GLSL 1.10. No shadow maps. Pixel dlights default on.
+
+- **`gl_dlight_shader`:** Per-pixel dlights on lightmapped world/bmodel surfaces. CPU `R_AddDynamicLights` is skipped so lightmaps stay baked-only. A BSP trace from the light to the surface centroid plus a back-face test stops stains through thin walls.
+- **`gl_normalmaps`:** If the pack ships `textures/<wal>_norm` / `_n` / `_bump` (png/jpg/tga/wal), that map perturbs the geometric normal. Missing files are searched once and ignored.
+
+Console prints `using GLSL world dlights` at renderer init when the program links. Needs `gl_dynamic 1`.
+
 ## Next steps (roadmap)
 
 1. Texture upload path: clamp/NPOT handling consistency, safer `glTexImage2D` error paths (extensions already partly present).

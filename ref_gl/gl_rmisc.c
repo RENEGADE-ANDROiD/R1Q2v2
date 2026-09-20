@@ -49,6 +49,8 @@ void R_InitParticleTexture (void)
 	int		x,y;
 	byte	data[8][8][4];
 
+	r_coronatexture = NULL;
+
 	//
 	// particle texture
 	//
@@ -70,6 +72,37 @@ void R_InitParticleTexture (void)
 
 	if (!r_particletexture)
 		r_particletexture = GL_LoadPic ("***particle***", (byte *)data, 8, 8, it_sprite, 32);
+
+	/* Soft corona disc — never use particle.png (HD packs ship a blue spark). */
+	{
+		enum { CS = 64 };
+		static byte cdata[CS][CS][4];
+		int		cx, cy;
+
+		for (cy = 0; cy < CS; cy++)
+		{
+			for (cx = 0; cx < CS; cx++)
+			{
+				float	u, v, r2, a;
+
+				u = ((float)cx + 0.5f) / (float)CS * 2.0f - 1.0f;
+				v = ((float)cy + 0.5f) / (float)CS * 2.0f - 1.0f;
+				r2 = u * u + v * v;
+				if (r2 >= 1.0f)
+					a = 0.0f;
+				else
+				{
+					a = 1.0f - r2;
+					a = a * a;
+				}
+				cdata[cy][cx][0] = 255;
+				cdata[cy][cx][1] = 255;
+				cdata[cy][cx][2] = 255;
+				cdata[cy][cx][3] = (byte)(a * 255.0f);
+			}
+		}
+		r_coronatexture = GL_LoadPic ("***corona***", (byte *)cdata, CS, CS, it_sprite, 32);
+	}
 
 	//
 	// also use this for bad textures, but without alpha

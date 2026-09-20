@@ -581,7 +581,7 @@ void R_RenderBrushPoly (msurface_t *fa)
 	}
 
 	// dynamic this frame or dynamic previously
-	if ( ( fa->dlightframe == r_framecount ) )
+	if ( ( fa->dlightframe == r_framecount ) && !R_WorldShaderDlights () )
 	{
 dynamic:
 		if ( FLOAT_NE_ZERO (gl_dynamic->value) )
@@ -796,7 +796,7 @@ static void GL_RenderLightmappedPoly( msurface_t *surf )
 	}
 
 	// dynamic this frame or dynamic previously
-	if ( ( surf->dlightframe == r_framecount ) )
+	if ( ( surf->dlightframe == r_framecount ) && !R_WorldShaderDlights () )
 	{
 dynamic:
 		if ( FLOAT_NE_ZERO (gl_dynamic->value) )
@@ -850,62 +850,29 @@ dynamic:
 							  GL_UNSIGNED_BYTE, temp );
 
 		}
-
-		c_brush_polys++;
-
-		GL_MBind( GL_TEXTURE0, image->texnum );
-		GL_MBind( GL_TEXTURE1, gl_state.lightmap_textures + lmtex );
-
-//==========
-//PGM
-		if (surf->texinfo->flags & SURF_FLOWING)
-		{
-			float scroll;
-		
-			scroll = -64 * ( (r_newrefdef.time / 40.0f) - (int)(r_newrefdef.time / 40.0f) );
-			if(FLOAT_EQ_ZERO(scroll))
-				scroll = -64.0;
-
-			for ( p = surf->polys; p; p = p->chain )
-			{
-				v = p->verts[0];
-				qglBegin (GL_POLYGON);
-				for (i=0 ; i< nv; i++, v+= VERTEXSIZE)
-				{
-					qglMTexCoord2fSGIS( GL_TEXTURE0, (v[3]+scroll), v[4]);
-					qglMTexCoord2fvSGIS ( GL_TEXTURE1, &v[5]);
-					//qglMTexCoord2fSGIS( GL_TEXTURE1, v[5], v[6]);
-					qglVertex3fv (v);
-				}
-				qglEnd ();
-			}
-		}
-		else
-		{
-			for ( p = surf->polys; p; p = p->chain )
-			{
-				v = p->verts[0];
-				qglBegin (GL_POLYGON);
-				for (i=0 ; i< nv; i++, v+= VERTEXSIZE)
-				{
-					qglMTexCoord2fvSGIS ( GL_TEXTURE0, &v[3]);
-					qglMTexCoord2fvSGIS ( GL_TEXTURE1, &v[5]);
-					//qglMTexCoord2fSGIS( GL_TEXTURE0, v[3], v[4]);
-					//qglMTexCoord2fSGIS( GL_TEXTURE1, v[5], v[6]);
-					qglVertex3fv (v);
-				}
-				qglEnd ();
-			}
-		}
-//PGM
-//==========
 	}
-	else
+
 	{
+		qboolean used_shader;
+
 		c_brush_polys++;
 
 		GL_MBind( GL_TEXTURE0, image->texnum );
 		GL_MBind( GL_TEXTURE1, gl_state.lightmap_textures + lmtex );
+
+		used_shader = R_WorldShaderBegin (surf, image);
+		if (used_shader)
+		{
+			vec3_t n;
+			FastVectorCopy (surf->plane->normal, n);
+			if (surf->flags & SURF_PLANEBACK)
+			{
+				n[0] = -n[0];
+				n[1] = -n[1];
+				n[2] = -n[2];
+			}
+			glNormal3fv (n);
+		}
 
 //==========
 //PGM
@@ -924,7 +891,8 @@ dynamic:
 				for (i=0 ; i< nv; i++, v+= VERTEXSIZE)
 				{
 					qglMTexCoord2fSGIS( GL_TEXTURE0, (v[3]+scroll), v[4]);
-					qglMTexCoord2fSGIS( GL_TEXTURE1, v[5], v[6]);
+					qglMTexCoord2fvSGIS ( GL_TEXTURE1, &v[5]);
+					//qglMTexCoord2fSGIS( GL_TEXTURE1, v[5], v[6]);
 					qglVertex3fv (v);
 				}
 				qglEnd ();
@@ -932,8 +900,6 @@ dynamic:
 		}
 		else
 		{
-//PGM
-//==========
 			for ( p = surf->polys; p; p = p->chain )
 			{
 				v = p->verts[0];
@@ -948,11 +914,10 @@ dynamic:
 				}
 				qglEnd ();
 			}
-//==========
-//PGM
 		}
-//PGM
-//==========
+
+		if (used_shader)
+			R_WorldShaderEnd ();
 	}
 }
 
@@ -1102,17 +1067,17 @@ e->angles[2] = -e->angles[2];	// stupid quake bug
 	GL_SelectTexture( GL_TEXTURE1);
 	
 	//GL_TexEnv( GL_MODULATE );
-	if (FLOAT_EQ_ZERO(gl_overbrights->value) || gl_overbrights->modified)
-	{
-		GL_TexEnv( GL_MODULATE );
-	}
-	else
+	if (FLOAT_NE_ZERO(gl_overbrights->value))
 	{
 		qglTexEnvi (GL_TEXTURE_ENV,	GL_TEXTURE_ENV_MODE,	GL_COMBINE_ARB);
 		qglTexEnvi (GL_TEXTURE_ENV,	GL_COMBINE_RGB_ARB,		GL_MODULATE);
 		qglTexEnvi (GL_TEXTURE_ENV,	GL_COMBINE_ALPHA_ARB,	GL_MODULATE);
 		qglTexEnvi (GL_TEXTURE_ENV,	GL_RGB_SCALE_ARB,		2);
 		GL_TexEnv (GL_COMBINE_ARB);
+	}
+	else
+	{
+		GL_TexEnv( GL_MODULATE );
 	}
 
 	R_DrawInlineBModel ();
@@ -1376,17 +1341,17 @@ void R_DrawWorld (void)
 		GL_TexEnv( GL_REPLACE );
 		GL_SelectTexture( GL_TEXTURE1);
 
-		if (FLOAT_EQ_ZERO(gl_overbrights->value) || gl_overbrights->modified)
-		{
-			GL_TexEnv( GL_MODULATE );
-		}
-		else
+		if (FLOAT_NE_ZERO(gl_overbrights->value))
 		{
 			qglTexEnvi (GL_TEXTURE_ENV,	GL_TEXTURE_ENV_MODE,	GL_COMBINE_ARB);
 			qglTexEnvi (GL_TEXTURE_ENV,	GL_COMBINE_RGB_ARB,		GL_MODULATE);
 			qglTexEnvi (GL_TEXTURE_ENV,	GL_COMBINE_ALPHA_ARB,	GL_MODULATE);
 			qglTexEnvi (GL_TEXTURE_ENV,	GL_RGB_SCALE_ARB,		2);
 			GL_TexEnv (GL_COMBINE_ARB);
+		}
+		else
+		{
+			GL_TexEnv( GL_MODULATE );
 		}
 
 		R_RecursiveWorldNode (r_worldmodel->nodes, 15);

@@ -1164,11 +1164,47 @@ void QGL_Shutdown( void )
 ** might be.
 ** 
 */
+static qboolean QGL_IsBlockedCheatDriver( const char *dllname )
+{
+	const char	*base;
+	char		lower[MAX_QPATH];
+	int			i, n;
+
+	if ( !dllname || !dllname[0] )
+		return false;
+
+	base = dllname;
+	for ( i = 0; dllname[i]; i++ )
+	{
+		if ( dllname[i] == '/' || dllname[i] == '\\' )
+			base = dllname + i + 1;
+	}
+
+	n = 0;
+	while ( base[n] && n < (int)sizeof(lower) - 1 )
+	{
+		char	c = base[n];
+		if ( c >= 'A' && c <= 'Z' )
+			c = (char)(c - 'A' + 'a');
+		lower[n++] = c;
+	}
+	lower[n] = 0;
+
+	return ( !strcmp( lower, "wh.dll" ) || !strcmp( lower, "wh" ) ||
+		!strcmp( lower, "wallhack.dll" ) || !strcmp( lower, "q2ace.dll" ) );
+}
+
 qboolean QGL_Init( const char *dllname )
 {
 	char envbuffer[16];
 	float g;
 	char pathbuff[MAX_PATH];
+
+	if ( QGL_IsBlockedCheatDriver( dllname ) )
+	{
+		ri.Con_Printf( PRINT_ALL, "QGL_Init: refusing to load cheat OpenGL wrapper '%s'\n", dllname );
+		return false;
+	}
 
 	g = 2.00f * ( 0.8f - ( vid_gamma->value - 0.5f ) ) + 1.0F;
 

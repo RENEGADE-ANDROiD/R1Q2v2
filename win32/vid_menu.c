@@ -55,6 +55,14 @@ static cvar_t *gl_warp_amp;
 static cvar_t *gl_warp_speed;
 static cvar_t *gl_subdivide;
 static cvar_t *gl_light_corona;
+static cvar_t *gl_world_corona;
+static cvar_t *gl_light_shafts;
+static cvar_t *gl_overbrights;
+static cvar_t *gl_bloom;
+static cvar_t *gl_godrays;
+static cvar_t *gl_softparticles;
+static cvar_t *gl_dlight_shader;
+static cvar_t *gl_normalmaps;
 static cvar_t *gl_ambient_lift;
 static cvar_t *gl_waterfog;
 
@@ -111,6 +119,14 @@ static menuslider_s		s_adv_warpamp_slider;
 static menuslider_s		s_adv_warpspeed_slider;
 static menulist_s		s_adv_subdivide_box;
 static menulist_s		s_adv_corona_box;
+static menulist_s		s_adv_worldcorona_box;
+static menulist_s		s_adv_shafts_box;
+static menulist_s		s_adv_overbright_box;
+static menulist_s		s_adv_bloom_box;
+static menuslider_s		s_adv_godrays_slider;
+static menulist_s		s_adv_softparticles_box;
+static menulist_s		s_adv_dlightshader_box;
+static menulist_s		s_adv_normalmaps_box;
 static menuslider_s		s_adv_ambient_slider;
 static menuslider_s		s_adv_waterfog_slider;
 static menuseparator_s	s_adv_note;
@@ -169,6 +185,23 @@ static void VID_ApplyAdvancedSettings( void )
 	else if ( !gl_light_corona || gl_light_corona->value <= 0.0f )
 		Cvar_SetValue( "gl_light_corona", 1.0f );
 	/* else keep existing subtle scale (e.g. 0.35) when left on */
+
+	if ( !s_adv_worldcorona_box.curvalue )
+		Cvar_SetValue( "gl_world_corona", 0.0f );
+	else if ( !gl_world_corona || gl_world_corona->value <= 0.0f )
+		Cvar_SetValue( "gl_world_corona", 1.0f );
+
+	if ( !s_adv_shafts_box.curvalue )
+		Cvar_SetValue( "gl_light_shafts", 0.0f );
+	else if ( !gl_light_shafts || gl_light_shafts->value <= 0.0f )
+		Cvar_SetValue( "gl_light_shafts", 1.0f );
+
+	Cvar_SetValue( "gl_overbrights", (float)s_adv_overbright_box.curvalue );
+	Cvar_SetValue( "gl_bloom", (float)s_adv_bloom_box.curvalue );
+	Cvar_SetValue( "gl_godrays", s_adv_godrays_slider.curvalue / 10.0f );
+	Cvar_SetValue( "gl_softparticles", (float)s_adv_softparticles_box.curvalue );
+	Cvar_SetValue( "gl_dlight_shader", (float)s_adv_dlightshader_box.curvalue );
+	Cvar_SetValue( "gl_normalmaps", (float)s_adv_normalmaps_box.curvalue );
 
 	ambient = s_adv_ambient_slider.curvalue / 100.0f;
 	if (ambient < 0.0f)
@@ -420,17 +453,33 @@ void EXPORT VID_MenuInit( void )
 	if ( !gl_lightmap_filter )
 		gl_lightmap_filter = Cvar_Get( "gl_lightmap_filter", "1", CVAR_ARCHIVE );
 	if ( !gl_dlight_falloff )
-		gl_dlight_falloff = Cvar_Get( "gl_dlight_falloff", "0", CVAR_ARCHIVE );
+		gl_dlight_falloff = Cvar_Get( "gl_dlight_falloff", "1.4", CVAR_ARCHIVE );
 	if ( !gl_warp_amp )
-		gl_warp_amp = Cvar_Get( "gl_warp_amp", "1", CVAR_ARCHIVE );
+		gl_warp_amp = Cvar_Get( "gl_warp_amp", "1.5", CVAR_ARCHIVE );
 	if ( !gl_warp_speed )
-		gl_warp_speed = Cvar_Get( "gl_warp_speed", "1", CVAR_ARCHIVE );
+		gl_warp_speed = Cvar_Get( "gl_warp_speed", "1.5", CVAR_ARCHIVE );
 	if ( !gl_subdivide )
-		gl_subdivide = Cvar_Get( "gl_subdivide", "64", CVAR_ARCHIVE );
+		gl_subdivide = Cvar_Get( "gl_subdivide", "32", CVAR_ARCHIVE );
 	if ( !gl_light_corona )
-		gl_light_corona = Cvar_Get( "gl_light_corona", "0", CVAR_ARCHIVE );
+		gl_light_corona = Cvar_Get( "gl_light_corona", "0.35", CVAR_ARCHIVE );
+	if ( !gl_world_corona )
+		gl_world_corona = Cvar_Get( "gl_world_corona", "0.35", CVAR_ARCHIVE );
+	if ( !gl_light_shafts )
+		gl_light_shafts = Cvar_Get( "gl_light_shafts", "0.35", CVAR_ARCHIVE );
+	if ( !gl_overbrights )
+		gl_overbrights = Cvar_Get( "gl_overbrights", "1", CVAR_ARCHIVE );
+	if ( !gl_bloom )
+		gl_bloom = Cvar_Get( "gl_bloom", "1", CVAR_ARCHIVE );
+	if ( !gl_godrays )
+		gl_godrays = Cvar_Get( "gl_godrays", "0.35", CVAR_ARCHIVE );
+	if ( !gl_softparticles )
+		gl_softparticles = Cvar_Get( "gl_softparticles", "1", CVAR_ARCHIVE );
+	if ( !gl_dlight_shader )
+		gl_dlight_shader = Cvar_Get( "gl_dlight_shader", "1", CVAR_ARCHIVE );
+	if ( !gl_normalmaps )
+		gl_normalmaps = Cvar_Get( "gl_normalmaps", "1", CVAR_ARCHIVE );
 	if ( !gl_ambient_lift )
-		gl_ambient_lift = Cvar_Get( "gl_ambient_lift", "0", CVAR_ARCHIVE );
+		gl_ambient_lift = Cvar_Get( "gl_ambient_lift", "0.04", CVAR_ARCHIVE );
 	if ( !gl_waterfog )
 		gl_waterfog = Cvar_Get( "gl_waterfog", "0.35", CVAR_ARCHIVE );
 
@@ -794,13 +843,90 @@ void EXPORT VID_MenuInit( void )
 	s_adv_corona_box.generic.y = 50;
 	s_adv_corona_box.generic.name = "light coronas";
 	s_adv_corona_box.generic.callback = AdvFxCallback;
-	s_adv_corona_box.generic.statusbar = "depth-tested soft glow; occluded lights hidden";
+	s_adv_corona_box.generic.statusbar = "LOS-tested dlight glow; occluded explosions hidden";
 	s_adv_corona_box.itemnames = yesno_names;
 	s_adv_corona_box.curvalue = (gl_light_corona->value > 0.0f) ? 1 : 0;
 
+	s_adv_worldcorona_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_worldcorona_box.generic.x = 0;
+	s_adv_worldcorona_box.generic.y = 60;
+	s_adv_worldcorona_box.generic.name = "world coronas";
+	s_adv_worldcorona_box.generic.callback = AdvFxCallback;
+	s_adv_worldcorona_box.generic.statusbar = "BSP lamp sprites; hidden if a wall is in the way";
+	s_adv_worldcorona_box.itemnames = yesno_names;
+	s_adv_worldcorona_box.curvalue = (gl_world_corona->value > 0.0f) ? 1 : 0;
+
+	s_adv_shafts_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_shafts_box.generic.x = 0;
+	s_adv_shafts_box.generic.y = 70;
+	s_adv_shafts_box.generic.name = "light shafts";
+	s_adv_shafts_box.generic.callback = AdvFxCallback;
+	s_adv_shafts_box.generic.statusbar = "short streak on visible lights only; no wallhack";
+	s_adv_shafts_box.itemnames = yesno_names;
+	s_adv_shafts_box.curvalue = (gl_light_shafts->value > 0.0f) ? 1 : 0;
+
+	s_adv_overbright_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_overbright_box.generic.x = 0;
+	s_adv_overbright_box.generic.y = 80;
+	s_adv_overbright_box.generic.name = "overbright lightmaps";
+	s_adv_overbright_box.generic.callback = AdvFxCallback;
+	s_adv_overbright_box.generic.statusbar = "2x lightmap combine; can wash HD packs";
+	s_adv_overbright_box.itemnames = yesno_names;
+	s_adv_overbright_box.curvalue = (gl_overbrights->value > 0.0f) ? 1 : 0;
+
+	s_adv_bloom_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_bloom_box.generic.x = 0;
+	s_adv_bloom_box.generic.y = 90;
+	s_adv_bloom_box.generic.name = "bloom";
+	s_adv_bloom_box.generic.callback = AdvFxCallback;
+	s_adv_bloom_box.generic.statusbar = "minimal on-screen glow; intensity capped, no wallhack";
+	s_adv_bloom_box.itemnames = yesno_names;
+	s_adv_bloom_box.curvalue = (gl_bloom->value > 0.0f) ? 1 : 0;
+
+	s_adv_godrays_slider.generic.type = MTYPE_SLIDER;
+	s_adv_godrays_slider.generic.x = 0;
+	s_adv_godrays_slider.generic.y = 100;
+	s_adv_godrays_slider.generic.name = "god rays";
+	s_adv_godrays_slider.generic.callback = AdvFxCallback;
+	s_adv_godrays_slider.generic.statusbar = "radial shafts from visible lights; not a wallhack";
+	s_adv_godrays_slider.minvalue = 0;
+	s_adv_godrays_slider.maxvalue = 10;
+	s_adv_godrays_slider.curvalue = gl_godrays->value * 10.0f;
+	if (s_adv_godrays_slider.curvalue < 0)
+		s_adv_godrays_slider.curvalue = 0;
+	if (s_adv_godrays_slider.curvalue > 10)
+		s_adv_godrays_slider.curvalue = 10;
+
+	s_adv_softparticles_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_softparticles_box.generic.x = 0;
+	s_adv_softparticles_box.generic.y = 110;
+	s_adv_softparticles_box.generic.name = "soft particles";
+	s_adv_softparticles_box.generic.callback = AdvFxCallback;
+	s_adv_softparticles_box.generic.statusbar = "fade sprites against walls; needs FBO";
+	s_adv_softparticles_box.itemnames = yesno_names;
+	s_adv_softparticles_box.curvalue = (gl_softparticles->value > 0.0f) ? 1 : 0;
+
+	s_adv_dlightshader_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_dlightshader_box.generic.x = 0;
+	s_adv_dlightshader_box.generic.y = 120;
+	s_adv_dlightshader_box.generic.name = "pixel dlights";
+	s_adv_dlightshader_box.generic.callback = AdvFxCallback;
+	s_adv_dlightshader_box.generic.statusbar = "per-pixel world lights; occluded rooms stay dark";
+	s_adv_dlightshader_box.itemnames = yesno_names;
+	s_adv_dlightshader_box.curvalue = (gl_dlight_shader->value > 0.0f) ? 1 : 0;
+
+	s_adv_normalmaps_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_normalmaps_box.generic.x = 0;
+	s_adv_normalmaps_box.generic.y = 130;
+	s_adv_normalmaps_box.generic.name = "normal maps";
+	s_adv_normalmaps_box.generic.callback = AdvFxCallback;
+	s_adv_normalmaps_box.generic.statusbar = "use _norm/_bump if the pack ships them";
+	s_adv_normalmaps_box.itemnames = yesno_names;
+	s_adv_normalmaps_box.curvalue = (gl_normalmaps->value > 0.0f) ? 1 : 0;
+
 	s_adv_ambient_slider.generic.type = MTYPE_SLIDER;
 	s_adv_ambient_slider.generic.x = 0;
-	s_adv_ambient_slider.generic.y = 60;
+	s_adv_ambient_slider.generic.y = 140;
 	s_adv_ambient_slider.generic.name = "ambient lift";
 	s_adv_ambient_slider.generic.callback = AdvFxCallback;
 	s_adv_ambient_slider.generic.statusbar = "hard-capped at 0.1; not night-vision";
@@ -814,7 +940,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_waterfog_slider.generic.type = MTYPE_SLIDER;
 	s_adv_waterfog_slider.generic.x = 0;
-	s_adv_waterfog_slider.generic.y = 70;
+	s_adv_waterfog_slider.generic.y = 150;
 	s_adv_waterfog_slider.generic.name = "underwater fog";
 	s_adv_waterfog_slider.generic.callback = AdvFxCallback;
 	s_adv_waterfog_slider.generic.statusbar = "subtle liquid distance fog; 0 = off";
@@ -827,14 +953,14 @@ void EXPORT VID_MenuInit( void )
 		s_adv_waterfog_slider.curvalue = 10;
 
 	s_adv_note.generic.type = MTYPE_SEPARATOR;
-	s_adv_note.generic.name = "fair-play polish only - no bloom / wallhack";
+	s_adv_note.generic.name = "fair-play polish only - occluded lights hidden";
 	s_adv_note.generic.x = 160;
-	s_adv_note.generic.y = 90;
+	s_adv_note.generic.y = 170;
 
 	s_adv_back_action.generic.type = MTYPE_ACTION;
 	s_adv_back_action.generic.name = "back";
 	s_adv_back_action.generic.x = 0;
-	s_adv_back_action.generic.y = 110;
+	s_adv_back_action.generic.y = 190;
 	s_adv_back_action.generic.callback = AdvancedMenuBack;
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_ref_list[SOFTWARE_MENU] );
@@ -871,6 +997,14 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_warpspeed_slider );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_subdivide_box );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_corona_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_worldcorona_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_shafts_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_overbright_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_bloom_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_godrays_slider );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_softparticles_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_dlightshader_box );
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_normalmaps_box );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_ambient_slider );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_waterfog_slider );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_note );

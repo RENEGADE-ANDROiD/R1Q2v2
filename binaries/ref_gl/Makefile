@@ -2,7 +2,7 @@ VPATH=../../ref_gl ../../linux ../../game
 
 CFLAGS+=-fPIC $(shell sdl-config --cflags)
 
-ref_gl_SRC:=gl_draw.c gl_image.c gl_light.c gl_mesh.c gl_model.c gl_rmain.c\
+ref_gl_SRC:=gl_draw.c gl_fbo.c gl_image.c gl_light.c gl_mesh.c gl_model.c gl_rmain.c\
 			gl_rmisc.c gl_rsurf.c gl_warp.c gl_sdl.c glob.c q_shared.c\
 			q_shlinux.c qgl_linux.c
 

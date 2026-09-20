@@ -1,4 +1,8 @@
-#define BUILD "8060"
+#define BUILD "8061"
+/* BUILD 8061: R1GL world-light coronas, LOS-tested shafts, overbright menu;
+ * FBO bloom / god rays / soft particles; per-pixel world dlights + optional
+ * normal maps; dlight coronas no longer show explosions through walls.
+ * New-player Advanced Settings defaults match the 8061 playtest look. */
 /* BUILD 8060: load loose config.cfg (Q2config.cfg fallback); unfocused
  * msec/mouse so alt-tab is not flagged as a timing bot; per-hand ch_x/ch_y. */
 /* BUILD 8059: defensive cold-path validation for network strings, files,

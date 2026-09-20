@@ -518,6 +518,8 @@ void SV_InitGame (void)
 	}
 #endif
 
+	SV_InstallDefaultCheatBans ();
+
 	Z_Verify("SV_InitGame:END");
 }
 

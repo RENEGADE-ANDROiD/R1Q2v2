@@ -56,6 +56,13 @@ static byte	*membase;
 //static BYTE *tempBuff;
 //static int tempBuffSize;;
 
+static int Hunk_PageAlign (int n)
+{
+	if (n <= 0)
+		return 0;
+	return (n + pagesize - 1) & ~(pagesize - 1);
+}
+
 void *Hunk_Begin (int maxsize, int precommit)
 {
 	// reserve a huge chunk of memory, but don't commit any yet
@@ -70,27 +77,40 @@ void *Hunk_Begin (int maxsize, int precommit)
 	{
 		SYSTEM_INFO sSysInfo;         // useful information about the system
 		GetSystemInfo (&sSysInfo);     // initialize the structure
-		pagesize = sSysInfo.dwPageSize;
+		pagesize = (int)sSysInfo.dwPageSize;
+		if (pagesize <= 0)
+			pagesize = 4096;
 	}
 
 //	tempBuff = NULL;
 //	tempBuffSize = TBUFFERLEN;
+	if (maxsize < pagesize)
+		maxsize = pagesize;
+	maxsize = Hunk_PageAlign (maxsize);
+	if (precommit < 0)
+		precommit = 0;
+	if (precommit > maxsize)
+		precommit = maxsize;
 	hunkmaxsize = maxsize;
 #if VIRTUAL_ALLOC
-	if (precommit == maxsize)
-	{
-		membase = VirtualAlloc (NULL, precommit, MEM_COMMIT, PAGE_READWRITE);
-		bytes_allocated = precommit;
-	}
-	else
-	{
-		membase = VirtualAlloc (NULL, maxsize, MEM_RESERVE, PAGE_NOACCESS);
+	/*
+	 * Always MEM_RESERVE the full max. MEM_COMMIT-only (the old
+	 * precommit==maxsize path) reserves just that many bytes, so a later
+	 * Hunk_Alloc that needs one more page fails with ERROR_INVALID_ADDRESS
+	 * ("Attempt to access invalid address").
+	 */
+	membase = VirtualAlloc (NULL, (SIZE_T)maxsize, MEM_RESERVE, PAGE_NOACCESS);
 
-		if (precommit)
-		{
-			VirtualAlloc (membase, precommit, MEM_COMMIT, PAGE_READWRITE);
-			bytes_allocated = precommit;
-		}
+	if (membase && precommit)
+	{
+		SIZE_T	commit;
+
+		commit = (SIZE_T)Hunk_PageAlign (precommit);
+		if (commit > (SIZE_T)maxsize)
+			commit = (SIZE_T)maxsize;
+		if (!VirtualAlloc (membase, commit, MEM_COMMIT, PAGE_READWRITE))
+			Sys_Error ("VirtualAlloc precommit failed (%u bytes)", (unsigned)commit);
+		bytes_allocated = (int)commit;
 	}
 
 #elif CREATE_HEAP
@@ -103,14 +123,13 @@ void *Hunk_Begin (int maxsize, int precommit)
 	membase = malloc (maxsize);
 #endif
 	if (!membase)
-		Sys_Error ("VirtualAlloc reserve failed");
+		Sys_Error ("VirtualAlloc reserve failed (%d bytes)", maxsize);
 	return (void *)membase;
 }
 
 void *Hunk_Alloc (int requested)
 {
 	int size;
-	int	pages;
 
 #if VIRTUAL_ALLOC || CREATE_HEAP
 	void	*buf;
@@ -134,8 +153,17 @@ void *Hunk_Alloc (int requested)
 
 #if VIRTUAL_ALLOC
 
+	if (requested < 0)
+		Sys_Error ("Hunk_Alloc: negative size %d", requested);
+
 	//align everything to 32 bits
 	requested = (requested + 3)&~3;
+
+	if (!pagesize || !membase)
+		Sys_Error ("Hunk_Alloc: Hunk_Begin was not called");
+
+	if (bytes_used < 0 || bytes_used > hunkmaxsize || requested > hunkmaxsize - bytes_used)
+		Sys_Error ("Hunk_Alloc overflow (%d + %d > %d)", bytes_used, requested, hunkmaxsize);
 
 	if (requested <= bytes_allocated - bytes_used)
 	{
@@ -146,31 +174,26 @@ void *Hunk_Alloc (int requested)
 		return membase + bytes_used - requested;
 	}
 
-	if (requested % pagesize == 0)
-		pages = requested / pagesize;
-	else
-		pages = 1 + requested / pagesize;
+	/* Commit enough additional pages to cover this request. */
+	size = Hunk_PageAlign (bytes_used + requested) - bytes_allocated;
+	if (size < pagesize)
+		size = pagesize;
 
-	size = pagesize * pages;
+	if (bytes_allocated > hunkmaxsize - size)
+		Sys_Error ("Hunk_Alloc overflow (%d + %d > %d)", bytes_allocated, size, hunkmaxsize);
 
-	//needs a new page
-	buf = VirtualAlloc (membase, bytes_allocated+size, MEM_COMMIT, PAGE_READWRITE);
-
-	//force the allocation on the new page boundary so as not to straddle pages
-	bytes_used = bytes_allocated;
-
-	bytes_allocated += size;
+	buf = VirtualAlloc (membase, (SIZE_T)bytes_allocated + (SIZE_T)size, MEM_COMMIT, PAGE_READWRITE);
 
 	if (!buf)
 	{
-		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &buf, 0, NULL);
-		Sys_Error ("VirtualAlloc commit failed.\n%s", buf);
+		char	*msg = NULL;
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msg, 0, NULL);
+		Sys_Error ("VirtualAlloc commit failed (%d + %d, max %d).\n%s",
+			bytes_allocated, size, hunkmaxsize, msg ? msg : "unknown");
 	}
 
+	bytes_allocated += size;
 	bytes_used += requested;
-
-	if (bytes_used > hunkmaxsize)
-		Sys_Error ("Hunk_Alloc overflow");
 
 	return (void *)(membase + bytes_used - requested);
 

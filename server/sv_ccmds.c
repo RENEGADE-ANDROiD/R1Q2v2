@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 #include "server.h"
+#include "../qcommon/cheatcheck.h"
 
 /*
 ===============================================================================
@@ -1063,10 +1064,10 @@ static void SV_DelUserinfoBan_f (void)
     	Com_Printf ("userinfoban '%s' not found.\n", LOG_GENERAL, match);
 }
 
+static qboolean AddVarBanMatch (varban_t *list, const char *cvar, const char *blocktype, int blockmethod, const char *message);
+
 static qboolean AddVarBan (varban_t *list, char *cvar, char *blocktype, char *iffound)
 {
-	banmatch_t	*match = NULL;
-	varban_t	*bans = list;
 	int			blockmethod;
 	char		*bt;
 
@@ -1129,16 +1130,29 @@ static qboolean AddVarBan (varban_t *list, char *cvar, char *blocktype, char *if
 		return false;
 	}
 
+	return AddVarBanMatch (list, cvar, bt, blockmethod, Cmd_Args2 (4));
+}
+
+static qboolean AddVarBanMatch (varban_t *list, const char *cvar, const char *blocktype, int blockmethod, const char *message)
+{
+	banmatch_t	*match = NULL;
+	banmatch_t	*existing;
+	varban_t	*bans = list;
+
 	while (bans->next)
 	{
 		bans = bans->next;
 		if (!Q_stricmp (bans->varname, cvar))
 		{
 			match = &bans->match;
-			while (match->next)
+			existing = match;
+			while (existing->next)
 			{
-				match = match->next;
+				existing = existing->next;
+				if (!Q_stricmp (existing->matchvalue, blocktype) && existing->blockmethod == blockmethod)
+					return true;
 			}
+			match = existing;
 			break;
 		}
 	}
@@ -1157,8 +1171,8 @@ static qboolean AddVarBan (varban_t *list, char *cvar, char *blocktype, char *if
 	match = match->next;
 
 	match->next = NULL;
-	match->matchvalue = CopyString (bt, TAGMALLOC_CVARBANS);
-	match->message = CopyString (Cmd_Args2 (4), TAGMALLOC_CVARBANS);
+	match->matchvalue = CopyString (blocktype, TAGMALLOC_CVARBANS);
+	match->message = CopyString (message ? message : "", TAGMALLOC_CVARBANS);
 	match->blockmethod = blockmethod;
 
 	return true;
@@ -1299,11 +1313,31 @@ static const char *cmdbanmethodnames[] =
 	"blackhole"
 };
 
+static qboolean SV_AddBannedCommand (const char *name, int method, int logmethod)
+{
+	bannedcommands_t	*x;
+
+	x = &bannedcommands;
+	while (x->next)
+	{
+		x = x->next;
+		if (!strcmp (x->name, name))
+			return false;
+	}
+
+	x->next = Z_TagMalloc (sizeof(*x), TAGMALLOC_CMDBANS);
+	x = x->next;
+	x->name = CopyString (name, TAGMALLOC_CMDBANS);
+	x->kickmethod = method;
+	x->logmethod = logmethod;
+	x->next = NULL;
+	return true;
+}
+
 static void SV_AddCommandBan_f (void)
 {
 	int16				logmethod;
 	int16				method;
-	bannedcommands_t	*x;
 
 	if (Cmd_Argc() < 2)
 	{
@@ -1316,19 +1350,6 @@ static void SV_AddCommandBan_f (void)
 					"Example: addcommandban invdrop silent\n"
 					"Example: addcommandban invdrop silent silent\n", LOG_GENERAL);
 		return;
-	}
-
-	x = &bannedcommands;
-
-	while (x->next)
-	{
-		x = x->next;
-
-		if (!strcmp (x->name, Cmd_Argv(1)))
-		{
-			Com_Printf ("Command '%s' is already blocked.\n", LOG_GENERAL|LOG_ERROR, x->name);
-			return;
-		}
 	}
 
 	if (!Q_stricmp (Cmd_Argv(2), "kick"))
@@ -1345,16 +1366,37 @@ static void SV_AddCommandBan_f (void)
 	else
 		logmethod = CMDBAN_LOG_MESSAGE;
 
-	x->next = Z_TagMalloc (sizeof(*x), TAGMALLOC_CMDBANS);
-	x = x->next;
-
-	x->name = CopyString (Cmd_Argv(1), TAGMALLOC_CMDBANS);
-	x->kickmethod = method;
-	x->logmethod = logmethod;
-	x->next = NULL;
+	if (!SV_AddBannedCommand (Cmd_Argv(1), method, logmethod))
+	{
+		Com_Printf ("Command '%s' is already blocked.\n", LOG_GENERAL|LOG_ERROR, Cmd_Argv(1));
+		return;
+	}
 
 	if (sv.state)
-		Com_Printf ("Command '%s' is blocked from use with %s.\n", LOG_GENERAL, x->name, cmdbanmethodnames[x->kickmethod]);
+		Com_Printf ("Command '%s' is blocked from use with %s.\n", LOG_GENERAL, Cmd_Argv(1), cmdbanmethodnames[method]);
+}
+
+void SV_InstallDefaultCheatBans (void)
+{
+	const cheatcheck_cvarban_t	*ban;
+	const char					*cmd;
+	int							i;
+	static qboolean				installed;
+
+	if (!sv_default_cheatbans || !sv_default_cheatbans->intvalue)
+		return;
+
+	for (i = 0; (ban = CheatCheck_ServerCvarBan (i)) != NULL; i++)
+		AddVarBanMatch (&cvarbans, ban->varname, ban->match, CVARBAN_KICK, ban->message);
+
+	for (i = 0; (cmd = CheatCheck_ServerCommandBan (i)) != NULL; i++)
+		SV_AddBannedCommand (cmd, CMDBAN_KICK, CMDBAN_LOG_SILENT);
+
+	if (!installed)
+	{
+		Com_Printf ("Default cheat cvar/command bans installed (sv_default_cheatbans 1).\n", LOG_SERVER|LOG_NOTICE);
+		installed = true;
+	}
 }
 
 static void SV_ListBannedCommands_f (void)

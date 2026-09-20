@@ -86,6 +86,9 @@ cvar_t	*sv_allownodelta;
 //r1: allow server to block q2ace and associated hacks
 cvar_t	*sv_deny_q2ace;
 
+/* default FreakQuake / WH.dll / engine-cheat cvarbans (see cheatcheck.c) */
+cvar_t	*sv_default_cheatbans;
+
 //r1: max connections from a single IP (prevent DoS)
 cvar_t	*sv_iplimit;
 
@@ -3345,10 +3348,13 @@ void SV_Init (void)
 
 	//r1: nocheat visibility check support (cpu intensive -- warning)
 	sv_nc_visibilitycheck = Cvar_Get ("sv_nc_visibilitycheck", "0", 0);
-	sv_nc_visibilitycheck->help = "Attempt to calculate player visibility server-side to thwart wall-hacks and other cheats. CPU intensive. Default 0.\n";
+	sv_nc_visibilitycheck->help = "Optional server-side player visibility test against wallhacks. CPU-heavy; leave at 0 on low-end hosts and enable only if the machine can spare the cost. Default 0 (off).\n0: Off (recommended default)\n1: Hide non-visible players' models (still send events/footsteps)\n2: Fully suppress non-visible players (stronger, more CPU, no footsteps until seen)\n";
 
 	sv_nc_clientsonly = Cvar_Get ("sv_nc_clientsonly", "1", 0);
-	sv_nc_clientsonly->help = "Only apply sv_nc_visibilitycheck checking to other players. Default 1.\n";
+	sv_nc_clientsonly->help = "If sv_nc_visibilitycheck is enabled, only test other players (not world entities). Default 1. Does nothing while visibility check is 0.\n";
+
+	sv_default_cheatbans = Cvar_Get ("sv_default_cheatbans", "1", 0);
+	sv_default_cheatbans->help = "Install default cvar/command bans that kick FreakQuake, OpenGL wallhack wrappers, and engine cheat cvars (timescale, r_fullbright, gl_lockpvs, ...). Applied at map start. Default 1. Set to 0 in server.cfg before the first map to skip. Admins can still addcvarban / delcvarban.\n";
 
 	//r1: http dl server
 	sv_downloadserver = Cvar_Get ("sv_downloadserver", "", 0);

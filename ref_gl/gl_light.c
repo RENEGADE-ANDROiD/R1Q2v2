@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_light.c
 
 #include "gl_local.h"
+#include <stdlib.h>
 
 int	r_dlightframecount;
 
@@ -104,94 +105,565 @@ void R_RenderDlights (void)
 
 /*
 =============
+World-light coronas / shafts (fair-play)
+
+BSP `classname light` sprites plus short additive streaks. A light is drawn
+only if a BSP trace from the camera reaches it (solid leaves block; a short
+slop at the light end allows ceiling/wall mounts). Large depth-tested quads
+alone are not enough — they poke through thin walls.
+=============
+*/
+
+#define MAX_RWORLD_LIGHTS	768
+#define LIGHT_VIS_SLOP		24.0f
+
+typedef struct
+{
+	vec3_t	origin;
+	vec3_t	color;
+	float	intensity;
+	int		style;
+	int		cluster;
+	int		area;
+} rworldlight_t;
+
+static rworldlight_t	r_worldlights[MAX_RWORLD_LIGHTS];
+static int				r_numworldlights;
+
+static qboolean R_RecursiveLightVis (mnode_t *node, vec3_t p1, vec3_t p2, vec3_t light)
+{
+	cplane_t	*plane;
+	float		t1, t2, frac;
+	int			side;
+	vec3_t		mid;
+
+	if (!node)
+		return false;
+
+	if (node->contents != -1)
+	{
+		if (node->contents & CONTENTS_SOLID)
+		{
+			vec3_t	d;
+			/* Solid only counts as a blocker if it is not the light's mount. */
+			VectorSubtract (light, p1, d);
+			return (DotProduct (d, d) <= LIGHT_VIS_SLOP * LIGHT_VIS_SLOP);
+		}
+		return true;
+	}
+
+	plane = node->plane;
+	t1 = DotProduct (p1, plane->normal) - plane->dist;
+	t2 = DotProduct (p2, plane->normal) - plane->dist;
+
+	if (t1 >= 0.0f && t2 >= 0.0f)
+		return R_RecursiveLightVis (node->children[0], p1, p2, light);
+	if (t1 < 0.0f && t2 < 0.0f)
+		return R_RecursiveLightVis (node->children[1], p1, p2, light);
+
+	side = (t1 < 0.0f);
+	frac = t1 / (t1 - t2);
+	if (frac < 0.0f)
+		frac = 0.0f;
+	if (frac > 1.0f)
+		frac = 1.0f;
+	mid[0] = p1[0] + frac * (p2[0] - p1[0]);
+	mid[1] = p1[1] + frac * (p2[1] - p1[1]);
+	mid[2] = p1[2] + frac * (p2[2] - p1[2]);
+
+	if (!R_RecursiveLightVis (node->children[side], p1, mid, light))
+		return false;
+	return R_RecursiveLightVis (node->children[!side], mid, p2, light);
+}
+
+qboolean R_LightOriginVisible (vec3_t origin)
+{
+	if (!r_worldmodel || !r_worldmodel->nodes)
+		return false;
+	return R_RecursiveLightVis (r_worldmodel->nodes, r_origin, origin, origin);
+}
+
+/* First solid-leaf entry along p1->p2. hit is the crossing point. */
+static qboolean R_RayHitSolid (mnode_t *node, vec3_t p1, vec3_t p2, vec3_t hit)
+{
+	cplane_t	*plane;
+	float		t1, t2, frac;
+	int			side;
+	vec3_t		mid;
+
+	if (!node)
+		return false;
+
+	if (node->contents != -1)
+	{
+		if (node->contents & CONTENTS_SOLID)
+		{
+			FastVectorCopy (p1, hit);
+			return true;
+		}
+		return false;
+	}
+
+	plane = node->plane;
+	t1 = DotProduct (p1, plane->normal) - plane->dist;
+	t2 = DotProduct (p2, plane->normal) - plane->dist;
+
+	if (t1 >= 0.0f && t2 >= 0.0f)
+		return R_RayHitSolid (node->children[0], p1, p2, hit);
+	if (t1 < 0.0f && t2 < 0.0f)
+		return R_RayHitSolid (node->children[1], p1, p2, hit);
+
+	side = (t1 < 0.0f);
+	frac = t1 / (t1 - t2);
+	if (frac < 0.0f)
+		frac = 0.0f;
+	if (frac > 1.0f)
+		frac = 1.0f;
+	mid[0] = p1[0] + frac * (p2[0] - p1[0]);
+	mid[1] = p1[1] + frac * (p2[1] - p1[1]);
+	mid[2] = p1[2] + frac * (p2[2] - p1[2]);
+
+	if (R_RayHitSolid (node->children[side], p1, mid, hit))
+		return true;
+	return R_RayHitSolid (node->children[!side], mid, p2, hit);
+}
+
+#define WORLD_LIGHT_MOUNT	56.0f
+
+/* Snap fill-lights away; keep sprites on ceiling/wall mounts only. */
+static qboolean R_MountWorldLight (model_t *world, vec3_t origin)
+{
+	static const float ax[6][3] = {
+		{ 0, 0, 1 }, { 0, 0, -1 },
+		{ 1, 0, 0 }, { -1, 0, 0 },
+		{ 0, 1, 0 }, { 0, -1, 0 }
+	};
+	vec3_t	end, hit, inward, best_hit, best_from;
+	float	best, dist;
+	int		d;
+	qboolean found = false;
+
+	if (!world || !world->nodes)
+		return false;
+
+	best = WORLD_LIGHT_MOUNT;
+	for (d = 0; d < 6; d++)
+	{
+		end[0] = origin[0] + ax[d][0] * WORLD_LIGHT_MOUNT;
+		end[1] = origin[1] + ax[d][1] * WORLD_LIGHT_MOUNT;
+		end[2] = origin[2] + ax[d][2] * WORLD_LIGHT_MOUNT;
+		if (!R_RayHitSolid (world->nodes, origin, end, hit))
+			continue;
+		VectorSubtract (hit, origin, inward);
+		dist = VectorLength (inward);
+		if (dist < 2.0f || dist >= best)
+			continue;
+		best = dist;
+		FastVectorCopy (hit, best_hit);
+		FastVectorCopy (origin, best_from);
+		found = true;
+	}
+
+	if (!found)
+		return false;
+
+	VectorSubtract (best_from, best_hit, inward);
+	if (VectorNormalize (inward) < 0.01f)
+		return false;
+	origin[0] = best_hit[0] + inward[0] * 6.0f;
+	origin[1] = best_hit[1] + inward[1] * 6.0f;
+	origin[2] = best_hit[2] + inward[2] * 6.0f;
+	return true;
+}
+
+int R_NumWorldLights (void)
+{
+	return r_numworldlights;
+}
+
+void R_WorldLightOrigin (int i, vec3_t origin, float *intensity)
+{
+	if (i < 0 || i >= r_numworldlights)
+	{
+		VectorClear (origin);
+		if (intensity)
+			*intensity = 0.0f;
+		return;
+	}
+	FastVectorCopy (r_worldlights[i].origin, origin);
+	if (intensity)
+		*intensity = r_worldlights[i].intensity;
+}
+
+void R_LoadWorldLights (model_t *world, byte *base, lump_t *l)
+{
+	char		*copy;
+	char		*data;
+	const char	*token;
+	vec3_t		origin, color;
+	float		intensity;
+	int			style, spawnflags;
+	qboolean	inentity, islight, have_origin;
+	mleaf_t		*leaf;
+
+	r_numworldlights = 0;
+	if (!world || !base || !l || l->filelen <= 0)
+		return;
+	if (l->fileofs < 0 || l->filelen > 2 * 1024 * 1024)
+		return;
+
+	copy = (char *)malloc ((size_t)l->filelen + 1);
+	if (!copy)
+		return;
+	memcpy (copy, base + l->fileofs, (size_t)l->filelen);
+	copy[l->filelen] = 0;
+
+	data = copy;
+	inentity = false;
+	islight = false;
+	have_origin = false;
+	intensity = 300.0f;
+	style = 0;
+	spawnflags = 0;
+	VectorSet (origin, 0, 0, 0);
+	VectorSet (color, 1.0f, 1.0f, 1.0f);
+
+	while (1)
+	{
+		token = COM_Parse (&data);
+		if (!token || !token[0])
+			break;
+
+		if (token[0] == '{')
+		{
+			inentity = true;
+			islight = false;
+			have_origin = false;
+			intensity = 300.0f;
+			style = 0;
+			spawnflags = 0;
+			VectorSet (origin, 0, 0, 0);
+			VectorSet (color, 1.0f, 1.0f, 1.0f);
+			continue;
+		}
+
+		if (token[0] == '}')
+		{
+			if (inentity && islight && have_origin && !(spawnflags & 1)
+				&& r_numworldlights < MAX_RWORLD_LIGHTS)
+			{
+				rworldlight_t	*wl;
+
+				if (color[0] + color[1] + color[2] < 0.05f)
+					VectorSet (color, 1.0f, 1.0f, 1.0f);
+				if (intensity < 40.0f)
+					intensity = 40.0f;
+
+				/* Q2 `light` ents are often fill points in empty space.
+				 * Only keep those mounted on a nearby ceiling/wall. */
+				if (!R_MountWorldLight (world, origin))
+				{
+					inentity = false;
+					continue;
+				}
+
+				wl = &r_worldlights[r_numworldlights];
+				FastVectorCopy (origin, wl->origin);
+				FastVectorCopy (color, wl->color);
+				wl->intensity = intensity;
+				wl->style = style;
+				wl->cluster = -1;
+				wl->area = 0;
+				leaf = Mod_PointInLeaf (wl->origin, world);
+				if (leaf)
+				{
+					wl->cluster = leaf->cluster;
+					wl->area = leaf->area;
+				}
+				r_numworldlights++;
+			}
+			inentity = false;
+			continue;
+		}
+
+		if (!inentity)
+			continue;
+
+		if (!Q_stricmp (token, "classname"))
+		{
+			token = COM_Parse (&data);
+			if (token && !Q_stricmp (token, "light"))
+				islight = true;
+		}
+		else if (!Q_stricmp (token, "origin"))
+		{
+			token = COM_Parse (&data);
+			if (token && sscanf (token, "%f %f %f", &origin[0], &origin[1], &origin[2]) == 3)
+				have_origin = true;
+		}
+		else if (!Q_stricmp (token, "light"))
+		{
+			token = COM_Parse (&data);
+			if (token)
+				intensity = (float)atof (token);
+		}
+		else if (!Q_stricmp (token, "_color") || !Q_stricmp (token, "color"))
+		{
+			token = COM_Parse (&data);
+			if (token && sscanf (token, "%f %f %f", &color[0], &color[1], &color[2]) == 3)
+			{
+				if (color[0] > 1.0f || color[1] > 1.0f || color[2] > 1.0f)
+				{
+					color[0] /= 255.0f;
+					color[1] /= 255.0f;
+					color[2] /= 255.0f;
+				}
+			}
+		}
+		else if (!Q_stricmp (token, "style"))
+		{
+			token = COM_Parse (&data);
+			if (token)
+				style = atoi (token);
+		}
+		else if (!Q_stricmp (token, "spawnflags"))
+		{
+			token = COM_Parse (&data);
+			if (token)
+				spawnflags = atoi (token);
+		}
+		else
+		{
+			COM_Parse (&data); /* skip unknown value */
+		}
+	}
+
+	free (copy);
+	if (r_numworldlights)
+		ri.Con_Printf (PRINT_DEVELOPER, "R1GL: %d world lights for coronas\n", r_numworldlights);
+}
+
+static void R_EmitCoronaQuad (vec3_t origin, vec3_t color, float scale, float alpha)
+{
+	vec3_t	up, right;
+
+	VectorScale (vup, scale, up);
+	VectorScale (vright, scale, right);
+
+	qglColor4f (color[0], color[1], color[2], alpha);
+	qglBegin (GL_QUADS);
+	qglTexCoord2f (0.0f, 0.0f);
+	qglVertex3f (origin[0] + up[0] - right[0], origin[1] + up[1] - right[1], origin[2] + up[2] - right[2]);
+	qglTexCoord2f (1.0f, 0.0f);
+	qglVertex3f (origin[0] + up[0] + right[0], origin[1] + up[1] + right[1], origin[2] + up[2] + right[2]);
+	qglTexCoord2f (1.0f, 1.0f);
+	qglVertex3f (origin[0] - up[0] + right[0], origin[1] - up[1] + right[1], origin[2] - up[2] + right[2]);
+	qglTexCoord2f (0.0f, 1.0f);
+	qglVertex3f (origin[0] - up[0] - right[0], origin[1] - up[1] - right[1], origin[2] - up[2] - right[2]);
+	qglEnd ();
+}
+
+static void R_EmitShaftQuad (vec3_t origin, vec3_t color, float intensity, float strength, float dist)
+{
+	vec3_t	to_cam, side, tip;
+	float	len, width, tipw, alpha;
+
+	VectorSubtract (r_origin, origin, to_cam);
+	if (VectorNormalize (to_cam) < 32.0f)
+		return;
+
+	len = intensity * 0.12f * strength;
+	if (len < 8.0f)
+		len = 8.0f;
+	if (len > 96.0f)
+		len = 96.0f;
+	if (len > dist * 0.35f)
+		len = dist * 0.35f;
+
+	width = intensity * 0.018f * strength;
+	if (width < 1.5f)
+		width = 1.5f;
+	if (width > 10.0f)
+		width = 10.0f;
+	tipw = width * 0.25f;
+
+	CrossProduct (to_cam, vup, side);
+	if (VectorNormalize (side) < 0.1f)
+	{
+		CrossProduct (to_cam, vright, side);
+		if (VectorNormalize (side) < 0.1f)
+			return;
+	}
+
+	tip[0] = origin[0] + to_cam[0] * len;
+	tip[1] = origin[1] + to_cam[1] * len;
+	tip[2] = origin[2] + to_cam[2] * len;
+
+	alpha = 0.11f * strength;
+	if (alpha > 0.26f)
+		alpha = 0.26f;
+
+	qglColor4f (color[0], color[1], color[2], alpha);
+	qglBegin (GL_QUADS);
+	qglTexCoord2f (0.0f, 0.5f);
+	qglVertex3f (origin[0] - side[0] * width, origin[1] - side[1] * width, origin[2] - side[2] * width);
+	qglTexCoord2f (1.0f, 0.5f);
+	qglVertex3f (origin[0] + side[0] * width, origin[1] + side[1] * width, origin[2] + side[2] * width);
+	qglTexCoord2f (1.0f, 0.0f);
+	qglVertex3f (tip[0] + side[0] * tipw, tip[1] + side[1] * tipw, tip[2] + side[2] * tipw);
+	qglTexCoord2f (0.0f, 0.0f);
+	qglVertex3f (tip[0] - side[0] * tipw, tip[1] - side[1] * tipw, tip[2] - side[2] * tipw);
+	qglEnd ();
+}
+
+static void R_DrawOneLightSprite (vec3_t origin, vec3_t color, float intensity,
+	float corona_strength, float shaft_strength, qboolean world_lamp)
+{
+	float	dist, scale, alpha;
+	vec3_t	lit;
+
+	dist = (origin[0] - r_origin[0]) * vpn[0]
+		+ (origin[1] - r_origin[1]) * vpn[1]
+		+ (origin[2] - r_origin[2]) * vpn[2];
+	if (dist < 16.0f)
+		return;
+
+	if (!R_LightOriginVisible (origin))
+		return;
+
+	FastVectorCopy (color, lit);
+
+	if (FLOAT_NE_ZERO (corona_strength))
+	{
+		if (world_lamp)
+		{
+			scale = 14.0f + intensity * 0.05f * corona_strength;
+			if (scale < 16.0f)
+				scale = 16.0f;
+			if (scale > 42.0f)
+				scale = 42.0f;
+			alpha = 0.28f * corona_strength;
+			if (alpha > 0.50f)
+				alpha = 0.50f;
+		}
+		else
+		{
+			scale = intensity * 0.035f * corona_strength;
+			if (scale < 2.0f)
+				scale = 2.0f;
+			if (scale > 28.0f)
+				scale = 28.0f;
+			alpha = 0.22f * corona_strength;
+			if (alpha > 0.45f)
+				alpha = 0.45f;
+		}
+		R_EmitCoronaQuad (origin, lit, scale, alpha);
+	}
+
+	if (FLOAT_NE_ZERO (shaft_strength) && dist > 40.0f)
+		R_EmitShaftQuad (origin, lit, intensity, shaft_strength, dist);
+}
+
+/*
+=============
 R_DrawDlightCoronas
 
-Soft additive corona sprites at dynamic-light origins.
-Depth-tested (occluded lights do NOT show). Fair-play only.
-gl_light_corona: 0=off (default), ~0.25-1.0 subtle scale.
+Soft additive corona / optional shaft at light origins.
+LOS-tested so occluded lights (explosions behind walls) do not show.
+gl_light_corona / gl_world_corona / gl_light_shafts: 0=off.
 =============
 */
 void R_DrawDlightCoronas (void)
 {
 	int			i;
 	dlight_t	*l;
-	vec3_t		up, right, origin;
-	float		scale, strength, alpha;
-	float		dist;
+	float		corona_s, shaft_s, world_s;
+	byte		*vis;
+	qboolean	want_dlight, want_world;
 
-	if (FLOAT_EQ_ZERO(gl_light_corona->value))
-		return;
-	if (!r_particletexture)
+	if (!r_coronatexture)
 		return;
 	if (r_newrefdef.rdflags & RDF_NOWORLDMODEL)
 		return;
 
-	strength = gl_light_corona->value;
-	if (strength < 0.0f)
+	corona_s = gl_light_corona->value;
+	world_s = gl_world_corona->value;
+	shaft_s = gl_light_shafts->value;
+	if (corona_s < 0.0f) corona_s = 0.0f;
+	if (corona_s > 2.0f) corona_s = 2.0f;
+	if (world_s < 0.0f) world_s = 0.0f;
+	if (world_s > 2.0f) world_s = 2.0f;
+	if (shaft_s < 0.0f) shaft_s = 0.0f;
+	if (shaft_s > 2.0f) shaft_s = 2.0f;
+
+	want_dlight = FLOAT_NE_ZERO (corona_s) || FLOAT_NE_ZERO (shaft_s);
+	want_world = FLOAT_NE_ZERO (world_s);
+	if (!want_dlight && !want_world)
 		return;
-	if (strength > 2.0f)
-		strength = 2.0f;
 
-	GL_Bind(r_particletexture->texnum);
-	qglEnable(GL_DEPTH_TEST);
-	qglDepthMask(GL_FALSE);
-	qglEnable(GL_BLEND);
-	qglBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	GL_TexEnv(GL_MODULATE);
+	GL_Bind (r_coronatexture->texnum);
+	qglEnable (GL_DEPTH_TEST);
+	qglDepthMask (GL_FALSE);
+	qglEnable (GL_BLEND);
+	qglBlendFunc (GL_SRC_ALPHA, GL_ONE);
+	GL_TexEnv (GL_MODULATE);
 
-	VectorScale(vup, 1.0f, up);
-	VectorScale(vright, 1.0f, right);
-
-	l = r_newrefdef.dlights;
-	for (i = 0; i < r_newrefdef.num_dlights; i++, l++)
+	if (want_dlight)
 	{
-		/* Keep corona centered on the light origin so walls occlude it. */
-		FastVectorCopy(l->origin, origin);
-
-		dist = (origin[0] - r_origin[0]) * vpn[0]
-			+ (origin[1] - r_origin[1]) * vpn[1]
-			+ (origin[2] - r_origin[2]) * vpn[2];
-		if (dist < 16.0f)
-			continue; /* too close / behind near plane */
-
-		/* Small soft disc; intensity scales size mildly. */
-		scale = l->intensity * 0.035f * strength;
-		if (scale < 2.0f)
-			scale = 2.0f;
-		if (scale > 48.0f)
-			scale = 48.0f;
-
-		alpha = 0.22f * strength;
-		if (alpha > 0.45f)
-			alpha = 0.45f;
-
-		qglColor4f(l->color[0], l->color[1], l->color[2], alpha);
-
-		qglBegin(GL_QUADS);
-		qglTexCoord2f(0.0f, 0.0f);
-		qglVertex3f(origin[0] + up[0]*scale - right[0]*scale,
-					origin[1] + up[1]*scale - right[1]*scale,
-					origin[2] + up[2]*scale - right[2]*scale);
-		qglTexCoord2f(1.0f, 0.0f);
-		qglVertex3f(origin[0] + up[0]*scale + right[0]*scale,
-					origin[1] + up[1]*scale + right[1]*scale,
-					origin[2] + up[2]*scale + right[2]*scale);
-		qglTexCoord2f(1.0f, 1.0f);
-		qglVertex3f(origin[0] - up[0]*scale + right[0]*scale,
-					origin[1] - up[1]*scale + right[1]*scale,
-					origin[2] - up[2]*scale + right[2]*scale);
-		qglTexCoord2f(0.0f, 1.0f);
-		qglVertex3f(origin[0] - up[0]*scale - right[0]*scale,
-					origin[1] - up[1]*scale - right[1]*scale,
-					origin[2] - up[2]*scale - right[2]*scale);
-		qglEnd();
+		l = r_newrefdef.dlights;
+		for (i = 0; i < r_newrefdef.num_dlights; i++, l++)
+			R_DrawOneLightSprite (l->origin, l->color, l->intensity, corona_s, shaft_s, false);
 	}
 
-	qglColor4fv(colorWhite);
-	qglBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	qglDisable(GL_BLEND);
-	qglDepthMask(GL_TRUE);
-	GL_TexEnv(GL_REPLACE);
+	if (want_world && r_numworldlights && r_worldmodel)
+	{
+		float	world_shaft = FLOAT_NE_ZERO (world_s) ? shaft_s : 0.0f;
+		vis = NULL;
+		if (r_viewcluster != -1 && r_worldmodel->vis)
+			vis = Mod_ClusterPVS (r_viewcluster, r_worldmodel);
+
+		for (i = 0; i < r_numworldlights; i++)
+		{
+			rworldlight_t	*wl = &r_worldlights[i];
+			vec3_t			delta, lit;
+			float			intensity;
+
+			VectorSubtract (wl->origin, r_origin, delta);
+			if (DotProduct (delta, delta) > (2048.0f * 2048.0f))
+				continue;
+
+			if (vis && wl->cluster >= 0)
+			{
+				if (!(vis[wl->cluster >> 3] & (1 << (wl->cluster & 7))))
+					continue;
+			}
+
+			if (r_newrefdef.areabits && wl->area >= 0)
+			{
+				if (!(r_newrefdef.areabits[wl->area >> 3] & (1 << (wl->area & 7))))
+					continue;
+			}
+
+			FastVectorCopy (wl->color, lit);
+			intensity = wl->intensity;
+			if (wl->style >= 0 && wl->style < MAX_LIGHTSTYLES)
+			{
+				lit[0] *= r_newrefdef.lightstyles[wl->style].rgb[0];
+				lit[1] *= r_newrefdef.lightstyles[wl->style].rgb[1];
+				lit[2] *= r_newrefdef.lightstyles[wl->style].rgb[2];
+				if (lit[0] + lit[1] + lit[2] < 0.08f)
+					continue;
+			}
+
+			R_DrawOneLightSprite (wl->origin, lit, intensity, world_s, world_shaft, true);
+		}
+	}
+
+	qglColor4fv (colorWhite);
+	qglBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	qglDisable (GL_BLEND);
+	qglDepthMask (GL_TRUE);
+	GL_TexEnv (GL_REPLACE);
 }
 
 
@@ -209,12 +681,30 @@ DYNAMIC LIGHTS
 R_MarkLights
 =============
 */
+static qboolean R_DlightOccluded (dlight_t *light, msurface_t *surf)
+{
+	vec3_t	dest, hit, d;
+	float	slop;
+
+	if (!surf->polys || !r_worldmodel || !r_worldmodel->nodes)
+		return false;
+
+	FastVectorCopy (surf->polys->verts[0], dest);
+	if (!R_RayHitSolid (r_worldmodel->nodes, light->origin, dest, hit))
+		return false;
+
+	VectorSubtract (hit, dest, d);
+	slop = 8.0f;
+	return (DotProduct (d, d) > slop * slop);
+}
+
 void R_MarkLights (dlight_t *light, int bit, mnode_t *node)
 {
 	cplane_t	*splitplane;
 	float		dist;
 	msurface_t	*surf;
 	int			i;
+	qboolean	shader_dl;
 	
 	if (node->contents != -1)
 		return;
@@ -232,19 +722,24 @@ void R_MarkLights (dlight_t *light, int bit, mnode_t *node)
 		R_MarkLights (light, bit, node->children[1]);
 		return;
 	}
+
+	shader_dl = R_WorldShaderDlights ();
 		
 // mark the polygons
 	surf = r_worldmodel->surfaces + node->firstsurface;
 	for (i=0 ; i<node->numsurfaces ; i++, surf++)
 	{
-		/*dist = DotProduct (light->origin, surf->plane->normal) - surf->plane->dist;	//Discoloda
-		if (dist >= 0)									//Discoloda
-			sidebit = 0;								//Discoloda
-		else										//Discoloda
-			sidebit = SURF_PLANEBACK;						//Discoloda
+		if (shader_dl)
+		{
+			int	sidebit;
 
-		if ( (surf->flags & SURF_PLANEBACK) != sidebit )				//Discoloda
-			continue;								//Discoloda*/
+			dist = DotProduct (light->origin, surf->plane->normal) - surf->plane->dist;
+			sidebit = (dist >= 0) ? 0 : SURF_PLANEBACK;
+			if ( (surf->flags & SURF_PLANEBACK) != sidebit )
+				continue;
+			if (R_DlightOccluded (light, surf))
+				continue;
+		}
 
 		if (surf->dlightframe != r_dlightframecount)
 		{
@@ -788,8 +1283,8 @@ void R_BuildLightMap (msurface_t *surf, byte *dest, int stride)
 		}
 	}
 
-// add all the dynamic lights
-	if (surf->dlightframe == r_framecount)
+// add all the dynamic lights (shader path lights the fragment instead)
+	if (surf->dlightframe == r_framecount && !R_WorldShaderDlights ())
 		R_AddDynamicLights (surf);
 
 // put into texture format

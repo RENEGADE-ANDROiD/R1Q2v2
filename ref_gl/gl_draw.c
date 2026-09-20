@@ -156,7 +156,38 @@ void Draw_InitLocal (void)
 	// load console characters (don't bilerp characters)
 	draw_chars = GL_FindImage ("pics/conchars.pcx", "pics/conchars.pcx", it_pic);
 	if (!draw_chars)
-		ri.Sys_Error (ERR_FATAL, "R1GL: Couldn't load conchars.pcx\n\nEither you aren't running Quake 2 from the correct directory or you are missing important files.");
+		draw_chars = GL_FindImage ("pics/conchars.png", "pics/conchars.png", it_pic);
+	if (!draw_chars)
+		draw_chars = GL_FindImage ("pics/conchars.tga", "pics/conchars.tga", it_pic);
+	if (!draw_chars)
+	{
+		/* Never fatal on quit/re-init — a dummy atlas beats killing the process. */
+		static byte dummy[128 * 128 * 4];
+		int		i, row, col, x, y, p;
+
+		memset (dummy, 0, sizeof(dummy));
+		for (i = 0; i < 256; i++)
+		{
+			row = (i >> 4) * 8;
+			col = (i & 15) * 8;
+			for (y = 0; y < 8; y++)
+			{
+				for (x = 0; x < 8; x++)
+				{
+					p = ((row + y) * 128 + (col + x)) * 4;
+					if (x == 0 || y == 0 || x == 7 || y == 7)
+					{
+						dummy[p+0] = dummy[p+1] = dummy[p+2] = 200;
+						dummy[p+3] = 255;
+					}
+				}
+			}
+		}
+		draw_chars = GL_LoadPic ("***conchars***", dummy, 128, 128, it_pic, 32);
+		ri.Con_Printf (PRINT_ALL, "R1GL: conchars.pcx missing, using fallback font\n");
+	}
+	if (!draw_chars)
+		return;
 	GL_Bind( draw_chars->texnum );
 	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	qglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -180,6 +211,11 @@ void Draw_AddText (void)
 
 	if (!drawcharsindex)
 		return;
+	if (!draw_chars)
+	{
+		drawcharsindex = 0;
+		return;
+	}
 
 	draw2d_state_valid = false;
 
@@ -272,6 +308,9 @@ Flushed before other 2D primitives (unless gl_defertext) and at EndFrame.
 void EXPORT Draw_Char (int x, int y, int num)
 {
 	num &= 0xFF;
+
+	if (!draw_chars)
+		return;
 
 	if ( (num&127) == 32 )
 		return;		// space

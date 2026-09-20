@@ -113,15 +113,23 @@ Local install helper (Steam path only, gitignored `tools/`): patches a live Quak
 | `gl_shadows` | `0` | Projected model shadows: **`0`** off, **`1`** basic, **`2`** height-faded, **`3`** soft multi-sample. **Archived.** Video menu row. |
 | `gl_dynamic` | `1` | Dynamic lights from weapons / explosions. |
 | `gl_flashblend` | `0` | Draw dlights as blend sprites instead of lighting surfaces. |
-| `gl_dlight_falloff` | `0` | Dynamic-light attenuation curve. **`0`** = classic linear (default). **`1`** (or up to `2`) = smoother quadratic falloff on the same dlights - softer edges, no extra through-wall brightness. **Archived.** Video -> **Advanced Settings**. |
+| `gl_dlight_falloff` | `1.4` | Dynamic-light attenuation curve. **`0`** = classic linear. **`1`** (or up to `2`) = smoother quadratic falloff on the same dlights - softer edges, no extra through-wall brightness. Default **`1.4`**. **Archived.** Video -> **Advanced Settings**. |
 | `gl_lightmap_filter` | `1` | Lightmap texture sampling. **`1`** = linear (smoother LM; aniso-friendly when anisotropy is on). **`0`** = nearest (blockier classic LM). Does not change visibility or reveal occluded geometry. **Archived.** Video -> **Advanced Settings**. |
-| `gl_light_corona` | `0` | Soft corona sprite at dynamic-light origins. Depth-tested so occluded lights do **not** show (no wallhack). **`0`** = off (default). Try `0.25`-`0.5` for a subtle glow. Menu yes/no writes `0`/`1`. Not bloom / shafts / player ESP. **Archived.** Video -> **Advanced Settings**. |
-| `gl_ambient_lift` | `0` | Tiny fill added to lightmaps (and matching entity light samples) so pitch-black is less crushed. Hard-capped at **0.1** linear (~25/255). **`0`** = off (default). Keep at `0.03`-`0.05` if used - not night-vision. **Archived.** Video -> **Advanced Settings**. |
+| `gl_light_corona` | `0.35` | Soft corona sprite at dynamic-light origins (weapons / explosions). **LOS-tested** through the BSP so occluded lights do **not** show (no wallhack). Depth-tested as a second clip. **`0`** = off. Default **`0.35`**. Menu yes/no writes `0`/`1`. **Archived.** Video -> **Advanced Settings**. |
+| `gl_world_corona` | `0.35` | Soft glow disc on **surface-mounted** map lamps (`classname light` within ~56 units of a ceiling/wall). Fill lights floating in empty space are skipped. Procedural corona texture (not `particle.png`). Same LOS test as dlight coronas. Does **not** add extra dynamic lights. **`0`** = off. Default **`0.35`**. **Archived.** Video -> **Advanced Settings**. |
+| `gl_light_shafts` | `0.35` | Short additive streak toward the camera on **visible** lights only. Dlights when this is on; world lamps only if `gl_world_corona` is also on. Occluded lights produce no pixels. **`0`** = off. Default **`0.35`**. Not volumetric god rays / bloom. **Archived.** Video -> **Advanced Settings**. |
+| `gl_overbrights` | `1` | 2× lightmap combine (`GL_RGB_SCALE`). Makes world lighting pop; can wash HD texture packs. Default **on**. **Archived.** Video -> **Advanced Settings**. |
+| `gl_bloom` | `1` | On-screen bloom of **already visible** bright pixels (explosions, lamps). **On/off only** — intensity is hardcoded (~0.20 add, high extract threshold, one blur pass) so it cannot be cranked into a through-wall glow. HUD is not bloomed. Occluded lights cannot leak. Default **on**. Any value `>0` turns it on at the cap. Needs FBO+GLSL. **Archived.** Video -> **Advanced Settings**. |
+| `gl_godrays` | `0.35` | Radial light shafts toward a **LOS-visible** on-screen light, using the 3D color buffer only. **`0`** = off. Default **`0.35`**. Not a wallhack. Needs FBO+GLSL. **Archived.** Video -> **Advanced Settings**. |
+| `gl_softparticles` | `1` | Fade particles as they approach walls using a copy of scene depth. Default **on**. Needs FBO+GLSL. **Archived.** Video -> **Advanced Settings**. |
+| `gl_dlight_shader` | `1` | Per-pixel dynamic lights on world surfaces (GLSL). Replaces the CPU `s_blocklights` patch so explosions are round instead of lightmap squares. Surfaces whose centroid is occluded from the light are not marked (no stain through a thin wall). Default **on**. Needs GLSL. **Archived.** Video -> **Advanced Settings**. |
+| `gl_normalmaps` | `1` | If `gl_dlight_shader` is on, look for `textures/<name>_norm` / `_n` / `_bump` next to the diffuse. No file = no extra pass. **Archived.** Video -> **Advanced Settings**. |
+| `gl_ambient_lift` | `0.04` | Tiny fill added to lightmaps (and matching entity light samples) so pitch-black is less crushed. Hard-capped at **0.1** linear (~25/255). Default **`0.04`**. Not night-vision. **Archived.** Video -> **Advanced Settings**. |
 | `gl_wateralpha` | `0` | **Single-player override only.** Map-authored TRANS33/66 warp water renders at its exact 0.33 / 0.66 alpha in every mode. In SP, `>0` overrides that alpha (clamped 0.15–1). The override is ignored when `maxclients > 1`; plain untagged warp water always stays opaque. Not archived. Console only — not on the Video menu. |
 | `gl_waterfog` | `0.35` | Subtle distance fog while the camera is inside water/slime/lava. **`0`** disables it; range **`0`–`1`** controls strength. Uses the liquid view tint and does not change surface transparency. **Archived.** Video -> **Advanced Settings**. |
-| `gl_warp_amp` | `1` | Water/slime warp amplitude scale (`1` = classic). Range about `0`-`2`. Does not change transparency / SURF_TRANS rules. **Archived.** Video -> **Advanced Settings**. |
-| `gl_warp_speed` | `1` | Water/slime warp timing scale (`1` = classic). Range about `0`-`3`. **Archived.** Video -> **Advanced Settings**. |
-| `gl_subdivide` | `64` | Warp surface tessellation size at map load (`64` = classic). Lower (e.g. `32`) = finer water mesh. Needs a map reload / reconnect. Clamped ~16-128. **Archived.** Video -> **Advanced Settings** (64/48/32). |
+| `gl_warp_amp` | `1.5` | Water/slime warp amplitude scale (`1` = classic). Default **`1.5`**. Range about `0`-`2`. Does not change transparency / SURF_TRANS rules. **Archived.** Video -> **Advanced Settings**. |
+| `gl_warp_speed` | `1.5` | Water/slime warp timing scale (`1` = classic). Default **`1.5`**. Range about `0`-`3`. **Archived.** Video -> **Advanced Settings**. |
+| `gl_subdivide` | `32` | Warp surface tessellation size at map load (`64` = classic). Default **`32`** (finer water mesh). Needs a map reload / reconnect. Clamped ~16-128. **Archived.** Video -> **Advanced Settings** (64/48/32). |
 | `gl_coloredlightmaps` | `1` | Colored lightmaps. |
 | `gl_finish` | `0` | Call `glFinish` each frame (can hurt FPS). Leave off. |
 | `gl_flush` | `0` | Call `glFlush` before each 3D view (can hurt FPS). Leave off. |
@@ -134,19 +142,28 @@ Local install helper (Steam path only, gitignored `tools/`): patches a live Quak
 | `gl_jpg_quality` | `90` | Quality for `screenshot jpg`. |
 | `r_lerpmodels` | `1` | Interpolate model frames. |
 
-Optional fair-play lighting polish (console or **Video Settings -> advanced settings...**; defaults stay classic):
+Build 8061 Advanced Settings defaults (new installs; also `r1q2v2_visual.cfg`):
 
 ```
 seta gl_lightmap_filter "1"
-seta gl_dlight_falloff "1"
-seta gl_warp_amp "1.15"
-seta gl_warp_speed "1.1"
+seta gl_dlight_falloff "1.4"
+seta gl_warp_amp "1.5"
+seta gl_warp_speed "1.5"
 seta gl_subdivide "32"
 seta gl_light_corona "0.35"
+seta gl_world_corona "0.35"
+seta gl_light_shafts "0.35"
+seta gl_overbrights "1"
+seta gl_bloom "1"
+seta gl_godrays "0.35"
+seta gl_softparticles "1"
+seta gl_dlight_shader "1"
+seta gl_normalmaps "1"
 seta gl_ambient_lift "0.04"
+seta gl_waterfog "0.35"
 ```
 
-(`gl_subdivide` needs map reload. No bloom, shafts, see-through, or player glow.)
+(`gl_subdivide` needs map reload. Coronas/shafts are LOS-tested: occluded explosions and lamps stay hidden. `gl_dlight_shader 1` also skips occluded surfaces. No see-through or player glow.)
 
 HD drop-ins: see [README.md](README.md) (`.pkz` packs, loose `textures/` / `env/` replacements).
 
@@ -301,6 +318,17 @@ There is no `cl_snaps` in this tree.
 | `rcon_password` / `rcon_address` | `""` | Remote console. |
 | `cl_filterchat` | `0` | Filter chat messages. |
 | `cl_demospeed` | `1` | Demo playback speed 0.1â€“8 (`demospeed`). Saved. |
+| `cl_cheatcheck` | `1` | Refuse **remote** multiplayer if this process finds known cheat files (e.g. `frkq2.exe`, `wh.dll`), loaded cheat modules, a banned `gl_driver`, or a local `opengl32.dll` wrapper (`vid_localgl`). Localhost / single-player are not blocked. Console: `cheatcheck`. |
+
+Dedicated / listen-server (not written to client `config.cfg`):
+
+| Cvar | Default | Notes |
+|------|---------|--------|
+| `sv_default_cheatbans` | `1` | At map start, install cvar/command bans that kick FreakQuake, OpenGL wallhack wrappers, and engine cheat cvars (`timescale`, `r_fullbright`, `gl_lockpvs`, …). Set `0` in `server.cfg` **before** the first map to skip. `addcvarban` / `delcvarban` still work. |
+| `sv_nc_visibilitycheck` | `0` | Optional CPU-heavy server-side visibility test against wallhacks. **Leave at 0** unless the host can spare the cost. `1` = hide models of players you cannot see (footsteps still send). `2` = fully suppress unseen players (no footsteps). Toggle per hardware; do not enable on low-end dedicated boxes. |
+| `sv_nc_clientsonly` | `1` | If visibility check is on, only test other players. Unused while `sv_nc_visibilitycheck` is `0`. |
+| `sv_cheaternet` | `60` | Query r1ch CheaterNet for recent infractions (minutes). `0` disables. |
+| `sv_cheaternet_action` | `1` | `0` console log, `1` tell players, `2` refuse the connection. |
 
 ---
 

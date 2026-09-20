@@ -59,6 +59,7 @@ glstate_t  gl_state;
 
 image_t		*r_notexture;		// use for bad textures
 image_t		*r_particletexture;	// little dot for particles
+image_t		*r_coronatexture;	// soft additive glow disc for light sprites
 
 entity_t	*currententity;
 model_t		*currentmodel;
@@ -84,6 +85,7 @@ vec3_t	r_origin;
 
 float	r_world_matrix[16];
 float	r_base_world_matrix[16];
+float	r_projection_matrix[16];
 
 //
 // screen size info
@@ -208,6 +210,13 @@ cvar_t	*gl_pic_formats;
 cvar_t	*gl_dlight_falloff;
 cvar_t	*gl_lightmap_filter;
 cvar_t	*gl_light_corona;
+cvar_t	*gl_world_corona;
+cvar_t	*gl_light_shafts;
+cvar_t	*gl_bloom;
+cvar_t	*gl_godrays;
+cvar_t	*gl_softparticles;
+cvar_t	*gl_dlight_shader;
+cvar_t	*gl_normalmaps;
 cvar_t	*gl_ambient_lift;
 cvar_t	*gl_warp_amp;
 cvar_t	*gl_warp_speed;
@@ -689,6 +698,8 @@ void GL_DrawParticles( int num_particles, const particle_t particles[])
 	qglDepthMask( GL_FALSE );		// no z buffering
 	qglEnable( GL_BLEND );
 	GL_TexEnv( GL_MODULATE );
+	if (R_PostFX_SoftParticlesActive ())
+		R_PostFX_BeginSoftParticles ();
 	qglBegin( GL_TRIANGLES );
 
 	VectorScale (vup, 1.5f, up);
@@ -729,6 +740,8 @@ void GL_DrawParticles( int num_particles, const particle_t particles[])
 	}
 
 	qglEnd ();
+	if (R_PostFX_SoftParticlesActive ())
+		R_PostFX_EndSoftParticles ();
 	qglDisable( GL_BLEND );
 	qglColor4fv(colorWhite);
 	qglDepthMask( 1 );		// back to normal Z buffering
@@ -742,6 +755,11 @@ R_DrawParticles
 */
 void R_DrawParticles (void)
 {
+	if (R_PostFX_SoftParticlesActive ())
+	{
+		GL_DrawParticles (r_newrefdef.num_particles, r_newrefdef.particles);
+		return;
+	}
 	if (gl_config.r1gl_GL_ARB_point_sprite && FLOAT_NE_ZERO(gl_ext_point_sprite->value))
 	{
 		const float quadratic[] =  { 1.0f, 0.0f, 0.0005f };
@@ -1166,6 +1184,10 @@ void R_SetupGL (void)
 	}
 
 	qglViewport (x, y2, w, h);
+	r_viewport[0] = x;
+	r_viewport[1] = y2;
+	r_viewport[2] = w;
+	r_viewport[3] = h;
 
 	//
 	// set up projection matrix
@@ -1175,6 +1197,7 @@ void R_SetupGL (void)
 	qglMatrixMode(GL_PROJECTION);
     qglLoadIdentity ();
     MYgluPerspective (r_newrefdef.fov_y,  screenaspect,  4,  gl_zfar->value);
+	qglGetFloatv (GL_PROJECTION_MATRIX, r_projection_matrix);
 
 	qglCullFace(GL_FRONT);
 
@@ -1329,6 +1352,7 @@ void R_RenderView (refdef_t *fd)
 	R_SetFrustum ();
 
 	R_SetupGL ();
+	R_PostFX_BeginView ();
 
 	if ((r_newrefdef.rdflags & RDF_UNDERWATER) && gl_waterfog->value > 0.0f)
 	{
@@ -1368,6 +1392,8 @@ void R_RenderView (refdef_t *fd)
 	R_RenderDlights ();
 	R_DrawDlightCoronas ();
 
+	if (R_PostFX_SoftParticlesActive ())
+		R_PostFX_CaptureDepth ();
 	R_DrawParticles ();
 
 	R_DrawAlphaSurfaces ();
@@ -1376,6 +1402,7 @@ void R_RenderView (refdef_t *fd)
 		qglDisable (GL_FOG);
 
 	R_PolyBlend();
+	R_PostFX_EndView ();
 	
 	if (FLOAT_NE_ZERO(r_speeds->value))
 	{
@@ -1612,7 +1639,7 @@ gl_msaa = ri.Cvar_Get ("gl_msaa", "0", CVAR_ARCHIVE);
 	gl_r1gl_test = ri.Cvar_Get ("gl_r1gl_test", "0", 0);
 	gl_doublelight_entities = ri.Cvar_Get ("gl_doublelight_entities", "1", 0);
 	gl_noscrap = ri.Cvar_Get ("gl_noscrap", "1", 0);
-	gl_overbrights = ri.Cvar_Get ("gl_overbrights", "0", 0);
+	gl_overbrights = ri.Cvar_Get ("gl_overbrights", "1", CVAR_ARCHIVE);
 	gl_linear_mipmaps = ri.Cvar_Get ("gl_linear_mipmaps", "1", 0);
 
 	vid_forcedrefresh = ri.Cvar_Get ("vid_forcedrefresh", "0", 0);
@@ -1656,13 +1683,20 @@ gl_msaa = ri.Cvar_Get ("gl_msaa", "0", CVAR_ARCHIVE);
 	load_jpg_pics = strstr (gl_pic_formats->string, "jpg") ? true : false;
 	load_tga_pics = strstr (gl_pic_formats->string, "tga") ? true : false;
 
-	gl_dlight_falloff = ri.Cvar_Get ("gl_dlight_falloff", "0", CVAR_ARCHIVE);
+	gl_dlight_falloff = ri.Cvar_Get ("gl_dlight_falloff", "1.4", CVAR_ARCHIVE);
 	gl_lightmap_filter = ri.Cvar_Get ("gl_lightmap_filter", "1", CVAR_ARCHIVE);
-	gl_light_corona = ri.Cvar_Get ("gl_light_corona", "0", CVAR_ARCHIVE);
-	gl_ambient_lift = ri.Cvar_Get ("gl_ambient_lift", "0", CVAR_ARCHIVE);
-	gl_warp_amp = ri.Cvar_Get ("gl_warp_amp", "1", CVAR_ARCHIVE);
-	gl_warp_speed = ri.Cvar_Get ("gl_warp_speed", "1", CVAR_ARCHIVE);
-	gl_subdivide = ri.Cvar_Get ("gl_subdivide", "64", CVAR_ARCHIVE);
+	gl_light_corona = ri.Cvar_Get ("gl_light_corona", "0.35", CVAR_ARCHIVE);
+	gl_world_corona = ri.Cvar_Get ("gl_world_corona", "0.35", CVAR_ARCHIVE);
+	gl_light_shafts = ri.Cvar_Get ("gl_light_shafts", "0.35", CVAR_ARCHIVE);
+	gl_bloom = ri.Cvar_Get ("gl_bloom", "1", CVAR_ARCHIVE);
+	gl_godrays = ri.Cvar_Get ("gl_godrays", "0.35", CVAR_ARCHIVE);
+	gl_softparticles = ri.Cvar_Get ("gl_softparticles", "1", CVAR_ARCHIVE);
+	gl_dlight_shader = ri.Cvar_Get ("gl_dlight_shader", "1", CVAR_ARCHIVE);
+	gl_normalmaps = ri.Cvar_Get ("gl_normalmaps", "1", CVAR_ARCHIVE);
+	gl_ambient_lift = ri.Cvar_Get ("gl_ambient_lift", "0.04", CVAR_ARCHIVE);
+	gl_warp_amp = ri.Cvar_Get ("gl_warp_amp", "1.5", CVAR_ARCHIVE);
+	gl_warp_speed = ri.Cvar_Get ("gl_warp_speed", "1.5", CVAR_ARCHIVE);
+	gl_subdivide = ri.Cvar_Get ("gl_subdivide", "32", CVAR_ARCHIVE);
 	gl_wateralpha = ri.Cvar_Get ("gl_wateralpha", "0", 0);
 	gl_waterfog = ri.Cvar_Get ("gl_waterfog", "0.35", CVAR_ARCHIVE);
 	r_water_alpha_ok = ri.Cvar_Get ("r_water_alpha_ok", "0", CVAR_NOSET);
@@ -2168,6 +2202,7 @@ retryQGL:
 
 	ri.Con_Printf( PRINT_DEVELOPER, "GL_SetDefaultState()\n" );
 	GL_SetDefaultState();
+	R_PostFX_Init ();
 
 	//r1: setup cached screensizes
 	vid_scaled_width = vid.width / R_EffectiveHudScale ();
@@ -2219,6 +2254,7 @@ void EXPORT R_Shutdown (void)
 
 	Mod_FreeAll ();
 
+	R_PostFX_Shutdown ();
 	GL_ShutdownImages ();
 
 	/*

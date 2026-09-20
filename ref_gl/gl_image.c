@@ -3022,6 +3022,7 @@ image_t *GL_LoadPic (const char *name, byte *pic, int width, int height, imagety
 
 	strcpy (image->name, name);
 	image->registration_sequence = registration_sequence;
+	image->normalmap = NULL;
 
 	if (!pic || width < 1 || height < 1 || width > MAX_TEXTURE_DIMENSIONS || height > MAX_TEXTURE_DIMENSIONS)
 	{
@@ -3138,8 +3139,10 @@ image_t *GL_LoadWal (const char *name)
 	len = ri.FS_LoadFile (name, (void **)&mt);
 	if (!mt)
 	{
+		/* NULL — never return r_notexture here. Hashing that sentinel
+		 * into images_hash creates a cycle and freezes the client. */
 		ri.Con_Printf (PRINT_ALL, "GL_FindImage: can't load %s\n", name);
-		return r_notexture;
+		return NULL;
 	}
 
 	width = LittleLong (mt->width);
@@ -3302,6 +3305,49 @@ image_t	*GL_FindImageBase (const char *basename, imagetype_t type)
 	return NULL;
 }
 
+image_t	*GL_FindWallImage (const char *basename)
+{
+	image_t	*image;
+	char	name[MAX_QPATH];
+	size_t	length;
+
+	if (!basename || !basename[0])
+		return NULL;
+
+	image = GL_FindImageBase (basename, it_wall);
+	if (image)
+		return image;
+
+	Com_sprintf (name, sizeof(name), "textures/%s.wal", basename);
+	length = strlen (name);
+	if (length < 4)
+		return NULL;
+
+	if (load_png_wals)
+	{
+		memcpy (name + length - 3, "png", 3);
+		image = GL_FindImage (name, basename, it_wall);
+	}
+	if (!image && load_jpg_wals)
+	{
+		memcpy (name + length - 3, "jpg", 3);
+		image = GL_FindImage (name, basename, it_wall);
+	}
+	if (!image && load_tga_wals)
+	{
+		memcpy (name + length - 3, "tga", 3);
+		image = GL_FindImage (name, basename, it_wall);
+	}
+	if (!image)
+	{
+		memcpy (name + length - 3, "wal", 3);
+		image = GL_FindImage (name, basename, it_wall);
+	}
+	if (image == r_notexture)
+		return NULL;
+	return image;
+}
+
 /*
 ===============
 GL_FindImage
@@ -3460,7 +3506,7 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 	else if (!strcmp(name+len-4, ".wal"))
 	{
 		image = GL_LoadWal (name);
-		if (!image)
+		if (!image || image == r_notexture)
 		{
 			GL_NoteImageMiss (name);
 			return NULL;
@@ -3494,6 +3540,16 @@ image_t	*GL_FindImage (const char *name, const char *basename, imagetype_t type)
 
 	//newitem = rbsearch (name, rb);
 	//*newitem = image;
+
+	if (!image || image == r_notexture)
+	{
+		GL_NoteImageMiss (name);
+		if (pic)
+			free(pic);
+		if (palette)
+			free(palette);
+		return NULL;
+	}
 
 	strncpy (image->basename, basename, sizeof(image->basename)-1);
 
@@ -3807,9 +3863,13 @@ void GL_FreeUnusedImages (void)
 		mipmap_buffer = NULL;
 	}
 
-	// never free r_notexture or particle texture
+	// never free r_notexture, particle, corona, or console font
 	r_notexture->registration_sequence = registration_sequence;
 	r_particletexture->registration_sequence = registration_sequence;
+	if (r_coronatexture)
+		r_coronatexture->registration_sequence = registration_sequence;
+	if (draw_chars)
+		draw_chars->registration_sequence = registration_sequence;
 
 	count = 0;
 

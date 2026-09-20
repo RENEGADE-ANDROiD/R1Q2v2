@@ -8,6 +8,7 @@ set(R1Q2_QCOMMON_SOURCES
   qcommon/common.c
   qcommon/crc.c
   qcommon/cvar.c
+  qcommon/cheatcheck.c
   qcommon/files.c
   qcommon/ioapi.c
   qcommon/md4.c
@@ -125,6 +126,7 @@ set(R1Q2_GAME_SOURCES
 # ref_gl (R1GL) — from ref_gl/ref_gl.dsp
 set(R1Q2_REF_GL_SOURCES
   ref_gl/gl_draw.c
+  ref_gl/gl_fbo.c
   ref_gl/gl_image.c
   ref_gl/gl_light.c
   ref_gl/gl_mesh.c

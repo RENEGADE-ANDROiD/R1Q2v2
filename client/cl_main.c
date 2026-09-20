@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // cl_main.c  -- client main loop
 
 #include "client.h"
+#include "../qcommon/cheatcheck.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -1289,6 +1290,19 @@ void CL_CheckForResend (void)
 	
 		if (adr.port == 0)
 			adr.port = ShortSwap (PORT_SERVER);
+
+		if (!NET_IsLocalAddress (&adr))
+		{
+			char	reason[256];
+
+			if (!CheatCheck_AllowRemoteConnect (reason, sizeof(reason)))
+			{
+				Com_Printf ("%s\n", LOG_CLIENT, reason);
+				cls.state = ca_disconnected;
+				cls.proxyState = ps_none;
+				return;
+			}
+		}
 	}
 
 	cls.connect_time = cls.realtime;	// for retransmit requests
@@ -1296,6 +1310,18 @@ void CL_CheckForResend (void)
 	//_asm int 3;
 	if (cls.proxyState == ps_pending)
 	{
+		if (!NET_IsLocalAddress (&cls.proxyAddr))
+		{
+			char	reason[256];
+
+			if (!CheatCheck_AllowRemoteConnect (reason, sizeof(reason)))
+			{
+				Com_Printf ("%s\n", LOG_CLIENT, reason);
+				cls.state = ca_disconnected;
+				cls.proxyState = ps_none;
+				return;
+			}
+		}
 		Com_Printf ("Connecting to %s...\n", LOG_CLIENT, NET_AdrToString(&cls.proxyAddr));
 		Netchan_OutOfBandProxyPrint (NS_CLIENT, &cls.proxyAddr, "proxygetchallenge\n");
 	}
@@ -1356,6 +1382,17 @@ void CL_Connect_f (void)
 
 	if (adr.port == 0)
 		adr.port = ShortSwap (PORT_SERVER);
+
+	if (!NET_IsLocalAddress (&adr))
+	{
+		char	reason[256];
+
+		if (!CheatCheck_AllowRemoteConnect (reason, sizeof(reason)))
+		{
+			Com_Printf ("%s\n", LOG_CLIENT, reason);
+			return;
+		}
+	}
 
 	CL_Disconnect (false);
 
@@ -4625,6 +4662,7 @@ void CL_InitLocal (void)
 	//cl_snaps->changed = CL_SnapsMessage;
 
 	CL_FixCvarCheats ();
+	CheatCheck_Init ();
 
 	//
 	// register our commands

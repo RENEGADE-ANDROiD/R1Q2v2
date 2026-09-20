@@ -208,6 +208,25 @@ typedef struct mscache_s
 static model_t		*models_hash[MODEL_HASH_SIZE];
 static mscache_t	*model_size_cache[MODEL_HASH_SIZE];
 
+/* Reservation caps. Cached size is only a precommit hint — never the max.
+ * Using the cache as maxsize made VirtualAlloc commit fail with
+ * ERROR_INVALID_ADDRESS when a later load needed one more page. */
+#define HUNK_MD2	0x200000	/* 2 MiB */
+#define HUNK_MD3	0x400000	/* 4 MiB */
+#define HUNK_SP2	0x40000		/* 256 KiB (was 16 KiB; HD .sp2 copies the file) */
+#define HUNK_BSP	0x2000000	/* 32 MiB (was 16 MiB) */
+
+static void *Mod_HunkBegin (int maxsize, const mscache_t *model_size)
+{
+	int	precommit = 0;
+
+	if (model_size && model_size->size > 0)
+		precommit = model_size->size;
+	if (precommit > maxsize)
+		precommit = maxsize;
+	return Hunk_Begin (maxsize, precommit);
+}
+
 /*
 ==================
 Mod_ForName
@@ -317,18 +336,12 @@ model_t *Mod_ForName (char *name, qboolean crash)
 	switch (LittleLong(*(unsigned *)buf))
 	{
 		case IDALIASHEADER:
-			if (model_size)
-				loadmodel->extradata = Hunk_Begin (model_size->size, model_size->size);
-			else
-				loadmodel->extradata = Hunk_Begin (0x200000, 0);
+			loadmodel->extradata = Mod_HunkBegin (HUNK_MD2, model_size);
 			Mod_LoadAliasModel (mod, buf);
 			break;
 
 		case IDMD3HEADER:
-			if (model_size)
-				loadmodel->extradata = Hunk_Begin (model_size->size, model_size->size);
-			else
-				loadmodel->extradata = Hunk_Begin (0x400000, 0);
+			loadmodel->extradata = Mod_HunkBegin (HUNK_MD3, model_size);
 			if (!Mod_LoadMD3Model (mod, buf, modfilelen))
 			{
 				/* Optional registration (vwep etc.) must not ERR_DROP on corrupt MD3. */
@@ -348,18 +361,12 @@ model_t *Mod_ForName (char *name, qboolean crash)
 			break;
 			
 		case IDSPRITEHEADER:
-			if (model_size)
-				loadmodel->extradata = Hunk_Begin (model_size->size, model_size->size);
-			else
-				loadmodel->extradata = Hunk_Begin (0x4000, 0);
+			loadmodel->extradata = Mod_HunkBegin (HUNK_SP2, model_size);
 			Mod_LoadSpriteModel (mod, buf);
 			break;
 		
 		case IDBSPHEADER:
-			if (model_size)
-				loadmodel->extradata = Hunk_Begin (model_size->size, model_size->size);
-			else
-				loadmodel->extradata = Hunk_Begin (0x1000000, 0);
+			loadmodel->extradata = Mod_HunkBegin (HUNK_BSP, model_size);
 			Mod_LoadBrushModel (mod, buf);
 			break;
 
@@ -368,14 +375,14 @@ model_t *Mod_ForName (char *name, qboolean crash)
 			break;
 	}
 
+	loadmodel->extradatasize = Hunk_End ();
 	if (model_size)
 	{
-		loadmodel->extradatasize = model_size->size;
+		if (loadmodel->extradatasize > model_size->size)
+			model_size->size = loadmodel->extradatasize;
 	}
 	else
 	{
-		loadmodel->extradatasize = Hunk_End ();
-
 		model_size = malloc (sizeof(*model_size));
 		if (!model_size)
 			ri.Sys_Error (ERR_FATAL, "Mod_ForName: out of memory");
@@ -1198,6 +1205,8 @@ void Mod_LoadBrushModel (model_t *mod, void *buffer)
 
 		starmod->numleafs = bm->visleafs;
 	}
+
+	R_LoadWorldLights (loadmodel, mod_base, &header->lumps[LUMP_ENTITIES]);
 }
 
 /*

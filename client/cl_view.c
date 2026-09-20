@@ -752,15 +752,37 @@ __inline void SCR_DrawCrosshair (void)
 	}
 
 	scale = (ch_scale && ch_scale->value > 0.0f) ? ch_scale->value : 1.0f;
+
+	layer_scale[0] = ch1_scale;
+	layer_scale[1] = ch2_scale;
+	layer_scale[2] = ch3_scale;
+
+	/* Full-screen overlays (rail sniper) must sit on the view center — that's
+	 * where the shot goes. Hipfire ch_x/ch_y would slide the scope hole off. */
+	{
+		int		fs = 0;
+		float	ls;
+
+		if (crosshair_width > 0 && (int)(crosshair_width * scale) * 2 > scr_vrect.width)
+			fs = 1;
+		for (i = 0; i < MAX_CH_LAYERS; i++)
+		{
+			ls = scale;
+			if (layer_scale[i] && layer_scale[i]->value > 0.0f)
+				ls *= layer_scale[i]->value;
+			if (ch_layer_width[i] > 0 && (int)(ch_layer_width[i] * ls) * 2 > scr_vrect.width)
+				fs = 1;
+		}
+		if (fs)
+			ox = oy = 0;
+	}
+
 	SCR_CrosshairColor (&r, &g, &b, &a);
 	if (re.DrawSetColor)
 		re.DrawSetColor (r, g, b, a);
 
 	SCR_DrawOneCrosshair (crosshair_pic, crosshair_width, crosshair_height, ox, oy, scale);
 
-	layer_scale[0] = ch1_scale;
-	layer_scale[1] = ch2_scale;
-	layer_scale[2] = ch3_scale;
 	for (i = 0; i < MAX_CH_LAYERS; i++)
 	{
 		float	ls = scale;

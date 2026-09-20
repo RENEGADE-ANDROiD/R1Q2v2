@@ -479,6 +479,9 @@ extern cvar_t	*sv_filter_stringcmds;
 
 extern cvar_t	*sv_allownodelta;
 extern cvar_t	*sv_deny_q2ace;
+extern cvar_t	*sv_default_cheatbans;
+
+void SV_InstallDefaultCheatBans (void);
 
 extern cvar_t	*sv_gamedebug;
 extern cvar_t	*sv_packetentities_hack;
