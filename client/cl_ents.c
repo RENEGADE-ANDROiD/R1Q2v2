@@ -2683,11 +2683,13 @@ static void CL_AddViewWeapon (const player_state_t *ps, const player_state_t *op
 			cl.gunlerp_end = cl.frame.servertime + 100 - (1000 / cl.settings[SVSET_FPS]);
 			cl.gunlerp_frame_to = ps->gunframe;
 			
-			if (cl.gunlerp_frame_to == 0)
+			/* Same-weapon draw/holster: lerp including gunframe 0 (was a hard snap).
+			 * Cross-weapon model change still snaps. */
+			if (ps->gunindex != ops->gunindex)
 			{
-				gun.oldframe = 0;
-				gun.frame = 0;
-				cl.gunlerp_frame_from = 0;
+				gun.oldframe = ps->gunframe;
+				gun.frame = ps->gunframe;
+				cl.gunlerp_frame_from = ps->gunframe;
 			}
 			else
 			{
@@ -2699,7 +2701,7 @@ static void CL_AddViewWeapon (const player_state_t *ps, const player_state_t *op
 		else
 		{
 			//continue a lerp
-			if (cl.gunlerp_frame_to != 0 && (ps->gunframe != cl.gunlerp_frame_to || ops->gunframe != cl.gunlerp_frame_from))
+			if (ps->gunframe != cl.gunlerp_frame_to || ops->gunframe != cl.gunlerp_frame_from)
 			{
 				//Com_Printf ("gun: changed frames in the middle of a lerp, from %d -> %d to %d -> %d\n", LOG_GENERAL, cl.gunlerp_frame_from, cl.gunlerp_frame_to, ops->gunframe, ps->gunframe);
 			}
