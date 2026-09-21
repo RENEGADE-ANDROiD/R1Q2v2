@@ -927,7 +927,7 @@ void R_LightPoint (vec3_t p, vec3_t color)
 	}
 
 	/* Match lightmap ambient lift for entities (hard-capped). */
-	if (FLOAT_NE_ZERO(R_CvarEff(gl_ambient_lift)))
+	if ((R_CvarEff(gl_ambient_lift) != 0.0f))
 	{
 		float lift = R_CvarEff(gl_ambient_lift);
 		if (lift < 0.0f)
@@ -943,7 +943,7 @@ void R_LightPoint (vec3_t p, vec3_t color)
 	// add dynamic lights
 	//
 	//light = 0;
-	if (FLOAT_NE_ZERO (R_CvarEff(gl_dynamic)))
+	if ((R_CvarEff(gl_dynamic) != 0.0f))
 	{
 		dl = r_newrefdef.dlights;
 		for (lnum=0 ; lnum<r_newrefdef.num_dlights ; lnum++, dl++)
@@ -1311,7 +1311,7 @@ store:
 				colors[2] = 0;
 
 			/* Tiny ambient lift with hard cap (gl_ambient_lift 0..0.1). Not night-vision. */
-			if (FLOAT_NE_ZERO(R_CvarEff(gl_ambient_lift)))
+			if ((R_CvarEff(gl_ambient_lift) != 0.0f))
 			{
 				float lift = R_CvarEff(gl_ambient_lift);
 				int add;

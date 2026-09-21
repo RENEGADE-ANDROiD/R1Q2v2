@@ -646,7 +646,7 @@ static image_t *R_FindNormalMap (image_t *diffuse)
 	static const char *sfx[] = { "_norm", "_n", "_bump", NULL };
 	int			i;
 
-	if (!diffuse || !gl_normalmaps || FLOAT_EQ_ZERO(R_CvarEff(gl_normalmaps)))
+	if (!diffuse || !gl_normalmaps || (R_CvarEff(gl_normalmaps) == 0.0f))
 		return NULL;
 	if (diffuse->normalmap)
 	{
@@ -706,9 +706,9 @@ qboolean R_WorldShaderDlights (void)
 {
 	if (!prog_world || !p_UseProgram)
 		return false;
-	if (!gl_dlight_shader || FLOAT_EQ_ZERO(R_CvarEff(gl_dlight_shader)))
+	if (!gl_dlight_shader || (R_CvarEff(gl_dlight_shader) == 0.0f))
 		return false;
-	if (FLOAT_EQ_ZERO(R_CvarEff(gl_dynamic)))
+	if ((R_CvarEff(gl_dynamic) == 0.0f))
 		return false;
 	return true;
 }
