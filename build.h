@@ -1,4 +1,9 @@
-#define BUILD "8061"
+#define BUILD "8062"
+/* BUILD 8062: auto client-side MP visual lean (r_mp_visual_lean) — expensive
+ * 8061 FX effective-off when CS_MAXCLIENTS > 1 without overwriting archived
+ * SP seta; baseq2 SP / disconnected keep full visuals. Clamp bad gl_colorbits
+ * / gl_depthbits 32 -> 24 at pixel-format choose. MSAA lean deferred to next
+ * vid_restart (documented). No net/prediction/pmove changes. */
 /* BUILD 8061: R1GL world-light coronas, LOS-tested shafts, overbright menu;
  * FBO bloom / god rays / soft particles; per-pixel world dlights + optional
  * normal maps; dlight coronas no longer show explosions through walls.

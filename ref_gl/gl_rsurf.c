@@ -368,7 +368,7 @@ void R_BlendLightmaps (void)
 	/*
 	** render dynamic lightmaps
 	*/
-	if ( FLOAT_NE_ZERO(gl_dynamic->value) )
+	if ( FLOAT_NE_ZERO(R_CvarEff(gl_dynamic)) )
 	{
 		memset( gl_lms.allocated, 0, sizeof(gl_lms.allocated));
 
@@ -584,7 +584,7 @@ void R_RenderBrushPoly (msurface_t *fa)
 	if ( ( fa->dlightframe == r_framecount ) && !R_WorldShaderDlights () )
 	{
 dynamic:
-		if ( FLOAT_NE_ZERO (gl_dynamic->value) )
+		if ( FLOAT_NE_ZERO (R_CvarEff(gl_dynamic)) )
 		{
 			if (!( fa->texinfo->flags & (SURF_SKY|SURF_TRANS33|SURF_TRANS66|SURF_WARP ) ) )
 			{
@@ -799,7 +799,7 @@ static void GL_RenderLightmappedPoly( msurface_t *surf )
 	if ( ( surf->dlightframe == r_framecount ) && !R_WorldShaderDlights () )
 	{
 dynamic:
-		if ( FLOAT_NE_ZERO (gl_dynamic->value) )
+		if ( FLOAT_NE_ZERO (R_CvarEff(gl_dynamic)) )
 		{
 			if ( !(surf->texinfo->flags & (SURF_SKY|SURF_TRANS33|SURF_TRANS66|SURF_WARP ) ) )
 			{

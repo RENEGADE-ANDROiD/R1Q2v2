@@ -586,9 +586,9 @@ void R_DrawDlightCoronas (void)
 	if (r_newrefdef.rdflags & RDF_NOWORLDMODEL)
 		return;
 
-	corona_s = gl_light_corona->value;
-	world_s = gl_world_corona->value;
-	shaft_s = gl_light_shafts->value;
+	corona_s = R_CvarEff(gl_light_corona);
+	world_s = R_CvarEff(gl_world_corona);
+	shaft_s = R_CvarEff(gl_light_shafts);
 	if (corona_s < 0.0f) corona_s = 0.0f;
 	if (corona_s > 2.0f) corona_s = 2.0f;
 	if (world_s < 0.0f) world_s = 0.0f;
@@ -927,9 +927,9 @@ void R_LightPoint (vec3_t p, vec3_t color)
 	}
 
 	/* Match lightmap ambient lift for entities (hard-capped). */
-	if (FLOAT_NE_ZERO(gl_ambient_lift->value))
+	if (FLOAT_NE_ZERO(R_CvarEff(gl_ambient_lift)))
 	{
-		float lift = gl_ambient_lift->value;
+		float lift = R_CvarEff(gl_ambient_lift);
 		if (lift < 0.0f)
 			lift = 0.0f;
 		if (lift > 0.1f)
@@ -943,7 +943,7 @@ void R_LightPoint (vec3_t p, vec3_t color)
 	// add dynamic lights
 	//
 	//light = 0;
-	if (FLOAT_NE_ZERO (gl_dynamic->value))
+	if (FLOAT_NE_ZERO (R_CvarEff(gl_dynamic)))
 	{
 		dl = r_newrefdef.dlights;
 		for (lnum=0 ; lnum<r_newrefdef.num_dlights ; lnum++, dl++)
@@ -1311,9 +1311,9 @@ store:
 				colors[2] = 0;
 
 			/* Tiny ambient lift with hard cap (gl_ambient_lift 0..0.1). Not night-vision. */
-			if (FLOAT_NE_ZERO(gl_ambient_lift->value))
+			if (FLOAT_NE_ZERO(R_CvarEff(gl_ambient_lift)))
 			{
-				float lift = gl_ambient_lift->value;
+				float lift = R_CvarEff(gl_ambient_lift);
 				int add;
 				if (lift < 0.0f)
 					lift = 0.0f;

@@ -224,6 +224,7 @@ cvar_t	*gl_subdivide;
 cvar_t	*gl_wateralpha;
 cvar_t	*gl_waterfog;
 cvar_t	*r_water_alpha_ok;
+cvar_t	*r_mp_visual_lean;
 cvar_t	*gl_alphaskins;
 cvar_t	*gl_defertext;
 
@@ -1354,10 +1355,10 @@ void R_RenderView (refdef_t *fd)
 	R_SetupGL ();
 	R_PostFX_BeginView ();
 
-	if ((r_newrefdef.rdflags & RDF_UNDERWATER) && gl_waterfog->value > 0.0f)
+	if ((r_newrefdef.rdflags & RDF_UNDERWATER) && R_CvarEff(gl_waterfog) > 0.0f)
 	{
 		GLfloat fog_color[4];
-		float amount = gl_waterfog->value;
+		float amount = R_CvarEff(gl_waterfog);
 
 		if (amount > 1.0f)
 			amount = 1.0f;
@@ -1529,6 +1530,37 @@ void EXPORT R_RenderFrame (refdef_t *fd)
 }
 
 void Cmd_HashStats_f (void);
+/*
+=================
+R_MPVisualLean / R_CvarEff
+
+BUILD 8062: when r_mp_visual_lean is on (default) and the client has marked
+multiplayer via r_water_alpha_ok==2 (CS_MAXCLIENTS > 1), treat expensive
+graphics FX as off for drawing without rewriting archived SP seta values.
+Disconnected / SP (r_water_alpha_ok 0 or 1) keep full visuals.
+MSAA is pixel-format; lean does not force vid_restart — takes effect on the
+next restart if the user lowers gl_msaa.
+=================
+*/
+qboolean R_MPVisualLean (void)
+{
+	if (!r_mp_visual_lean || FLOAT_LE_ZERO(r_mp_visual_lean->value))
+		return false;
+	if (!r_water_alpha_ok || r_water_alpha_ok->intvalue != 2)
+		return false;
+	return true;
+}
+
+float R_CvarEff (cvar_t *var)
+{
+	if (!var)
+		return 0.0f;
+	if (R_MPVisualLean ())
+		return 0.0f;
+	return var->value;
+}
+
+
 void R_Register( void )
 {
 	r_lefthand = ri.Cvar_Get( "hand", "0", CVAR_USERINFO | CVAR_ARCHIVE );
@@ -1700,6 +1732,8 @@ gl_msaa = ri.Cvar_Get ("gl_msaa", "0", CVAR_ARCHIVE);
 	gl_wateralpha = ri.Cvar_Get ("gl_wateralpha", "0", 0);
 	gl_waterfog = ri.Cvar_Get ("gl_waterfog", "0.35", CVAR_ARCHIVE);
 	r_water_alpha_ok = ri.Cvar_Get ("r_water_alpha_ok", "0", CVAR_NOSET);
+	/* Auto lean expensive 8061 FX in multiplayer; SP keeps archived visuals. */
+	r_mp_visual_lean = ri.Cvar_Get ("r_mp_visual_lean", "1", CVAR_ARCHIVE);
 	gl_alphaskins = ri.Cvar_Get ("gl_alphaskins", "0", 0);
 	gl_defertext = ri.Cvar_Get ("gl_defertext", "0", 0);
 	defer_drawing = (int)gl_defertext->value;
@@ -2370,6 +2404,19 @@ R_BeginFrame
 */
 void EXPORT R_BeginFrame( float camera_separation )
 {
+	static qboolean	lean_was;
+	qboolean	lean_now;
+
+	lean_now = R_MPVisualLean ();
+	if (lean_now != lean_was)
+	{
+		if (lean_now)
+			ri.Con_Printf (PRINT_ALL, "r_mp_visual_lean: multiplayer — expensive FX effective-off (SP seta kept)\n");
+		else
+			ri.Con_Printf (PRINT_ALL, "r_mp_visual_lean: singleplayer/menu — full visuals\n");
+		lean_was = lean_now;
+	}
+
 #ifdef STEREO_SUPPORT
 	gl_state.camera_separation = camera_separation;
 #endif

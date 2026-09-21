@@ -1437,9 +1437,9 @@ void R_DrawAliasModel (entity_t *e)
 		qglDepthRange (gldepthmin, gldepthmax);
 
 #if 1
-	if (FLOAT_NE_ZERO(gl_shadows->value) && !(currententity->flags & (RF_TRANSLUCENT | RF_WEAPONMODEL)))
+	if (FLOAT_NE_ZERO(R_CvarEff(gl_shadows)) && !(currententity->flags & (RF_TRANSLUCENT | RF_WEAPONMODEL)))
 	{
-		int shadow_mode = (int)gl_shadows->value;
+		int shadow_mode = (int)R_CvarEff(gl_shadows);
 		float lheight = currententity->origin[2] - lightspot[2];
 		float alpha = 0.5f;
 

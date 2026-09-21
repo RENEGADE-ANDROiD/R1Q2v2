@@ -75,3 +75,7 @@ Console prints `using GLSL world dlights` at renderer init when the program link
 4. Keep cheat-adjacent visuals out of tree.
 
 See `BUILD-WINDOWS.md` for configure/build/deploy commands.
+
+## Multiplayer visual lean (BUILD 8062)
+
+`r_mp_visual_lean` (default `1`) makes the renderer treat expensive FX as off when the client is in multiplayer (`r_water_alpha_ok == 2` from `CS_MAXCLIENTS` > 1). Archived SP `seta` values are not rewritten. Singleplayer and the disconnected menu keep the full 8061 look. MSAA is not auto-restarted.

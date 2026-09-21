@@ -630,11 +630,11 @@ static qboolean R_PostFX_Wanted (void)
 		return false;
 	if (r_newrefdef.rdflags & RDF_NOWORLDMODEL)
 		return false;
-	if (gl_bloom && gl_bloom->value > 0.0f)
+	if (gl_bloom && R_CvarEff(gl_bloom) > 0.0f)
 		return true;
-	if (gl_godrays && gl_godrays->value > 0.0f)
+	if (gl_godrays && R_CvarEff(gl_godrays) > 0.0f)
 		return true;
-	if (gl_softparticles && gl_softparticles->value > 0.0f)
+	if (gl_softparticles && R_CvarEff(gl_softparticles) > 0.0f)
 		return true;
 	return false;
 }
@@ -646,7 +646,7 @@ static image_t *R_FindNormalMap (image_t *diffuse)
 	static const char *sfx[] = { "_norm", "_n", "_bump", NULL };
 	int			i;
 
-	if (!diffuse || !gl_normalmaps || FLOAT_EQ_ZERO(gl_normalmaps->value))
+	if (!diffuse || !gl_normalmaps || FLOAT_EQ_ZERO(R_CvarEff(gl_normalmaps)))
 		return NULL;
 	if (diffuse->normalmap)
 	{
@@ -706,9 +706,9 @@ qboolean R_WorldShaderDlights (void)
 {
 	if (!prog_world || !p_UseProgram)
 		return false;
-	if (!gl_dlight_shader || FLOAT_EQ_ZERO(gl_dlight_shader->value))
+	if (!gl_dlight_shader || FLOAT_EQ_ZERO(R_CvarEff(gl_dlight_shader)))
 		return false;
-	if (FLOAT_EQ_ZERO(gl_dynamic->value))
+	if (FLOAT_EQ_ZERO(R_CvarEff(gl_dynamic)))
 		return false;
 	return true;
 }
@@ -938,7 +938,7 @@ qboolean R_PostFX_BeginView (void)
 
 qboolean R_PostFX_SoftParticlesActive (void)
 {
-	return pf_bound && gl_softparticles && gl_softparticles->value > 0.0f
+	return pf_bound && gl_softparticles && R_CvarEff(gl_softparticles) > 0.0f
 		&& prog_particle && tex_depthcopy && fbo_depthcopy && pf_have_blit;
 }
 
@@ -1039,10 +1039,11 @@ void R_PostFX_EndView (void)
 		return;
 	pf_bound = false;
 
-	/* Magnitude is ignored: gl_bloom is on/off, add is hardcoded. */
-	do_bloom = gl_bloom && gl_bloom->value > 0.0f;
+	/* Magnitude is ignored: gl_bloom is on/off, add is hardcoded.
+	 * R_CvarEff zeros these in MP lean without touching archived SP seta. */
+	do_bloom = gl_bloom && R_CvarEff(gl_bloom) > 0.0f;
 	bloom = do_bloom ? R_BLOOM_ADD : 0.0f;
-	rays = gl_godrays ? gl_godrays->value : 0.0f;
+	rays = gl_godrays ? R_CvarEff(gl_godrays) : 0.0f;
 	if (rays < 0.0f) rays = 0.0f;
 	if (rays > 2.0f) rays = 2.0f;
 	do_rays = rays > 0.0f;

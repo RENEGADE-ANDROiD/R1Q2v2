@@ -4,7 +4,7 @@ A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
 
-Console / version string: **R1Q2v2 (Build: 8060)** — bump `BUILD` in [`build.h`](build.h) each release.
+Console / version string: **R1Q2v2 (Build: 8062)** — bump `BUILD` in [`build.h`](build.h) each release.
 
 Build 8057 includes [incoming-data and asset safety fixes](SECURITY-FIXES-8057.md). Update the executable and both renderer DLLs together; older renderer DLLs are now rejected because their entity layout is incompatible.
 
@@ -25,6 +25,7 @@ You still need the usual game data (`baseq2` and so on). This project does not s
 ## Docs
 
 - **[CVARS.md](CVARS.md)** — useful console variables (video, HUD, input, net, R1Q2 extras) with defaults and short explainers
+- **[RELEASE-NOTES-8062.md](RELEASE-NOTES-8062.md)** — MP auto visual lean (`r_mp_visual_lean`); SP keeps full FX
 
 **Ultrawide (e.g. 3440x1440):** use `gl_mode -1`, `vid_forcewidth` / `vid_forceheight`, and prefer `vid_borderless 1` (or desktop-native size). There is no `r_customwidth`. If you `exec r1q2v2_visual.cfg`, clear its 1920x1080 force dims first — see [CVARS.md](CVARS.md).
 

@@ -1212,6 +1212,18 @@ qboolean GLimp_InitGL (void)
 			ri.Cvar_Set ("gl_stencilbits", dm.dmBitsPerPel == 32 ? "8" : "0");
 	}
 
+	/* ChoosePixelFormat rejects 32/32 color/depth on many drivers; clamp. */
+	if (gl_colorbits->value >= 32.0f)
+	{
+		ri.Con_Printf (PRINT_ALL, "GLimp_InitGL() - clamping gl_colorbits %d -> 24\n", (int)gl_colorbits->value);
+		ri.Cvar_Set ("gl_colorbits", "24");
+	}
+	if (gl_depthbits->value >= 32.0f)
+	{
+		ri.Con_Printf (PRINT_ALL, "GLimp_InitGL() - clamping gl_depthbits %d -> 24\n", (int)gl_depthbits->value);
+		ri.Cvar_Set ("gl_depthbits", "24");
+	}
+
 	if (gl_colorbits->value < 24)
 	{
 		if (FLOAT_NE_ZERO(gl_alphabits->value))
