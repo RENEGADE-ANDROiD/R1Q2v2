@@ -1,4 +1,8 @@
-#define BUILD "8062"
+#define BUILD "8063"
+/* BUILD 8063: keep MP visual lean across map ClearState (avoids normalmap FS
+ * hitch storms when visual.cfg has FX on); frame-latch R_CvarEff; skip world
+ * shader/normalmap probes and MarkLights when lean; playerskin male fallback
+ * one Register* per defer tick. No net/prediction/pmove changes. */
 /* BUILD 8062: auto client-side MP visual lean (r_mp_visual_lean) — expensive
  * 8061 FX effective-off when CS_MAXCLIENTS > 1 without overwriting archived
  * SP seta; baseq2 SP / disconnected keep full visuals. Clamp bad gl_colorbits

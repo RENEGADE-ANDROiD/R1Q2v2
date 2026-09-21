@@ -725,6 +725,10 @@ qboolean R_WorldShaderBegin (msurface_t *surf, image_t *image)
 
 	if (!prog_world || !p_UseProgram || !surf || !image)
 		return false;
+	/* Lean zeros dlight_shader/normalmaps via R_CvarEff; skip before any
+	 * normalmap FS probes (visual.cfg may still have seta 1). */
+	if (R_MPVisualLean ())
+		return false;
 
 	want_dlights = R_WorldShaderDlights () && surf->dlightframe == r_framecount
 		&& surf->dlightbits;

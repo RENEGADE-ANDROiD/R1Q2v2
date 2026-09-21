@@ -160,7 +160,7 @@ static qboolean CL_DrainSexedSoundPrefetch (void)
 	return false;
 }
 
-static void CL_QueueDeferredAssetStep (int kind, int index, int step);
+void CL_QueueDeferredAssetStep (int kind, int index, int step);
 
 static void CL_ProcessDeferredAsset (int kind, int index, int step)
 {
@@ -196,7 +196,7 @@ static void CL_ProcessDeferredAsset (int kind, int index, int step)
 	}
 }
 
-static void CL_QueueDeferredAssetStep (int kind, int index, int step)
+void CL_QueueDeferredAssetStep (int kind, int index, int step)
 {
 	int		i, slot;
 
@@ -1566,7 +1566,11 @@ void CL_ClearState (void)
 
 	//r1: reset
 	cl.maxclients = MAX_CLIENTS;
-	Cvar_ForceSet ("r_water_alpha_ok", "0");
+	/* BUILD 8063: do NOT reset r_water_alpha_ok here. Map changes call
+	 * ClearState before CS_MAXCLIENTS; forcing 0 briefly disables MP visual
+	 * lean and can sync-probe normal maps for every visible wall (hitch storm)
+	 * while arena/r1q2v2_visual.cfg still has gl_normalmaps 1. CS_MAXCLIENTS
+	 * ForceSets 1/2; disconnect clears to 0 explicitly. */
 	SZ_Clear (&cls.netchan.message);
 
 	SZ_Init (&cl.demoBuff, cl.demoFrame, sizeof(cl.demoFrame));
@@ -1629,6 +1633,8 @@ void CL_Disconnect (qboolean skipdisconnect)
 	}
 
 	CL_ClearState ();
+	/* Disconnected / menu: lean off so SP archived FX apply again. */
+	Cvar_ForceSet ("r_water_alpha_ok", "0");
 
 	// stop download
 	if (cls.download)

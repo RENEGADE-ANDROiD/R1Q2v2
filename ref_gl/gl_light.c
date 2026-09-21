@@ -766,6 +766,9 @@ void R_PushDlights (void)
 
 	if (FLOAT_NE_ZERO(gl_flashblend->value))
 		return;
+	/* MP lean / gl_dynamic 0: MarkLights would be ignored at draw — skip BSP walk. */
+	if (R_CvarEff(gl_dynamic) == 0.0f)
+		return;
 
 	r_dlightframecount = r_framecount + 1;	// because the count hasn't
 											//  advanced yet for this frame

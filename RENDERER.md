@@ -78,4 +78,4 @@ See `BUILD-WINDOWS.md` for configure/build/deploy commands.
 
 ## Multiplayer visual lean (BUILD 8062)
 
-`r_mp_visual_lean` (default `1`) makes the renderer treat expensive FX as off when the client is in multiplayer (`r_water_alpha_ok == 2` from `CS_MAXCLIENTS` > 1). Archived SP `seta` values are not rewritten. Singleplayer and the disconnected menu keep the full 8061 look. MSAA is not auto-restarted.
+`r_mp_visual_lean` (default `1`) makes the renderer treat expensive FX as off when the client is in multiplayer (`r_water_alpha_ok == 2` from `CS_MAXCLIENTS` > 1). Archived SP `seta` values are not rewritten. Singleplayer and the disconnected menu keep the full 8061 look. MSAA is not auto-restarted. **BUILD 8063:** `r_water_alpha_ok` is preserved across map `ClearState` so lean does not drop between levels (avoids a burst of normalmap filesystem probes when `r1q2v2_visual.cfg` still has FX seta on). Lean is latched once per frame; world-shader begin and `R_PushDlights` skip work when lean is active.

@@ -1017,13 +1017,31 @@ qboolean CL_LoadClientinfoStep (int player, int step)
 		if (!ci->skin)
 			ci->deferred = true;
 
+		/* BUILD 8063: male fallback used to RegisterModel+RegisterSkin in one
+		 * defer tick (asset-load freeze). Reload tris only, rewrite cinfo to
+		 * male/<skin>, re-queue step 1 for the next budget tick. */
 		if (!ci->skin && Q_stricmp (model_name, "male"))
 		{
-			strcpy (model_name, "male");
+			char	*slash = strchr (ci->cinfo, '\\');
+			char	*body = slash ? slash + 1 : ci->cinfo;
+			char	*sk = strchr (body, '/');
+			char	tmp[MAX_QPATH];
+
+			if (!sk)
+				sk = strchr (body, '\\');
 			strcpy (model_filename, "players/male/tris.md2");
 			ci->model = re.RegisterModel (model_filename);
-			Com_sprintf (skin_filename, sizeof(skin_filename), "players/%s/%s.pcx", model_name, skin_name);
-			ci->skin = re.RegisterSkin (skin_filename);
+			if (sk)
+			{
+				if (slash)
+					Com_sprintf (tmp, sizeof(tmp), "%.*smale/%s",
+						(int)(body - ci->cinfo), ci->cinfo, sk + 1);
+				else
+					Com_sprintf (tmp, sizeof(tmp), "male/%s", sk + 1);
+				Q_strncpy (ci->cinfo, tmp, sizeof(ci->cinfo)-1);
+			}
+			CL_QueueDeferredAssetStep (DA_PLAYERSKIN, player, 1);
+			return false;
 		}
 
 		if (!ci->skin)

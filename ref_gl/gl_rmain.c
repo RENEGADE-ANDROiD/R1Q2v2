@@ -1542,7 +1542,11 @@ MSAA is pixel-format; lean does not force vid_restart — takes effect on the
 next restart if the user lowers gl_msaa.
 =================
 */
-qboolean R_MPVisualLean (void)
+/* Latched once per R_BeginFrame so hot paths (per-surface R_CvarEff) do not
+ * re-read cvars, and mid-frame CS updates cannot flip lean during a draw. */
+static qboolean	r_mp_lean_frame;
+
+static qboolean R_MPVisualLean_Calc (void)
 {
 	if (!r_mp_visual_lean || FLOAT_LE_ZERO(r_mp_visual_lean->value))
 		return false;
@@ -1551,11 +1555,16 @@ qboolean R_MPVisualLean (void)
 	return true;
 }
 
+qboolean R_MPVisualLean (void)
+{
+	return r_mp_lean_frame;
+}
+
 float R_CvarEff (cvar_t *var)
 {
 	if (!var)
 		return 0.0f;
-	if (R_MPVisualLean ())
+	if (r_mp_lean_frame)
 		return 0.0f;
 	return var->value;
 }
@@ -2407,7 +2416,8 @@ void EXPORT R_BeginFrame( float camera_separation )
 	static qboolean	lean_was;
 	qboolean	lean_now;
 
-	lean_now = R_MPVisualLean ();
+	lean_now = R_MPVisualLean_Calc ();
+	r_mp_lean_frame = lean_now;
 	if (lean_now != lean_was)
 	{
 		if (lean_now)
