@@ -27,6 +27,10 @@ jobs:
       - name: Build Release
         run: cmake --build build --config Release --parallel
 
+      - name: Background input regression tests
+        shell: pwsh
+        run: ./tests/test-background-input.ps1
+
       - name: Stage drop
         shell: pwsh
         run: |

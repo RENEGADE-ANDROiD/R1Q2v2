@@ -515,10 +515,6 @@ void IN_Move (usercmd_t *cmd)
 		RW_IN_Move_fp(cmd);
 }
 
-qboolean IN_ConsumeMouseActivity (void)
-{
-	return false;
-}
 
 void IN_Frame (void)
 {
@@ -536,4 +532,3 @@ void Do_Key_Event(int key, qboolean down)
 {
 	Key_Event(key, down, Sys_Milliseconds());
 }
-

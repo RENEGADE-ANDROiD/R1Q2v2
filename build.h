@@ -1,4 +1,7 @@
-#define BUILD "8063"
+#define BUILD "8064"
+/* BUILD 8064: keep desktop mouse input out of the game; preserve command
+ * angles on zero-time input samples; use elapsed background command time.
+ * Fixes client-generated angle reversals seen by legacy Arena bot checks. */
 /* BUILD 8063: keep MP visual lean across map ClearState (avoids normalmap FS
  * hitch storms when visual.cfg has FX on); frame-latch R_CvarEff; skip world
  * shader/normalmap probes and MarkLights when lean; playerskin male fallback

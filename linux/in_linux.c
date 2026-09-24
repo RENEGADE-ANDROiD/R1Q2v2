@@ -29,8 +29,3 @@ void IN_Activate (qboolean active)
 {
 }
 
-qboolean IN_ConsumeMouseActivity (void)
-{
-	return false;
-}
-

@@ -5169,21 +5169,6 @@ void CL_Synchronous_Frame (int msec)
 	if (maxfps <= 0.0f)
 		maxfps = 60.0f;
 
-#ifdef _WIN32
-	if (!ActiveApp)
-	{
-		int	cap;
-
-		cap = (int)(1000.0f / maxfps);
-		if (cap < 1)
-			cap = 1;
-		if (extratime > cap)
-			extratime = cap;
-		if (msec > 200)
-			CL_ResetInputClock ();
-	}
-#endif
-
 	if (!cl_timedemo->value)
 	{
 		if (cls.state == ca_connected)
@@ -5344,30 +5329,6 @@ void CL_Frame (int msec)
 	packet_delta += msec;
 	render_delta += msec;
 	misc_delta += msec;
-
-#ifdef _WIN32
-	/* Unfocused cmds must keep sending (timeouts) but with honest msec.
-	 * q2admin HT_MSEC expects ~1000/cl_maxfps. Capping at 50 (or the
-	 * stock 250→100 remap) is itself a timing-bot signature. */
-	if (!ActiveApp)
-	{
-		int	fps;
-		int	cap;
-
-		fps = cl_maxfps->intvalue;
-		if (fps <= 0)
-			fps = 60;
-		cap = 1000 / fps;
-		if (cap < 1)
-			cap = 1;
-		if (cap > 200)
-			cap = 200;
-		if (packet_delta > cap)
-			packet_delta = cap;
-		if (msec > 200)
-			CL_ResetInputClock ();
-	}
-#endif
 
 	//jec - set the frame counters
 	cl.time += msec;

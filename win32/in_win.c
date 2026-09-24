@@ -169,9 +169,6 @@ int			old_x, old_y;
 
 qboolean	mouseactive;	// false when not focus app
 static qboolean	in_drop_mouse_sample;	/* first sample after focus is a cursor jump */
-static POINT	unfocused_pos;
-static qboolean	unfocused_pos_valid;
-static qboolean	in_mouse_activity;	/* real mouse move while unfocused */
 
 qboolean	restore_spi;
 qboolean	mouseinitialized;
@@ -1239,15 +1236,6 @@ static void IN_DropPendingMouseSample (void)
 	old_mouse_y = 0;
 }
 
-qboolean IN_ConsumeMouseActivity (void)
-{
-	qboolean	moved;
-
-	moved = in_mouse_activity;
-	in_mouse_activity = false;
-	return moved;
-}
-
 static void IN_ApplyMouseLook (usercmd_t *cmd, float mx, float my)
 {
 	mx *= sensitivity->value;
@@ -1267,47 +1255,6 @@ static void IN_ApplyMouseLook (usercmd_t *cmd, float mx, float my)
 
 /*
 ===========
-IN_UnfocusedMouseMove
-
-Sample the desktop cursor without capture/recenter so alt-tab still
-sends real look activity. Drop the first sample and huge jumps (the OS
-warps the cursor onto the other window / other monitor).
-===========
-*/
-static void IN_UnfocusedMouseMove (usercmd_t *cmd)
-{
-	POINT	pt;
-	float	mx, my;
-
-	if (!mouseinitialized || !in_mouse || !in_mouse->intvalue)
-		return;
-	if (cls.state != ca_active || cls.key_dest != key_game || !cl.refresh_prepped)
-		return;
-	if (!GetCursorPos (&pt))
-		return;
-
-	if (!unfocused_pos_valid)
-	{
-		unfocused_pos = pt;
-		unfocused_pos_valid = true;
-		return;
-	}
-
-	mx = (float)(pt.x - unfocused_pos.x);
-	my = (float)(pt.y - unfocused_pos.y);
-	unfocused_pos = pt;
-
-	if (mx > 80.0f || mx < -80.0f || my > 80.0f || my < -80.0f)
-		return;
-	if (mx == 0.0f && my == 0.0f)
-		return;
-
-	in_mouse_activity = true;
-	IN_ApplyMouseLook (cmd, mx, my);
-}
-
-/*
-===========
 IN_MouseMove
 ===========
 */
@@ -1315,11 +1262,10 @@ void IN_MouseMove (usercmd_t *cmd)
 {
 	float		mx, my;
 
-	if (!mouseactive)
-	{
-		IN_UnfocusedMouseMove (cmd);
+	// Input belongs to the foreground game. Desktop movement must not turn
+	// the player or manufacture button activity while another app has focus.
+	if (!in_appactive || !mouseactive)
 		return;
-	}
 
 	if (in_drop_mouse_sample)
 	{
@@ -1509,7 +1455,6 @@ void IN_Activate (qboolean active)
 {
 	//Com_Printf ("*************** IN_Activate ACTIVE = %d\n\n\n", active);
 	in_appactive = active;
-	unfocused_pos_valid = false;
 
 	if (!active)
 		IN_DeactivateMouse ();

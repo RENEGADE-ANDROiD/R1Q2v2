@@ -374,31 +374,19 @@ __inline void CL_InitCmd (void)
 }
 
 /*
- * Stock Q2 remapped ms>250 to 100. A stream of 100ms cmds is the q2admin
- * HT_MSEC / timing-bot signature (expected msec is 1000/cl_maxfps). Keep a
- * legal value near the client's advertised rate instead.
+ * Report elapsed command time, bounded to the protocol's byte-sized field.
+ * A frame-rate target is not elapsed time, especially while unfocused.
  */
 static int CL_CmdMsec (void)
 {
 	int	ms;
-	int	fps;
-	int	expected;
 
 	ms = (int)(cls.frametime * 1000);
 	if (ms < 1)
 		ms = 1;
-	if (ms <= 250)
-		return ms;
-
-	fps = Cvar_IntValue ("cl_maxfps");
-	if (fps <= 0)
-		fps = 60;
-	expected = 1000 / fps;
-	if (expected < 1)
-		expected = 1;
-	if (expected > 250)
-		expected = 250;
-	return expected;
+	if (ms > 250)
+		ms = 250;
+	return ms;
 }
 
 // CL_RefreshCmd
@@ -412,24 +400,19 @@ void CL_RefreshCmd (void)
 	//get delta for this sample.
 	frame_msec = sys_frame_time - old_sys_frame_time;	
 
-	// bounds checking
-	if (frame_msec < 1)
+	// Only sample input when its clock advances. Always serialize the current
+	// view below, including the first command after a focus/clock reset.
+	if (frame_msec >= 1)
 	{
-		/* Do not skip: a 0 msec cmd after InitCmd is a freeze/bot flag. */
-		cmd->msec = CL_CmdMsec ();
-		return;
+		if (frame_msec > 200)
+			frame_msec = 200;
+
+		// get basic movement from keyboard
+		CL_BaseMove (cmd);
+
+		// allow mice or other external controllers to add to the move
+		IN_Move (cmd);
 	}
-
-	if (frame_msec > 200)
-		frame_msec = 200;
-
-	//cmd->forwardmove = cmd->sidemove = cmd->upmove = 0;
-
-	// get basic movement from keyboard
-	CL_BaseMove (cmd);
-
-	// allow mice or other external controllers to add to the move
-	IN_Move (cmd);
 
 	// update cmd viewangles for CL_PredictMove
 	CL_ClampPitch ();
@@ -473,8 +456,6 @@ void CL_FinalizeCmd (void)
 	in_use.state &= ~2;
 
 	if (anykeydown && cls.key_dest == key_game)
-		cmd->buttons |= BUTTON_ANY;
-	if (IN_ConsumeMouseActivity ())
 		cmd->buttons |= BUTTON_ANY;
 
 	//...
@@ -653,8 +634,6 @@ void CL_FinishMove (usercmd_t *cmd)
 	in_use.state &= ~2;
 
 	if (anykeydown && cls.key_dest == key_game)
-		cmd->buttons |= BUTTON_ANY;
-	if (IN_ConsumeMouseActivity ())
 		cmd->buttons |= BUTTON_ANY;
 
 	// send milliseconds of time to apply the move
@@ -1013,4 +992,3 @@ void CL_SendCmd (void)
 
 	CL_InitCmd(); //jec - init the next usercmd buffer.
 }
-
