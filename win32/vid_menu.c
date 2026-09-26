@@ -64,6 +64,7 @@ static cvar_t *gl_softparticles;
 static cvar_t *gl_dlight_shader;
 static cvar_t *gl_normalmaps;
 static cvar_t *gl_ambient_lift;
+static cvar_t *gl_less_yellow;
 static cvar_t *gl_waterfog;
 
 static cvar_t *sw_mode;
@@ -113,6 +114,7 @@ static menuaction_s		s_cancel_action[2];
 static menuaction_s		s_defaults_action[2];
 
 /* Advanced Settings (lighting / warp polish) */
+static menulist_s		s_adv_lessyellow_box;
 static menulist_s		s_adv_lmfilter_box;
 static menuslider_s		s_adv_dlight_slider;
 static menuslider_s		s_adv_warpamp_slider;
@@ -170,6 +172,7 @@ static void VID_ApplyAdvancedSettings( void )
 	float ambient;
 	int si;
 
+	Cvar_SetValue( "gl_less_yellow", (float)s_adv_lessyellow_box.curvalue );
 	Cvar_SetValue( "gl_lightmap_filter", (float)s_adv_lmfilter_box.curvalue );
 	Cvar_SetValue( "gl_dlight_falloff", s_adv_dlight_slider.curvalue );
 	Cvar_SetValue( "gl_warp_amp", s_adv_warpamp_slider.curvalue / 10.0f );
@@ -480,6 +483,8 @@ void EXPORT VID_MenuInit( void )
 		gl_normalmaps = Cvar_Get( "gl_normalmaps", "1", CVAR_ARCHIVE );
 	if ( !gl_ambient_lift )
 		gl_ambient_lift = Cvar_Get( "gl_ambient_lift", "0.04", CVAR_ARCHIVE );
+	if ( !gl_less_yellow )
+		gl_less_yellow = Cvar_Get( "gl_less_yellow", "1", CVAR_ARCHIVE );
 	if ( !gl_waterfog )
 		gl_waterfog = Cvar_Get( "gl_waterfog", "0.35", CVAR_ARCHIVE );
 
@@ -770,9 +775,18 @@ void EXPORT VID_MenuInit( void )
 	s_advanced_action.generic.statusbar = "lighting / water warp polish";
 
 	/* ---- Advanced Settings submenu ---- */
+	s_adv_lessyellow_box.generic.type = MTYPE_SPINCONTROL;
+	s_adv_lessyellow_box.generic.x = 0;
+	s_adv_lessyellow_box.generic.y = 0;
+	s_adv_lessyellow_box.generic.name = "less harsh yellow lighting";
+	s_adv_lessyellow_box.generic.callback = AdvFxCallback;
+	s_adv_lessyellow_box.generic.statusbar = "yellow rooms go warm white; red, green, and blue lights stay";
+	s_adv_lessyellow_box.itemnames = yesno_names;
+	s_adv_lessyellow_box.curvalue = (gl_less_yellow->value > 0.0f) ? 1 : 0;
+
 	s_adv_lmfilter_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_lmfilter_box.generic.x = 0;
-	s_adv_lmfilter_box.generic.y = 0;
+	s_adv_lmfilter_box.generic.y = 10;
 	s_adv_lmfilter_box.generic.name = "lightmap filter";
 	s_adv_lmfilter_box.generic.callback = AdvFxCallback;
 	s_adv_lmfilter_box.generic.statusbar = "nearest = blocky classic; linear = smoother";
@@ -781,7 +795,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_dlight_slider.generic.type = MTYPE_SLIDER;
 	s_adv_dlight_slider.generic.x = 0;
-	s_adv_dlight_slider.generic.y = 10;
+	s_adv_dlight_slider.generic.y = 20;
 	s_adv_dlight_slider.generic.name = "dlight falloff";
 	s_adv_dlight_slider.generic.callback = AdvFxCallback;
 	s_adv_dlight_slider.generic.statusbar = "0 = classic linear; 1-2 = softer quadratic";
@@ -795,7 +809,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_warpamp_slider.generic.type = MTYPE_SLIDER;
 	s_adv_warpamp_slider.generic.x = 0;
-	s_adv_warpamp_slider.generic.y = 20;
+	s_adv_warpamp_slider.generic.y = 30;
 	s_adv_warpamp_slider.generic.name = "warp amplitude";
 	s_adv_warpamp_slider.generic.callback = AdvFxCallback;
 	s_adv_warpamp_slider.generic.statusbar = "water/slime warp strength (1.0 = classic)";
@@ -809,7 +823,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_warpspeed_slider.generic.type = MTYPE_SLIDER;
 	s_adv_warpspeed_slider.generic.x = 0;
-	s_adv_warpspeed_slider.generic.y = 30;
+	s_adv_warpspeed_slider.generic.y = 40;
 	s_adv_warpspeed_slider.generic.name = "warp speed";
 	s_adv_warpspeed_slider.generic.callback = AdvFxCallback;
 	s_adv_warpspeed_slider.generic.statusbar = "water/slime warp timing (1.0 = classic)";
@@ -823,7 +837,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_subdivide_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_subdivide_box.generic.x = 0;
-	s_adv_subdivide_box.generic.y = 40;
+	s_adv_subdivide_box.generic.y = 50;
 	s_adv_subdivide_box.generic.name = "warp subdivide";
 	s_adv_subdivide_box.generic.callback = AdvFxCallback;
 	s_adv_subdivide_box.generic.statusbar = "needs map reload / reconnect";
@@ -840,7 +854,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_corona_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_corona_box.generic.x = 0;
-	s_adv_corona_box.generic.y = 50;
+	s_adv_corona_box.generic.y = 60;
 	s_adv_corona_box.generic.name = "light coronas";
 	s_adv_corona_box.generic.callback = AdvFxCallback;
 	s_adv_corona_box.generic.statusbar = "LOS-tested dlight glow; occluded explosions hidden";
@@ -849,7 +863,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_worldcorona_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_worldcorona_box.generic.x = 0;
-	s_adv_worldcorona_box.generic.y = 60;
+	s_adv_worldcorona_box.generic.y = 70;
 	s_adv_worldcorona_box.generic.name = "world coronas";
 	s_adv_worldcorona_box.generic.callback = AdvFxCallback;
 	s_adv_worldcorona_box.generic.statusbar = "BSP lamp sprites; hidden if a wall is in the way";
@@ -858,7 +872,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_shafts_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_shafts_box.generic.x = 0;
-	s_adv_shafts_box.generic.y = 70;
+	s_adv_shafts_box.generic.y = 80;
 	s_adv_shafts_box.generic.name = "light shafts";
 	s_adv_shafts_box.generic.callback = AdvFxCallback;
 	s_adv_shafts_box.generic.statusbar = "short streak on visible lights only; no wallhack";
@@ -867,7 +881,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_overbright_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_overbright_box.generic.x = 0;
-	s_adv_overbright_box.generic.y = 80;
+	s_adv_overbright_box.generic.y = 90;
 	s_adv_overbright_box.generic.name = "overbright lightmaps";
 	s_adv_overbright_box.generic.callback = AdvFxCallback;
 	s_adv_overbright_box.generic.statusbar = "2x lightmap combine; can wash HD packs";
@@ -876,7 +890,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_bloom_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_bloom_box.generic.x = 0;
-	s_adv_bloom_box.generic.y = 90;
+	s_adv_bloom_box.generic.y = 100;
 	s_adv_bloom_box.generic.name = "bloom";
 	s_adv_bloom_box.generic.callback = AdvFxCallback;
 	s_adv_bloom_box.generic.statusbar = "minimal on-screen glow; intensity capped, no wallhack";
@@ -885,7 +899,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_godrays_slider.generic.type = MTYPE_SLIDER;
 	s_adv_godrays_slider.generic.x = 0;
-	s_adv_godrays_slider.generic.y = 100;
+	s_adv_godrays_slider.generic.y = 110;
 	s_adv_godrays_slider.generic.name = "god rays";
 	s_adv_godrays_slider.generic.callback = AdvFxCallback;
 	s_adv_godrays_slider.generic.statusbar = "radial shafts from visible lights; not a wallhack";
@@ -899,7 +913,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_softparticles_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_softparticles_box.generic.x = 0;
-	s_adv_softparticles_box.generic.y = 110;
+	s_adv_softparticles_box.generic.y = 120;
 	s_adv_softparticles_box.generic.name = "soft particles";
 	s_adv_softparticles_box.generic.callback = AdvFxCallback;
 	s_adv_softparticles_box.generic.statusbar = "fade sprites against walls; needs FBO";
@@ -908,7 +922,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_dlightshader_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_dlightshader_box.generic.x = 0;
-	s_adv_dlightshader_box.generic.y = 120;
+	s_adv_dlightshader_box.generic.y = 130;
 	s_adv_dlightshader_box.generic.name = "pixel dlights";
 	s_adv_dlightshader_box.generic.callback = AdvFxCallback;
 	s_adv_dlightshader_box.generic.statusbar = "per-pixel world lights; occluded rooms stay dark";
@@ -917,7 +931,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_normalmaps_box.generic.type = MTYPE_SPINCONTROL;
 	s_adv_normalmaps_box.generic.x = 0;
-	s_adv_normalmaps_box.generic.y = 130;
+	s_adv_normalmaps_box.generic.y = 140;
 	s_adv_normalmaps_box.generic.name = "normal maps";
 	s_adv_normalmaps_box.generic.callback = AdvFxCallback;
 	s_adv_normalmaps_box.generic.statusbar = "use _norm/_bump if the pack ships them";
@@ -926,7 +940,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_ambient_slider.generic.type = MTYPE_SLIDER;
 	s_adv_ambient_slider.generic.x = 0;
-	s_adv_ambient_slider.generic.y = 140;
+	s_adv_ambient_slider.generic.y = 150;
 	s_adv_ambient_slider.generic.name = "ambient lift";
 	s_adv_ambient_slider.generic.callback = AdvFxCallback;
 	s_adv_ambient_slider.generic.statusbar = "hard-capped at 0.1; not night-vision";
@@ -940,7 +954,7 @@ void EXPORT VID_MenuInit( void )
 
 	s_adv_waterfog_slider.generic.type = MTYPE_SLIDER;
 	s_adv_waterfog_slider.generic.x = 0;
-	s_adv_waterfog_slider.generic.y = 150;
+	s_adv_waterfog_slider.generic.y = 160;
 	s_adv_waterfog_slider.generic.name = "underwater fog";
 	s_adv_waterfog_slider.generic.callback = AdvFxCallback;
 	s_adv_waterfog_slider.generic.statusbar = "subtle liquid distance fog; 0 = off";
@@ -955,12 +969,12 @@ void EXPORT VID_MenuInit( void )
 	s_adv_note.generic.type = MTYPE_SEPARATOR;
 	s_adv_note.generic.name = "fair-play polish only - occluded lights hidden";
 	s_adv_note.generic.x = 160;
-	s_adv_note.generic.y = 170;
+	s_adv_note.generic.y = 180;
 
 	s_adv_back_action.generic.type = MTYPE_ACTION;
 	s_adv_back_action.generic.name = "back";
 	s_adv_back_action.generic.x = 0;
-	s_adv_back_action.generic.y = 190;
+	s_adv_back_action.generic.y = 200;
 	s_adv_back_action.generic.callback = AdvancedMenuBack;
 
 	Menu_AddItem( &s_software_menu, ( void * ) &s_ref_list[SOFTWARE_MENU] );
@@ -991,6 +1005,7 @@ void EXPORT VID_MenuInit( void )
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_dynamic_box );
 	Menu_AddItem( &s_opengl_menu, ( void * ) &s_advanced_action );
 
+	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_lessyellow_box );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_lmfilter_box );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_dlight_slider );
 	Menu_AddItem( &s_advanced_menu, ( void * ) &s_adv_warpamp_slider );

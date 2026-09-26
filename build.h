@@ -1,4 +1,7 @@
-#define BUILD "8064"
+#define BUILD "8065"
+/* BUILD 8065: gl_less_yellow defaults on. Video -> Advanced Settings toggle
+ * "less harsh yellow lighting" eases sodium-yellow lightmaps toward warm
+ * white and leaves red, green, blue, and orange accent lights alone. */
 /* BUILD 8064: keep desktop mouse input out of the game; preserve command
  * angles on zero-time input samples; use elapsed background command time.
  * Fixes client-generated angle reversals seen by legacy Arena bot checks. */

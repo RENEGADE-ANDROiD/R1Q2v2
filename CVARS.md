@@ -132,6 +132,7 @@ Local install helper (Steam path only, gitignored `tools/`): patches a live Quak
 | `gl_warp_speed` | `1.5` | Water/slime warp timing scale (`1` = classic). Default **`1.5`**. Range about `0`-`3`. **Archived.** Video -> **Advanced Settings**. |
 | `gl_subdivide` | `32` | Warp surface tessellation size at map load (`64` = classic). Default **`32`** (finer water mesh). Needs a map reload / reconnect. Clamped ~16-128. **Archived.** Video -> **Advanced Settings** (64/48/32). |
 | `gl_coloredlightmaps` | `1` | Colored lightmaps. |
+| `gl_less_yellow` | `1` | Less harsh yellow lighting. **`1`** (default) lifts sodium-yellow baked light toward warm white. Red, green, blue, and orange accent lights stay. **`0`** is the classic yellow cast. Takes effect on the next frame (lightmaps reupload in place). **Archived.** Video -> **Advanced Settings**. |
 | `gl_finish` | `0` | Call `glFinish` each frame (can hurt FPS). Leave off. |
 | `gl_flush` | `0` | Call `glFlush` before each 3D view (can hurt FPS). Leave off. |
 | `gl_defertext` | `0` | Opt-in: draw all 2D text at EndFrame (changes layering vs pics). Console/HUD chars are already batched in order; you usually do not need this. |
@@ -161,6 +162,7 @@ seta gl_softparticles "1"
 seta gl_dlight_shader "1"
 seta gl_normalmaps "1"
 seta gl_ambient_lift "0.04"
+seta gl_less_yellow "1"
 seta gl_waterfog "0.35"
 ```
 

@@ -316,6 +316,7 @@ extern	cvar_t	*gl_softparticles;   /* depth-fade particles; 0=off */
 extern	cvar_t	*gl_dlight_shader;   /* per-pixel world dlights; 0=off */
 extern	cvar_t	*gl_normalmaps;      /* use _norm/_bump if the pack ships them */
 extern	cvar_t	*gl_ambient_lift;    /* mild LM fill 0..0.1 hard cap; 0=off */
+extern	cvar_t	*gl_less_yellow;     /* 1=ease sodium-yellow light toward warm white */
 extern	cvar_t	*gl_warp_amp;        /* water/slime warp amplitude scale */
 extern	cvar_t	*gl_warp_speed;      /* water/slime warp time scale */
 extern	cvar_t	*gl_subdivide;       /* warp tessellation size (map load); 64 classic */

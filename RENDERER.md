@@ -44,6 +44,7 @@ Still fixed-function R1GL. Build 8061 new-player defaults match Advanced Setting
 - **`gl_world_corona`:** `classname light` entities from `LUMP_ENTITIES`. Sprite only — no extra dlights.
 - **`gl_light_shafts`:** short additive streak on visible lights. Not volumetric god rays.
 - **`gl_overbrights`:** existing 2× lightmap combine, now on Advanced Settings and archived. TexEnv follows the cvar immediately (the old `modified` short-circuit left it stuck on modulate).
+- **`gl_less_yellow`:** default **on**. Video -> Advanced Settings, "less harsh yellow lighting". Baked yellow (R and G both high and close, B low) has blue lifted toward warm white. Orange, red, green, and blue stay. Static lightmaps reupload in place when the toggle changes.
 
 No FBO, bloom, or player glow in slice 1. Surface dlight marking is unchanged (classic Q2 can still light a floor through a thin wall).
 

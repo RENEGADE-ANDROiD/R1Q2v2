@@ -1305,12 +1305,70 @@ static void R_RecursiveWorldNode (mnode_t *node, int planebits)
 
 /*
 =============
+R_ReloadStaticLightmaps
+
+Re-upload baked lightmaps in place so gl_less_yellow applies without a map
+reload. Polygon lightmap coordinates stay put; only the atlas texels change.
+=============
+*/
+static void R_ReloadStaticLightmaps (void)
+{
+	int i;
+
+	if (!r_worldmodel || !r_worldmodel->surfaces || !r_newrefdef.lightstyles)
+		return;
+	if (!gl_state.lightmap_textures)
+		return;
+
+	for (i = 0; i < r_worldmodel->numsurfaces; i++)
+	{
+		msurface_t *fa = &r_worldmodel->surfaces[i];
+		unsigned temp[34 * 34];
+		int smax, tmax;
+
+		if (!fa->texinfo || fa->lightmaptexturenum <= 0)
+			continue;
+		if (fa->texinfo->flags & (SURF_SKY|SURF_TRANS33|SURF_TRANS66|SURF_WARP|SURF_DRAWSKY|SURF_DRAWTURB))
+			continue;
+
+		smax = (fa->extents[0] >> 4) + 1;
+		tmax = (fa->extents[1] >> 4) + 1;
+		if (smax < 1 || tmax < 1 || smax > 34 || tmax > 34)
+			continue;
+
+		R_BuildLightMap (fa, (void *)temp, smax * 4);
+		R_SetCacheState (fa);
+
+		GL_Bind (gl_state.lightmap_textures + fa->lightmaptexturenum);
+		qglTexSubImage2D (GL_TEXTURE_2D, 0,
+			fa->light_s, fa->light_t,
+			smax, tmax,
+			GL_LIGHTMAP_FORMAT, GL_UNSIGNED_BYTE, temp);
+	}
+}
+
+static void R_EaseYellowLightmaps (void)
+{
+	if (!gl_less_yellow || !gl_less_yellow->modified)
+		return;
+	if (!r_worldmodel || !r_worldmodel->surfaces || !r_newrefdef.lightstyles
+		|| !gl_state.lightmap_textures)
+		return;
+
+	gl_less_yellow->modified = false;
+	R_ReloadStaticLightmaps ();
+}
+
+/*
+=============
 R_DrawWorld
 =============
 */
 void R_DrawWorld (void)
 {
 	entity_t	ent;
+
+	R_EaseYellowLightmaps ();
 
 	if (FLOAT_EQ_ZERO (r_drawworld->value))
 		return;
@@ -1846,4 +1904,7 @@ void GL_EndBuildingLightmaps (void)
 {
 	LM_UploadBlock( false );
 	GL_EnableMultitexture( false );
+	/* Map load just baked the current gl_less_yellow value. */
+	if (gl_less_yellow)
+		gl_less_yellow->modified = false;
 }

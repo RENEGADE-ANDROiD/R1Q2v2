@@ -566,6 +566,41 @@ static void R_DrawOneLightSprite (vec3_t origin, vec3_t color, float intensity,
 
 /*
 =============
+R_EaseYellow
+
+Sodium-yellow baked light (R and G both high, B low, R close to G) gets its
+blue channel lifted toward the dimmer of R/G. Orange, red, green, and blue
+fail the balance test and stay. Off when gl_less_yellow is 0.
+=============
+*/
+static void R_EaseYellow (float *r, float *g, float *b)
+{
+	float rr, gg, bb, rg, peak, bal;
+
+	if (!gl_less_yellow || !FLOAT_GT_ZERO (gl_less_yellow->value))
+		return;
+
+	rr = *r;
+	gg = *g;
+	bb = *b;
+	if (rr < 0.0f) rr = 0.0f;
+	if (gg < 0.0f) gg = 0.0f;
+	if (bb < 0.0f) bb = 0.0f;
+
+	rg = (rr < gg) ? rr : gg;
+	peak = (rr > gg) ? rr : gg;
+	if (peak <= 0.0f || rg <= bb)
+		return;
+
+	bal = rg / peak;
+	if (bal < 0.65f)
+		return;
+
+	*b = bb + (rg - bb) * 0.62f * bal;
+}
+
+/*
+=============
 R_DrawDlightCoronas
 
 Soft additive corona / optional shaft at light origins.
@@ -655,6 +690,7 @@ void R_DrawDlightCoronas (void)
 					continue;
 			}
 
+			R_EaseYellow (&lit[0], &lit[1], &lit[2]);
 			R_DrawOneLightSprite (wl->origin, lit, intensity, world_s, world_shaft, true);
 		}
 	}
@@ -962,6 +998,8 @@ void R_LightPoint (vec3_t p, vec3_t color)
 			}
 		}
 	}
+
+	R_EaseYellow (&color[0], &color[1], &color[2]);
 
 	if (FLOAT_NE_ZERO(gl_doublelight_entities->value))
 		VectorScale (color, gl_modulate->value, color);
@@ -1332,6 +1370,18 @@ store:
 					if (colors[1] > 255) colors[1] = 255;
 					if (colors[2] > 255) colors[2] = 255;
 				}
+			}
+
+			if (gl_less_yellow && FLOAT_GT_ZERO (gl_less_yellow->value))
+			{
+				float fr = (float)colors[0];
+				float fg = (float)colors[1];
+				float fb = (float)colors[2];
+
+				R_EaseYellow (&fr, &fg, &fb);
+				colors[0] = (int)(fr + 0.5f);
+				colors[1] = (int)(fg + 0.5f);
+				colors[2] = (int)(fb + 0.5f);
 			}
 
 			/*
