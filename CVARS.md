@@ -1,29 +1,29 @@
 # R1Q2v2 console variables
 
-Useful client settings for **R1Q2v2 (Build 8041+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree â€” only ones players typically want.
+Useful client settings for **R1Q2v2 (Build 8041+)**. Defaults are engine defaults unless noted. This is not every cvar in the tree, only ones players typically want.
 
 ## How to use
 
 - Console: `` ` `` then `cvar value` (example: `scr_menuscale 2.5`)
-- `seta name value` â€” same, and marks the cvar for `config.cfg` when archived
+- `seta name value`, same, and marks the cvar for `config.cfg` when archived
 - Put keepers in `baseq2/autoexec.cfg` so they survive menu / `config.cfg` rewrites
-- `writeconfig` / `writecfg` â€” save binds + archived cvars to `<gamedir>/config.cfg` immediately (same as quit; no filename arg)
+- `writeconfig` / `writecfg`, save binds + archived cvars to `<gamedir>/config.cfg` immediately (same as quit; no filename arg)
 - Many Video Options rows already map to the cvars below
 
-**Not in this client:** Q2PRO-only names like `cl_movement_feel_mode`, `cl_mouse_behavior_mode`, `scr_scale` (HUD uses `scr_hudscale`), `sys_viewlog` (no AllocConsole client window). There is no Q2PRO pmove. For classic jump *timing* use **sync physics** (`cl_async 0`) â€” that only locks render FPS to `cl_maxfps`. Default `cl_async 1` is stock R1Q2 async and is the natural R1Q2 feel. Capture with **F12** / `screenshot`, not the Win10 Print Screen key.
+**Not in this client:** Q2PRO-only names like `cl_movement_feel_mode`, `cl_mouse_behavior_mode`, `scr_scale` (HUD uses `scr_hudscale`), `sys_viewlog` (no AllocConsole client window). There is no Q2PRO pmove. For classic jump *timing* use **sync physics** (`cl_async 0`), that only locks render FPS to `cl_maxfps`. Default `cl_async 1` is stock R1Q2 async and is the natural R1Q2 feel. Capture with **F12** / `screenshot`, not the Win10 Print Screen key.
 
 ---
 
 ## Video / display
 
-R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2PROâ€™s `vid_geometry`). On first run, `gl_mode` and `sw_mode` default to your **desktop resolution index** in the mode list (`VID_GetDesktopModeIndex`).
+R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2PRO's `vid_geometry`). On first run, `gl_mode` and `sw_mode` default to your **desktop resolution index** in the mode list (`VID_GetDesktopModeIndex`).
 
 | Cvar | Default | Notes |
 |------|---------|--------|
 | `vid_ref` | `r1gl` | Renderer module. **R1GL only** on the Video menu (`ref_r1gl.dll`). Saved `vid_ref gl` / `ncgl` / `soft` remap to `r1gl` on init. Stock `ref_gl.dll` and software are not selectable (black / missing DLL on Win10). |
 | `vid_fullscreen` | `0` | `1` fullscreen, `0` windowed. |
 | `vid_borderless` | `0` | `1` = borderless windowed fullscreen (no exclusive `ChangeDisplaySettings`). **Archived.** Also used automatically when the requested size matches the current desktop mode. Prefer this on ultrawide if exclusive fullscreen fails. Alias intent: same idea as a `vid_desktopfs` flag. |
-| `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid indexed values fall back to the previous mode (often 320Ã—240 if mode `0`). Custom `-1` stays sticky when force dims are set. |
+| `gl_mode` | desktop index | OpenGL mode list index. `-1` = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid indexed values fall back to the previous mode (often 320—240 if mode `0`). Custom `-1` stays sticky when force dims are set. |
 | `sw_mode` | desktop index | Software renderer mode index (video menu). Keep in sync with `gl_mode` if you use both paths. |
 | `vid_forcewidth` | `0` | Target width in pixels. **Archived.** When non-zero, overrides the width from `gl_mode` (including indexed modes, not only `-1`). Added to the mode menu list on init / `vid_restart`. |
 | `vid_forceheight` | `0` | Target height in pixels. **Archived.** When non-zero, overrides the height from `gl_mode`. |
@@ -33,42 +33,42 @@ R1Q2v2 uses **`gl_mode`** + **`vid_forcewidth`** / **`vid_forceheight`** (not Q2
 | `gl_bitdepth` | `0` | Color depth request; `0` = default. |
 | `vid_xpos` / `vid_ypos` | `3` / `22` | Window position (windowed). |
 
-**Stable `gl_mode` indices (hard-coded prefix):** Modes `0`â€“`27` are fixed across machines. `EnumDisplaySettings` may append extra resolutions after that with **machine-specific** indices â€” those extras never reorder the prefix.
+**Stable `gl_mode` indices (hard-coded prefix):** Modes `0`,`27` are fixed across machines. `EnumDisplaySettings` may append extra resolutions after that with **machine-specific** indices â€” those extras never reorder the prefix.
 
 | Index | Resolution | Notes |
 |------:|------------|--------|
-| 0 | 320Ã—240 | Classic |
-| 1 | 640Ã—480 | Classic |
-| 2 | 800Ã—600 | Classic |
-| 3 | 1024Ã—768 | Classic |
-| 4 | 1152Ã—864 | Classic |
-| 5 | 1280Ã—960 | Classic |
-| 6 | 1280Ã—1024 | Classic |
-| 7 | 1600Ã—1200 | Classic |
-| 8 | 1280Ã—720 | 16:9 |
-| 9 | 1366Ã—768 | 16:9 |
-| 10 | 1600Ã—900 | 16:9 |
-| **11** | **1920Ã—1080** | **16:9 (stable 1080p)** |
-| 12 | 2560Ã—1440 | 16:9 |
-| 13 | 3840Ã—2160 | 16:9 |
-| 14 | 1280Ã—800 | 16:10 |
-| 15 | 1440Ã—900 | 16:10 |
-| 16 | 1680Ã—1050 | 16:10 |
-| 17 | 1920Ã—1200 | 16:10 |
-| 18 | 2560Ã—1600 | 16:10 |
-| 19 | 2560Ã—1080 | Ultrawide 21:9 |
-| **20** | **3440Ã—1440** | **Ultrawide 21:9 (stable)** |
-| 21 | 3840Ã—1600 | Ultrawide 21:9 |
-| 22 | 5120Ã—1440 | Ultrawide 21:9 |
-| 23 | 1920Ã—1440 | Other |
-| 24 | 2048Ã—1152 | Other |
-| 25 | 2880Ã—1800 | Other |
-| 26 | 3200Ã—1800 | Other |
-| 27 | 5120Ã—2160 | Other |
+| 0 | 320—240 | Classic |
+| 1 | 640—480 | Classic |
+| 2 | 800—600 | Classic |
+| 3 | 1024—768 | Classic |
+| 4 | 1152—864 | Classic |
+| 5 | 1280—960 | Classic |
+| 6 | 1280—1024 | Classic |
+| 7 | 1600—1200 | Classic |
+| 8 | 1280—720 | 16:9 |
+| 9 | 1366—768 | 16:9 |
+| 10 | 1600—900 | 16:9 |
+| **11** | **1920—1080** | **16:9 (stable 1080p)** |
+| 12 | 2560—1440 | 16:9 |
+| 13 | 3840—2160 | 16:9 |
+| 14 | 1280—800 | 16:10 |
+| 15 | 1440—900 | 16:10 |
+| 16 | 1680—1050 | 16:10 |
+| 17 | 1920—1200 | 16:10 |
+| 18 | 2560—1600 | 16:10 |
+| 19 | 2560—1080 | Ultrawide 21:9 |
+| **20** | **3440—1440** | **Ultrawide 21:9 (stable)** |
+| 21 | 3840—1600 | Ultrawide 21:9 |
+| 22 | 5120—1440 | Ultrawide 21:9 |
+| 23 | 1920—1440 | Other |
+| 24 | 2048—1152 | Other |
+| 25 | 2880—1800 | Other |
+| 26 | 3200—1800 | Other |
+| 27 | 5120—2160 | Other |
 
-**1080p preset:** Use stable **`gl_mode 11`** (1920Ã—1080). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) sets that index and still pairs `vid_forcewidth` / `vid_forceheight` as a backup. Prefer the indexed mode over `gl_mode -1` when the size is in the table. Avoid mixing `gl_mode -1` with a saved indexed mode â€” that mismatch can stick you at 320Ã—240.
+**1080p preset:** Use stable **`gl_mode 11`** (1920—1080). Shipped [`baseq2/r1q2v2_visual.cfg`](baseq2/r1q2v2_visual.cfg) sets that index and still pairs `vid_forcewidth` / `vid_forceheight` as a backup. Prefer the indexed mode over `gl_mode -1` when the size is in the table. Avoid mixing `gl_mode -1` with a saved indexed mode, that mismatch can stick you at 320—240.
 
-**Ultrawide (3440Ã—1440 and cousins):** Use stable **`gl_mode 20`**, or keep force dims. Working recipe for 3440Ã—1440:
+**Ultrawide (3440—1440 and cousins):** Use stable **`gl_mode 20`**, or keep force dims. Working recipe for 3440—1440:
 
 ```
 seta vid_fullscreen "1"
@@ -83,10 +83,10 @@ vid_restart
 (`gl_mode -1` + force dims still works if you prefer custom-only.)
 
 Notes:
-- There is **no** `r_customwidth` / `r_customheight` in R1Q2v2 â€” use `vid_forcewidth` / `vid_forceheight` (with `gl_mode -1` for sizes outside the table, or alongside an indexed mode as override).
-- If desktop is already 3440Ã—1440, the engine uses **borderless** automatically even with `vid_borderless 0` (skips exclusive CDS).
+- There is **no** `r_customwidth` / `r_customheight` in R1Q2v2. use `vid_forcewidth` / `vid_forceheight` (with `gl_mode -1` for sizes outside the table, or alongside an indexed mode as override).
+- If desktop is already 3440—1440, the engine uses **borderless** automatically even with `vid_borderless 0` (skips exclusive CDS).
 - If exclusive CDS fails for a non-desktop size, it falls back to borderless at the requested size (console: `falling back to borderless windowed fullscreen`) instead of the old dual-monitor `width*2` hack.
-- Non-zero `vid_forcewidth` / `vid_forceheight` **override** whatever `gl_mode` you pick â€” change or zero them when leaving a preset, or the 1920Ã—1080 force dims in shipped `r1q2v2_visual.cfg` will keep you at 1080p if you `exec` that file.
+- Non-zero `vid_forcewidth` / `vid_forceheight` **override** whatever `gl_mode` you pick, change or zero them when leaving a preset, or the 1920—1080 force dims in shipped `r1q2v2_visual.cfg` will keep you at 1080p if you `exec` that file.
 - Hor+ FOV (`cl_adjustfov 1`) and wide HUD (`scr_hudwide 1`) already apply on 21:9.
 - The video menu lists the hard-coded modes even when the GPU did not enumerate them; selecting may use borderless / CDS fallback.
 
@@ -317,7 +317,7 @@ There is no `cl_snaps` in this tree.
 | `skin` | `male/grunt` | Player skin (userinfo). |
 | `password` | `""` | Server password (userinfo). |
 | `spectator` | `0` | Join as spectator. |
-| `adr0` â€¦ `adr15` | `""` | Address Book favorites (Join Server bookmarks). |
+| `adr0` - `adr15` | `""` | Address Book favorites (Join Server bookmarks). |
 | `rcon_password` / `rcon_address` | `""` | Remote console. |
 | `cl_filterchat` | `0` | Filter chat messages. |
 | `cl_demospeed` | `1` | Demo playback speed 0.1â€“8 (`demospeed`). Saved. |
@@ -347,7 +347,7 @@ These are often **not** written to `config.cfg` â€” keep them in `autoexec.
 | `cl_deferstats` | `0` | Developer/debug: every ~2s prints deferred-asset queue depth, overflow drop count, ms of last `CL_ProcessDeferredAsset`, force-drain flag, pending sexed-prefetch models, and map-prep index (`-1` = done). No gameplay/feel change. |
 | `cl_async` | `1` | Sync physics when `0`. Saved. Not Q2PRO pmove. |
 | `cl_autorecord` | `0` | Auto-record demos on map start. |
-| `cl_railtrail` | `0` | Xania-style rail colors `1`â€“`5`; `0` off. |
+| `cl_railtrail` | `0` | Xania-style rail colors `1`.`5`; `0` off. |
 
 ---
 
@@ -367,7 +367,7 @@ These are often **not** written to `config.cfg` â€” keep them in `autoexec.
 
 | Command | Notes |
 |---------|--------|
-| `writeconfig` | Flush key bindings and archived cvars (`seta` / `CVAR_ARCHIVE`) to `<gamedir>/config.cfg` **now** â€” same write path used on quit. Prints `Wrote <gamedir>/config.cfg` on success. **No filename argument in v1** (always `config.cfg`). |
+| `writeconfig` | Flush key bindings and archived cvars (`seta` / `CVAR_ARCHIVE`) to `<gamedir>/config.cfg` **now**, same write path used on quit. Prints `Wrote <gamedir>/config.cfg` on success. **No filename argument in v1** (always `config.cfg`). |
 | `writecfg` | Alias for `writeconfig`. |
 
 ---
