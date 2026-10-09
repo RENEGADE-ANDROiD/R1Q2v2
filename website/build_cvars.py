@@ -138,7 +138,6 @@ def build():
     titles = dict(headings)
     options = '\n'.join(f'<option value="{key}">{html.escape(titles[key])}</option>' for key in categories)
     home = (ROOT / 'docs/index.html').read_text(encoding='utf-8')
-    support = re.search(r'(<section class="section support-section".*?</section>)', home, re.S).group(1)
     footer = re.search(r'(<footer class="site-footer">.*?</footer>)', home, re.S).group(1)
     page = f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111311"><title>CVAR guide — R1Q2v2</title><meta name="description" content="Search R1Q2v2 console settings for display, graphics, HUD, crosshair, input, sound, networking and demos. Generated from CVARS.md."><link rel="canonical" href="https://renegade-android.github.io/R1Q2v2/cvars.html"><link rel="icon" href="assets/mark.svg"><link rel="stylesheet" href="assets/site.css"><script src="assets/cvars.js" defer></script></head>
@@ -146,7 +145,7 @@ def build():
 <main><section class="reference-hero"><p class="eyebrow">THE CONSOLE / REFERENCE</p><h1>Console variables</h1><p>Search R1Q2v2 console settings by name or description, or select a category. Defaults, notes, and examples come from the repository’s CVARS.md. This guide covers commonly useful settings, rather than every engine variable.</p><a class="text-link" href="{REPO}CVARS.md">View the original CVARS.md ↗</a></section>
 <form class="reference-toolbar" role="search" id="cvar-search-form"><div><label for="cvar-search">FIND A SETTING</label><input type="search" id="cvar-search" name="q" placeholder="Try crosshair, widescreen, gl_less_yellow…" autocomplete="off" aria-controls="reference-content"></div><div><label for="cvar-category">CATEGORY</label><select id="cvar-category" name="category" aria-controls="reference-content"><option value="">All categories</option>{options}</select></div><p class="search-meta" id="search-status" role="status" aria-live="polite">{count} documented settings. Defaults and notes from CVARS.md.</p></form>
 <div class="reference-layout"><nav class="reference-sidebar" aria-label="Reference sections">{sidebar}</nav><article class="reference-content" id="reference-content">{content}<p class="empty-search" id="empty-search" hidden>No matching settings. Try a shorter name or choose another category.</p></article></div>
-{support}</main>{footer}</body></html>'''
+</main>{footer}</body></html>'''
     (ROOT / 'docs/cvars.html').write_text(page, encoding='utf-8')
     print(f'Generated docs/cvars.html: {count} settings, {len(categories)} searchable categories.')
 
