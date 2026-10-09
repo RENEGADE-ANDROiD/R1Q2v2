@@ -72,8 +72,6 @@ if (document.querySelector('[data-release-download]')) {
       const zip = release.assets?.find(asset => /^R1Q2v2-\d+-win32\.zip$/i.test(asset.name));
       if (!zip || !zip.browser_download_url?.startsWith('https://github.com/RENEGADE-ANDROiD/R1Q2v2/releases/download/')) return;
       document.querySelectorAll('[data-release-download]').forEach(link => { link.href = zip.browser_download_url; });
-      const build = zip.name.match(/R1Q2v2-(\d+)/i)[1];
-      document.querySelectorAll('[data-release-label]').forEach(label => { label.textContent = `Build ${build}`; });
       if (release.html_url?.startsWith('https://github.com/RENEGADE-ANDROiD/R1Q2v2/releases/tag/')) document.querySelectorAll('[data-release-notes]').forEach(link => { link.href = release.html_url; });
       const checksum = release.assets.find(asset => asset.name === `${zip.name}.sha256`);
       if (checksum?.browser_download_url?.startsWith('https://github.com/RENEGADE-ANDROiD/R1Q2v2/releases/download/')) document.querySelectorAll('[data-release-checksum]').forEach(link => { link.href = checksum.browser_download_url; });

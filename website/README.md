@@ -16,9 +16,9 @@ python -m http.server 4174 --directory docs
 
 Downloads start with a verified Build 8065 asset URL and refresh from GitHub's
 latest-release API when it is available. If the API is unavailable or rate
-limited, the existing download continues to work. Feature descriptions and
-captures describe Build 8065 and should be reviewed when a new release changes
-the demonstrated behavior.
+limited, the existing download continues to work. Public copy describes the
+client's features without build numbers. Review captures when their
+demonstrated behavior changes.
 
 ## Media provenance
 

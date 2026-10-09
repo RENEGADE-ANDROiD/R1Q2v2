@@ -23,7 +23,7 @@
 <a href="#multiplayer-identity">Multiplayer / identity</a>
 <a href="#r1q2-extras-options-r1q2">R1Q2 extras (Options → R1Q2)</a>
 <a href="#misc">Misc</a>
-<a href="#quick-presets">Quick presets</a></nav><article class="reference-content" id="reference-content"><p data-section="introduction">Useful client settings for <strong>R1Q2v2 (Build 8041+)</strong>. Defaults are engine defaults unless noted. This is not every cvar in the tree, only ones players typically want.</p>
+<a href="#quick-presets">Quick presets</a></nav><article class="reference-content" id="reference-content"><p data-section="introduction">Useful client settings for <strong>R1Q2v2</strong>. Defaults are engine defaults unless noted. This is not every cvar in the tree, only ones players typically want.</p>
 <h2 id="how-to-use" data-section="how-to-use">How to use</h2>
 <ul data-section="how-to-use">
 <li>Console: <code>`</code> then <code>cvar value</code> (example: <code>scr_menuscale 2.5</code>)</li>
@@ -382,7 +382,7 @@ vid_restart</code></pre>
 <tr data-cvar="r_mp_visual_lean" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-r-mp-visual-lean">
 <td><code>r_mp_visual_lean</code><button class="copy-cvar" type="button" data-copy="r_mp_visual_lean" aria-label="Copy r_mp_visual_lean">Copy name</button></td>
 <td><code>1</code></td>
-<td><strong>BUILD 8062/8063.</strong> When on (default), and the client is in multiplayer (<code>CS_MAXCLIENTS</code> &gt; 1 → <code>r_water_alpha_ok</code> 2), the renderer treats expensive FX as <strong>effective-off</strong> without overwriting archived SP <code>seta</code> values: bloom, godrays, soft particles, world corona, light shafts, normal maps, dlight shader, dynamic lights, shadows, light corona, ambient lift, waterfog. <strong>8063:</strong> lean stays engaged across map changes (ClearState no longer clears <code>r_water_alpha_ok</code>); disconnect still restores full SP visuals. Singleplayer / disconnected / baseq2 local keep full visuals. Set <code>0</code> to disable the auto lean. Does <strong>not</strong> force <code>vid_restart</code> for MSAA — lower <code>gl_msaa</code> yourself if needed. <strong>Archived.</strong> Client-side only; fair-play.</td>
+<td>When on (default), and the client is in multiplayer (<code>CS_MAXCLIENTS</code> &gt; 1 → <code>r_water_alpha_ok</code> 2), the renderer treats expensive FX as <strong>effective-off</strong> without overwriting archived SP <code>seta</code> values: bloom, godrays, soft particles, world corona, light shafts, normal maps, dlight shader, dynamic lights, shadows, light corona, ambient lift, waterfog. Lean stays engaged across map changes (ClearState no longer clears <code>r_water_alpha_ok</code>); disconnect still restores full SP visuals. Singleplayer / disconnected / baseq2 local keep full visuals. Set <code>0</code> to disable the auto lean. Does <strong>not</strong> force <code>vid_restart</code> for MSAA — lower <code>gl_msaa</code> yourself if needed. <strong>Archived.</strong> Client-side only; fair-play.</td>
 </tr>
 <tr data-cvar="gl_bloom" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-bloom">
 <td><code>gl_bloom</code><button class="copy-cvar" type="button" data-copy="gl_bloom" aria-label="Copy gl_bloom">Copy name</button></td>
@@ -500,7 +500,7 @@ vid_restart</code></pre>
 <td>Interpolate model frames.</td>
 </tr>
 </tbody></table></div>
-<p data-section="graphics-quality-r1gl">Build 8061/8062 Advanced Settings defaults (new installs; also <code>r1q2v2_visual.cfg</code>):</p>
+<p data-section="graphics-quality-r1gl">Advanced Settings defaults (new installs; also <code>r1q2v2_visual.cfg</code>):</p>
 <pre><code>seta gl_lightmap_filter &quot;1&quot;
 seta gl_dlight_falloff &quot;1.4&quot;
 seta gl_warp_amp &quot;1.5&quot;
@@ -831,7 +831,7 @@ bind MOUSE3 +railzoom</code></pre>
 </tr>
 </tbody></table></div>
 <p data-section="input-mouse"><code>in_mouse</code> is the master switch for mouse look; <code>m_directinput</code> only picks the backend while mouse is enabled. DirectInput does <strong>not</strong> replace or bypass <code>in_mouse</code>. Recommended crisp combo: <code>in_mouse 1</code>, <code>m_directinput 2</code>, <code>m_filter 0</code>. <code>m_filter 1</code> averages deltas for a smoother feel and is independent of DI mode.</p>
-<p data-section="input-mouse"><strong>Alt-tab / multi-monitor:</strong> the client keeps sending usercmds while unfocused, using elapsed command time within the normal hitch limits. Desktop mouse movement does not control the game or set button activity. Commands preserve the current view even when the input clock has not advanced. Build 8064 removes the earlier background mouse/timing workaround: legacy Arena&#x27;s warning checks repeated aim-angle reversals, not the assumed q2admin timing signature. Prefer <code>vid_borderless 1</code> over exclusive fullscreen on more than one display. Default <code>m_directinput 0</code> (Win32 mouse) is the more reliable focus-restore path; DirectInput exclusive (<code>m_directinput 1</code>) can fail to reacquire until the window is truly foreground. No extra cvar is required.</p>
+<p data-section="input-mouse"><strong>Alt-tab / multi-monitor:</strong> the client keeps sending usercmds while unfocused, using elapsed command time within the normal hitch limits. Desktop mouse movement does not control the game or set button activity. Commands preserve the current view even when the input clock has not advanced. The client omits the earlier background mouse/timing workaround: legacy Arena&#x27;s warning checks repeated aim-angle reversals, not the assumed q2admin timing signature. Prefer <code>vid_borderless 1</code> over exclusive fullscreen on more than one display. Default <code>m_directinput 0</code> (Win32 mouse) is the more reliable focus-restore path; DirectInput exclusive (<code>m_directinput 1</code>) can fail to reacquire until the window is truly foreground. No extra cvar is required.</p>
 <p data-section="input-mouse"><strong><code>config.cfg</code> at startup:</strong> <code>exec default.cfg</code> then the loose <code>config.cfg</code> (gamedir, then <code>baseq2</code>, then next to the exe). A <code>.pak</code>/<code>.pkz</code> cannot shadow it. If there is no disk <code>config.cfg</code>, <code>Q2config.cfg</code> is used (Q2PRO/Yamagi). Console prints <code>execing config.cfg</code> so a miss is visible. <code>autoexec.cfg</code> is still run from <code>CL_Init</code> (and on gamedir change). Hidden <code>autoexec.cfg</code> is no longer skipped.</p>
 <h2 id="movement-prediction-view" data-section="movement-prediction-view">Movement, prediction, view</h2>
 <div class="reference-table-wrap" data-section="movement-prediction-view"><table class="cvar-table"><thead><tr>
@@ -934,7 +934,7 @@ bind MOUSE3 +railzoom</code></pre>
 <tr data-cvar="net_ignore_icmp" data-section="network-fps" id="cvar-network-fps-net-ignore-icmp">
 <td><code>net_ignore_icmp</code><button class="copy-cvar" type="button" data-copy="net_ignore_icmp" aria-label="Copy net_ignore_icmp">Copy name</button></td>
 <td><code>1</code></td>
-<td>Ignore ICMP port-unreachable on the UDP socket. Windows otherwise surfaces those as <code>WSAECONNRESET</code> with a <strong>stale</strong> recv buffer. <strong>Build 8050</strong> also disables <code>SIO_UDP_CONNRESET</code> / <code>SIO_UDP_NETRESET</code> and skips <code>i &lt; 0</code> in <code>CL_ReadPackets</code>.</td>
+<td>Ignore ICMP port-unreachable on the UDP socket. Windows otherwise surfaces those as <code>WSAECONNRESET</code> with a <strong>stale</strong> recv buffer. The client also disables <code>SIO_UDP_CONNRESET</code> / <code>SIO_UDP_NETRESET</code> and skips <code>i &lt; 0</code> in <code>CL_ReadPackets</code>.</td>
 </tr>
 <tr data-cvar="cl_http_downloads" data-section="network-fps" id="cvar-network-fps-cl-http-downloads">
 <td><code>cl_http_downloads</code><button class="copy-cvar" type="button" data-copy="cl_http_downloads" aria-label="Copy cl_http_downloads">Copy name</button></td>

@@ -20,6 +20,20 @@ def repair_encoding(text):
 def slug(text):
     return re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
 
+def feature_copy(text):
+    # Keep release history in CVARS.md; the website describes current behavior.
+    replacements = {
+        'R1Q2v2 (Build 8041+)': 'R1Q2v2',
+        '**BUILD 8062/8063.** ': '',
+        '**8063:** lean stays': 'Lean stays',
+        'Build 8061/8062 Advanced Settings defaults': 'Advanced Settings defaults',
+        'Build 8064 removes the earlier': 'The client omits the earlier',
+        '**Build 8050** also disables': 'The client also disables',
+    }
+    for before, after in replacements.items():
+        text = text.replace(before, after)
+    return text
+
 def inline(text):
     text = html.escape(text)
     tokens = []
@@ -118,7 +132,7 @@ def render_markdown(text):
     return '\n'.join(output), headings, categories, count
 
 def build():
-    text = repair_encoding(SOURCE.read_text(encoding='utf-8-sig'))
+    text = feature_copy(repair_encoding(SOURCE.read_text(encoding='utf-8-sig')))
     content, headings, categories, count = render_markdown(text)
     sidebar = '\n'.join(f'<a href="#{key}">{html.escape(title)}</a>' for key, title in headings)
     titles = dict(headings)
