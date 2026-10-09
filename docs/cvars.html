@@ -1,0 +1,1160 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111311"><title>CVAR guide — R1Q2v2</title><meta name="description" content="Search R1Q2v2 console settings for display, graphics, HUD, crosshair, input, sound, networking and demos. Generated from CVARS.md."><link rel="canonical" href="https://renegade-android.github.io/R1Q2v2/cvars.html"><link rel="icon" href="assets/mark.svg"><link rel="stylesheet" href="assets/site.css"><script src="assets/cvars.js" defer></script></head>
+<body class="reference-page"><a class="skip-link" href="#reference-content">Skip to reference</a><header class="site-header"><a class="brand" href="./"><img src="assets/mark.svg" width="32" height="32" alt=""><span>R1Q2<span class="brand-version">v2</span></span></a><nav aria-label="Main navigation"><a href="./#features">Features</a><a href="./#menus">Menus</a><a href="cvars.html" aria-current="page">CVAR guide ↗</a><a class="nav-download" href="./#download">Download ↓</a></nav></header>
+<main><section class="reference-hero"><p class="eyebrow">THE CONSOLE / REFERENCE</p><h1>Your settings.<br>Your way.</h1><p>Search useful R1Q2v2 console variables, learn what they do, and find their defaults. This page is generated from the repository’s CVARS.md. It covers commonly useful settings, rather than every engine variable.</p><a class="text-link" href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/blob/master/CVARS.md">View the original CVARS.md ↗</a></section>
+<form class="reference-toolbar" role="search" id="cvar-search-form"><div><label for="cvar-search">FIND A SETTING</label><input type="search" id="cvar-search" name="q" placeholder="Try crosshair, widescreen, gl_less_yellow…" autocomplete="off" aria-controls="reference-content"></div><div><label for="cvar-category">CATEGORY</label><select id="cvar-category" name="category" aria-controls="reference-content"><option value="">All categories</option><option value="video-display">Video / display</option>
+<option value="graphics-quality-r1gl">Graphics quality (R1GL)</option>
+<option value="hud-menus-console-crosshair">HUD, menus, console, crosshair</option>
+<option value="sound">Sound</option>
+<option value="input-mouse">Input / mouse</option>
+<option value="movement-prediction-view">Movement, prediction, view</option>
+<option value="network-fps">Network / FPS</option>
+<option value="multiplayer-identity">Multiplayer / identity</option>
+<option value="r1q2-extras-options-r1q2">R1Q2 extras (Options → R1Q2)</option>
+<option value="misc">Misc</option></select></div><p class="search-meta" id="search-status" role="status" aria-live="polite">159 documented settings. Defaults and notes from CVARS.md.</p></form>
+<div class="reference-layout"><nav class="reference-sidebar" aria-label="Reference sections"><a href="#how-to-use">How to use</a>
+<a href="#video-display">Video / display</a>
+<a href="#graphics-quality-r1gl">Graphics quality (R1GL)</a>
+<a href="#hud-menus-console-crosshair">HUD, menus, console, crosshair</a>
+<a href="#sound">Sound</a>
+<a href="#input-mouse">Input / mouse</a>
+<a href="#movement-prediction-view">Movement, prediction, view</a>
+<a href="#network-fps">Network / FPS</a>
+<a href="#multiplayer-identity">Multiplayer / identity</a>
+<a href="#r1q2-extras-options-r1q2">R1Q2 extras (Options → R1Q2)</a>
+<a href="#misc">Misc</a>
+<a href="#quick-presets">Quick presets</a></nav><article class="reference-content" id="reference-content"><p data-section="introduction">Useful client settings for <strong>R1Q2v2 (Build 8041+)</strong>. Defaults are engine defaults unless noted. This is not every cvar in the tree, only ones players typically want.</p>
+<h2 id="how-to-use" data-section="how-to-use">How to use</h2>
+<ul data-section="how-to-use">
+<li>Console: <code>`</code> then <code>cvar value</code> (example: <code>scr_menuscale 2.5</code>)</li>
+<li><code>seta name value</code>, same, and marks the cvar for <code>config.cfg</code> when archived</li>
+<li>Put keepers in <code>baseq2/autoexec.cfg</code> so they survive menu / <code>config.cfg</code> rewrites</li>
+<li><code>writeconfig</code> / <code>writecfg</code>, save binds + archived cvars to <code>&lt;gamedir&gt;/config.cfg</code> immediately (same as quit; no filename arg)</li>
+<li>Many Video Options rows already map to the cvars below</li>
+</ul>
+<p data-section="how-to-use"><strong>Not in this client:</strong> Q2PRO-only names like <code>cl_movement_feel_mode</code>, <code>cl_mouse_behavior_mode</code>, <code>scr_scale</code> (HUD uses <code>scr_hudscale</code>), <code>sys_viewlog</code> (no AllocConsole client window). There is no Q2PRO pmove. For classic jump <em>timing</em> use <strong>sync physics</strong> (<code>cl_async 0</code>), that only locks render FPS to <code>cl_maxfps</code>. Default <code>cl_async 1</code> is stock R1Q2 async and is the natural R1Q2 feel. Capture with <strong>F12</strong> / <code>screenshot</code>, not the Win10 Print Screen key.</p>
+<h2 id="video-display" data-section="video-display">Video / display</h2>
+<p data-section="video-display">R1Q2v2 uses <strong><code>gl_mode</code></strong> + <strong><code>vid_forcewidth</code></strong> / <strong><code>vid_forceheight</code></strong> (not Q2PRO&#x27;s <code>vid_geometry</code>). On first run, <code>gl_mode</code> and <code>sw_mode</code> default to your <strong>desktop resolution index</strong> in the mode list (<code>VID_GetDesktopModeIndex</code>).</p>
+<div class="reference-table-wrap" data-section="video-display"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="vid_ref" data-section="video-display" id="cvar-video-display-vid-ref">
+<td><code>vid_ref</code><button class="copy-cvar" type="button" data-copy="vid_ref" aria-label="Copy vid_ref">Copy name</button></td>
+<td><code>r1gl</code></td>
+<td>Renderer module. <strong>R1GL only</strong> on the Video menu (<code>ref_r1gl.dll</code>). Saved <code>vid_ref gl</code> / <code>ncgl</code> / <code>soft</code> remap to <code>r1gl</code> on init. Stock <code>ref_gl.dll</code> and software are not selectable (black / missing DLL on Win10).</td>
+</tr>
+<tr data-cvar="vid_fullscreen" data-section="video-display" id="cvar-video-display-vid-fullscreen">
+<td><code>vid_fullscreen</code><button class="copy-cvar" type="button" data-copy="vid_fullscreen" aria-label="Copy vid_fullscreen">Copy name</button></td>
+<td><code>0</code></td>
+<td><code>1</code> fullscreen, <code>0</code> windowed.</td>
+</tr>
+<tr data-cvar="vid_borderless" data-section="video-display" id="cvar-video-display-vid-borderless">
+<td><code>vid_borderless</code><button class="copy-cvar" type="button" data-copy="vid_borderless" aria-label="Copy vid_borderless">Copy name</button></td>
+<td><code>0</code></td>
+<td><code>1</code> = borderless windowed fullscreen (no exclusive <code>ChangeDisplaySettings</code>). <strong>Archived.</strong> Also used automatically when the requested size matches the current desktop mode. Prefer this on ultrawide if exclusive fullscreen fails. Alias intent: same idea as a <code>vid_desktopfs</code> flag.</td>
+</tr>
+<tr data-cvar="gl_mode" data-section="video-display" id="cvar-video-display-gl-mode">
+<td><code>gl_mode</code><button class="copy-cvar" type="button" data-copy="gl_mode" aria-label="Copy gl_mode">Copy name</button></td>
+<td>desktop index</td>
+<td>OpenGL mode list index. <code>-1</code> = custom size (uses force dims or desktop if unset). Indexed modes use the mode table first; invalid indexed values fall back to the previous mode (often 320—240 if mode <code>0</code>). Custom <code>-1</code> stays sticky when force dims are set.</td>
+</tr>
+<tr data-cvar="sw_mode" data-section="video-display" id="cvar-video-display-sw-mode">
+<td><code>sw_mode</code><button class="copy-cvar" type="button" data-copy="sw_mode" aria-label="Copy sw_mode">Copy name</button></td>
+<td>desktop index</td>
+<td>Software renderer mode index (video menu). Keep in sync with <code>gl_mode</code> if you use both paths.</td>
+</tr>
+<tr data-cvar="vid_forcewidth" data-section="video-display" id="cvar-video-display-vid-forcewidth">
+<td><code>vid_forcewidth</code><button class="copy-cvar" type="button" data-copy="vid_forcewidth" aria-label="Copy vid_forcewidth">Copy name</button></td>
+<td><code>0</code></td>
+<td>Target width in pixels. <strong>Archived.</strong> When non-zero, overrides the width from <code>gl_mode</code> (including indexed modes, not only <code>-1</code>). Added to the mode menu list on init / <code>vid_restart</code>.</td>
+</tr>
+<tr data-cvar="vid_forceheight" data-section="video-display" id="cvar-video-display-vid-forceheight">
+<td><code>vid_forceheight</code><button class="copy-cvar" type="button" data-copy="vid_forceheight" aria-label="Copy vid_forceheight">Copy name</button></td>
+<td><code>0</code></td>
+<td>Target height in pixels. <strong>Archived.</strong> When non-zero, overrides the height from <code>gl_mode</code>.</td>
+</tr>
+<tr data-cvar="gl_swapinterval" data-section="video-display" id="cvar-video-display-gl-swapinterval">
+<td><code>gl_swapinterval</code><button class="copy-cvar" type="button" data-copy="gl_swapinterval" aria-label="Copy gl_swapinterval">Copy name</button></td>
+<td><code>0</code></td>
+<td>Frame present / sync. <strong><code>0</code></strong> = unlocked (can tear). <strong><code>1</code></strong> = vsync (no tear; may add input lag). <strong><code>-1</code></strong> = adaptive sync / late-tear when the GPU supports it (VRR / FreeSync / Adaptive Sync); falls back to <code>1</code> if not. Video menu: off / on / adaptive. Does not change exclusive FS mode.</td>
+</tr>
+<tr data-cvar="vid_gamma" data-section="video-display" id="cvar-video-display-vid-gamma">
+<td><code>vid_gamma</code><button class="copy-cvar" type="button" data-copy="vid_gamma" aria-label="Copy vid_gamma">Copy name</button></td>
+<td><code>1.0</code></td>
+<td>Display gamma / brightness path used by the video menu.</td>
+</tr>
+<tr data-cvar="viewsize" data-section="video-display" id="cvar-video-display-viewsize">
+<td><code>viewsize</code><button class="copy-cvar" type="button" data-copy="viewsize" aria-label="Copy viewsize">Copy name</button></td>
+<td><code>100</code></td>
+<td>3D view percent; below 100 letterboxes the refresh.</td>
+</tr>
+<tr data-cvar="gl_bitdepth" data-section="video-display" id="cvar-video-display-gl-bitdepth">
+<td><code>gl_bitdepth</code><button class="copy-cvar" type="button" data-copy="gl_bitdepth" aria-label="Copy gl_bitdepth">Copy name</button></td>
+<td><code>0</code></td>
+<td>Color depth request; <code>0</code> = default.</td>
+</tr>
+<tr data-cvar="vid_xpos" data-section="video-display" id="cvar-video-display-vid-xpos">
+<td><code>vid_xpos</code> / <code>vid_ypos</code><button class="copy-cvar" type="button" data-copy="vid_xpos" aria-label="Copy vid_xpos">Copy name</button></td>
+<td><code>3</code> / <code>22</code></td>
+<td>Window position (windowed).</td>
+</tr>
+</tbody></table></div>
+<p data-section="video-display"><strong>Stable <code>gl_mode</code> indices (hard-coded prefix):</strong> Modes <code>0</code>,<code>27</code> are fixed across machines. <code>EnumDisplaySettings</code> may append extra resolutions after that with <strong>machine-specific</strong> indices — those extras never reorder the prefix.</p>
+<div class="reference-table-wrap" data-section="video-display"><table class="data-table"><thead><tr>
+<th scope="col">Index</th>
+<th scope="col">Resolution</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr>
+<td>0</td>
+<td>320—240</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>1</td>
+<td>640—480</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>2</td>
+<td>800—600</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1024—768</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>4</td>
+<td>1152—864</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>5</td>
+<td>1280—960</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>6</td>
+<td>1280—1024</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>7</td>
+<td>1600—1200</td>
+<td>Classic</td>
+</tr>
+<tr>
+<td>8</td>
+<td>1280—720</td>
+<td>16:9</td>
+</tr>
+<tr>
+<td>9</td>
+<td>1366—768</td>
+<td>16:9</td>
+</tr>
+<tr>
+<td>10</td>
+<td>1600—900</td>
+<td>16:9</td>
+</tr>
+<tr>
+<td><strong>11</strong></td>
+<td><strong>1920—1080</strong></td>
+<td><strong>16:9 (stable 1080p)</strong></td>
+</tr>
+<tr>
+<td>12</td>
+<td>2560—1440</td>
+<td>16:9</td>
+</tr>
+<tr>
+<td>13</td>
+<td>3840—2160</td>
+<td>16:9</td>
+</tr>
+<tr>
+<td>14</td>
+<td>1280—800</td>
+<td>16:10</td>
+</tr>
+<tr>
+<td>15</td>
+<td>1440—900</td>
+<td>16:10</td>
+</tr>
+<tr>
+<td>16</td>
+<td>1680—1050</td>
+<td>16:10</td>
+</tr>
+<tr>
+<td>17</td>
+<td>1920—1200</td>
+<td>16:10</td>
+</tr>
+<tr>
+<td>18</td>
+<td>2560—1600</td>
+<td>16:10</td>
+</tr>
+<tr>
+<td>19</td>
+<td>2560—1080</td>
+<td>Ultrawide 21:9</td>
+</tr>
+<tr>
+<td><strong>20</strong></td>
+<td><strong>3440—1440</strong></td>
+<td><strong>Ultrawide 21:9 (stable)</strong></td>
+</tr>
+<tr>
+<td>21</td>
+<td>3840—1600</td>
+<td>Ultrawide 21:9</td>
+</tr>
+<tr>
+<td>22</td>
+<td>5120—1440</td>
+<td>Ultrawide 21:9</td>
+</tr>
+<tr>
+<td>23</td>
+<td>1920—1440</td>
+<td>Other</td>
+</tr>
+<tr>
+<td>24</td>
+<td>2048—1152</td>
+<td>Other</td>
+</tr>
+<tr>
+<td>25</td>
+<td>2880—1800</td>
+<td>Other</td>
+</tr>
+<tr>
+<td>26</td>
+<td>3200—1800</td>
+<td>Other</td>
+</tr>
+<tr>
+<td>27</td>
+<td>5120—2160</td>
+<td>Other</td>
+</tr>
+</tbody></table></div>
+<p data-section="video-display"><strong>1080p preset:</strong> Use stable <strong><code>gl_mode 11</code></strong> (1920—1080). Shipped <a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/blob/master/baseq2/r1q2v2_visual.cfg"><code>baseq2/r1q2v2_visual.cfg</code></a> sets that index and still pairs <code>vid_forcewidth</code> / <code>vid_forceheight</code> as a backup. Prefer the indexed mode over <code>gl_mode -1</code> when the size is in the table. Avoid mixing <code>gl_mode -1</code> with a saved indexed mode, that mismatch can stick you at 320—240.</p>
+<p data-section="video-display"><strong>Ultrawide (3440—1440 and cousins):</strong> Use stable <strong><code>gl_mode 20</code></strong>, or keep force dims. Working recipe for 3440—1440:</p>
+<pre><code>seta vid_fullscreen &quot;1&quot;
+seta vid_borderless &quot;1&quot;
+seta gl_mode &quot;20&quot;
+seta sw_mode &quot;20&quot;
+seta vid_forcewidth &quot;3440&quot;
+seta vid_forceheight &quot;1440&quot;
+vid_restart</code></pre>
+<p data-section="video-display">(<code>gl_mode -1</code> + force dims still works if you prefer custom-only.)</p>
+<p data-section="video-display">Notes:</p>
+<ul data-section="video-display">
+<li>There is <strong>no</strong> <code>r_customwidth</code> / <code>r_customheight</code> in R1Q2v2. use <code>vid_forcewidth</code> / <code>vid_forceheight</code> (with <code>gl_mode -1</code> for sizes outside the table, or alongside an indexed mode as override).</li>
+<li>If desktop is already 3440—1440, the engine uses <strong>borderless</strong> automatically even with <code>vid_borderless 0</code> (skips exclusive CDS).</li>
+<li>If exclusive CDS fails for a non-desktop size, it falls back to borderless at the requested size (console: <code>falling back to borderless windowed fullscreen</code>) instead of the old dual-monitor <code>width*2</code> hack.</li>
+<li>Non-zero <code>vid_forcewidth</code> / <code>vid_forceheight</code> <strong>override</strong> whatever <code>gl_mode</code> you pick, change or zero them when leaving a preset, or the 1920—1080 force dims in shipped <code>r1q2v2_visual.cfg</code> will keep you at 1080p if you <code>exec</code> that file.</li>
+<li>Hor+ FOV (<code>cl_adjustfov 1</code>) and wide HUD (<code>scr_hudwide 1</code>) already apply on 21:9.</li>
+<li>The video menu lists the hard-coded modes even when the GPU did not enumerate them; selecting may use borderless / CDS fallback.</li>
+</ul>
+<p data-section="video-display">Local install helper (Steam path only, gitignored <code>tools/</code>): patches a live Quake II tree; 1080p is now stable index <strong>11</strong>.</p>
+<h2 id="graphics-quality-r1gl" data-section="graphics-quality-r1gl">Graphics quality (R1GL)</h2>
+<div class="reference-table-wrap" data-section="graphics-quality-r1gl"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="gl_picmip" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-picmip">
+<td><code>gl_picmip</code><button class="copy-cvar" type="button" data-copy="gl_picmip" aria-label="Copy gl_picmip">Copy name</button></td>
+<td><code>0</code></td>
+<td>Texture downsample. <code>0</code> = full res; higher = blurrier / faster.</td>
+</tr>
+<tr data-cvar="gl_texturemode" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-texturemode">
+<td><code>gl_texturemode</code><button class="copy-cvar" type="button" data-copy="gl_texturemode" aria-label="Copy gl_texturemode">Copy name</button></td>
+<td><code>GL_LINEAR_MIPMAP_LINEAR</code></td>
+<td>Filtering (trilinear default).</td>
+</tr>
+<tr data-cvar="gl_ext_max_anisotropy" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-ext-max-anisotropy">
+<td><code>gl_ext_max_anisotropy</code><button class="copy-cvar" type="button" data-copy="gl_ext_max_anisotropy" aria-label="Copy gl_ext_max_anisotropy">Copy name</button></td>
+<td><code>16</code></td>
+<td>Anisotropic filtering — keeps textures sharper when viewed at steep angles (floors/walls). Levels 1 / 2 / 4 / 8 / 16; clamped to the GPU max at init. <strong>Archived.</strong> Video menu row.</td>
+</tr>
+<tr data-cvar="gl_anisotropy" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-anisotropy">
+<td><code>gl_anisotropy</code><button class="copy-cvar" type="button" data-copy="gl_anisotropy" aria-label="Copy gl_anisotropy">Copy name</button></td>
+<td><code>16</code></td>
+<td>Same as <code>gl_ext_max_anisotropy</code> (sharper angled textures; default 16; HW-clamped). Convenience alias that copies into <code>gl_ext_max_anisotropy</code> when changed. <strong>Archived.</strong></td>
+</tr>
+<tr data-cvar="gl_ext_texture_filter_anisotropic" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-ext-texture-filter-anisotropic">
+<td><code>gl_ext_texture_filter_anisotropic</code><button class="copy-cvar" type="button" data-copy="gl_ext_texture_filter_anisotropic" aria-label="Copy gl_ext_texture_filter_anisotropic">Copy name</button></td>
+<td><code>1</code></td>
+<td>Master enable for the anisotropy extension.</td>
+</tr>
+<tr data-cvar="gl_msaa" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-msaa">
+<td><code>gl_msaa</code><button class="copy-cvar" type="button" data-copy="gl_msaa" aria-label="Copy gl_msaa">Copy name</button></td>
+<td><code>0</code></td>
+<td>Multisample anti-aliasing — smooths jagged polygon edges. Values: <strong><code>0</code></strong> off (default, classic crisp), <strong><code>2</code> / <code>4</code> / <code>8</code></strong>. Cost is mainly GPU fill-rate. Maps to <code>gl_ext_multisample</code> + <code>gl_ext_samples</code>. <strong>Requires <code>vid_restart</code></strong> (pixel format). <strong>Archived.</strong> Video menu row.</td>
+</tr>
+<tr data-cvar="gl_ext_multisample" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-ext-multisample">
+<td><code>gl_ext_multisample</code><button class="copy-cvar" type="button" data-copy="gl_ext_multisample" aria-label="Copy gl_ext_multisample">Copy name</button></td>
+<td><code>0</code></td>
+<td>Legacy enable flag for WGL MSAA pixel format (<code>1</code> on). Prefer <code>gl_msaa</code>. Needs <code>vid_restart</code>.</td>
+</tr>
+<tr data-cvar="gl_ext_samples" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-ext-samples">
+<td><code>gl_ext_samples</code><button class="copy-cvar" type="button" data-copy="gl_ext_samples" aria-label="Copy gl_ext_samples">Copy name</button></td>
+<td><code>2</code></td>
+<td>Legacy MSAA sample count when <code>gl_ext_multisample</code> is on. Prefer <code>gl_msaa</code>.</td>
+</tr>
+<tr data-cvar="gl_texture_lodbias" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-texture-lodbias">
+<td><code>gl_texture_lodbias</code><button class="copy-cvar" type="button" data-copy="gl_texture_lodbias" aria-label="Copy gl_texture_lodbias">Copy name</button></td>
+<td><code>0</code></td>
+<td>Texture sharpen (video menu). Negative values sharpen world textures (about <code>0</code> … <code>-4</code>).</td>
+</tr>
+<tr data-cvar="gl_linear_mipmaps" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-linear-mipmaps">
+<td><code>gl_linear_mipmaps</code><button class="copy-cvar" type="button" data-copy="gl_linear_mipmaps" aria-label="Copy gl_linear_mipmaps">Copy name</button></td>
+<td><code>1</code></td>
+<td>Prefer linear mipmap generation.</td>
+</tr>
+<tr data-cvar="gl_modulate" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-modulate">
+<td><code>gl_modulate</code><button class="copy-cvar" type="button" data-copy="gl_modulate" aria-label="Copy gl_modulate">Copy name</button></td>
+<td><code>2</code></td>
+<td>Lightmap / world brightness (video “Lightmap” slider).</td>
+</tr>
+<tr data-cvar="intensity" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-intensity">
+<td><code>intensity</code><button class="copy-cvar" type="button" data-copy="intensity" aria-label="Copy intensity">Copy name</button></td>
+<td><code>2</code></td>
+<td>Texture intensity table (clamped ≥ 1).</td>
+</tr>
+<tr data-cvar="gl_shadows" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-shadows">
+<td><code>gl_shadows</code><button class="copy-cvar" type="button" data-copy="gl_shadows" aria-label="Copy gl_shadows">Copy name</button></td>
+<td><code>0</code></td>
+<td>Projected model shadows: <strong><code>0</code></strong> off, <strong><code>1</code></strong> basic, <strong><code>2</code></strong> height-faded, <strong><code>3</code></strong> soft multi-sample. <strong>Archived.</strong> Video menu row.</td>
+</tr>
+<tr data-cvar="gl_dynamic" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-dynamic">
+<td><code>gl_dynamic</code><button class="copy-cvar" type="button" data-copy="gl_dynamic" aria-label="Copy gl_dynamic">Copy name</button></td>
+<td><code>1</code></td>
+<td>Dynamic lights from weapons / explosions.</td>
+</tr>
+<tr data-cvar="gl_flashblend" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-flashblend">
+<td><code>gl_flashblend</code><button class="copy-cvar" type="button" data-copy="gl_flashblend" aria-label="Copy gl_flashblend">Copy name</button></td>
+<td><code>0</code></td>
+<td>Draw dlights as blend sprites instead of lighting surfaces.</td>
+</tr>
+<tr data-cvar="gl_dlight_falloff" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-dlight-falloff">
+<td><code>gl_dlight_falloff</code><button class="copy-cvar" type="button" data-copy="gl_dlight_falloff" aria-label="Copy gl_dlight_falloff">Copy name</button></td>
+<td><code>1.4</code></td>
+<td>Dynamic-light attenuation curve. <strong><code>0</code></strong> = classic linear. <strong><code>1</code></strong> (or up to <code>2</code>) = smoother quadratic falloff on the same dlights - softer edges, no extra through-wall brightness. Default <strong><code>1.4</code></strong>. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_lightmap_filter" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-lightmap-filter">
+<td><code>gl_lightmap_filter</code><button class="copy-cvar" type="button" data-copy="gl_lightmap_filter" aria-label="Copy gl_lightmap_filter">Copy name</button></td>
+<td><code>1</code></td>
+<td>Lightmap texture sampling. <strong><code>1</code></strong> = linear (smoother LM; aniso-friendly when anisotropy is on). <strong><code>0</code></strong> = nearest (blockier classic LM). Does not change visibility or reveal occluded geometry. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_light_corona" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-light-corona">
+<td><code>gl_light_corona</code><button class="copy-cvar" type="button" data-copy="gl_light_corona" aria-label="Copy gl_light_corona">Copy name</button></td>
+<td><code>0.35</code></td>
+<td>Soft corona sprite at dynamic-light origins (weapons / explosions). <strong>LOS-tested</strong> through the BSP so occluded lights do <strong>not</strong> show (no wallhack). Depth-tested as a second clip. <strong><code>0</code></strong> = off. Default <strong><code>0.35</code></strong>. Menu yes/no writes <code>0</code>/<code>1</code>. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_world_corona" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-world-corona">
+<td><code>gl_world_corona</code><button class="copy-cvar" type="button" data-copy="gl_world_corona" aria-label="Copy gl_world_corona">Copy name</button></td>
+<td><code>0.35</code></td>
+<td>Soft glow disc on <strong>surface-mounted</strong> map lamps (<code>classname light</code> within ~56 units of a ceiling/wall). Fill lights floating in empty space are skipped. Procedural corona texture (not <code>particle.png</code>). Same LOS test as dlight coronas. Does <strong>not</strong> add extra dynamic lights. <strong><code>0</code></strong> = off. Default <strong><code>0.35</code></strong>. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_light_shafts" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-light-shafts">
+<td><code>gl_light_shafts</code><button class="copy-cvar" type="button" data-copy="gl_light_shafts" aria-label="Copy gl_light_shafts">Copy name</button></td>
+<td><code>0.35</code></td>
+<td>Short additive streak toward the camera on <strong>visible</strong> lights only. Dlights when this is on; world lamps only if <code>gl_world_corona</code> is also on. Occluded lights produce no pixels. <strong><code>0</code></strong> = off. Default <strong><code>0.35</code></strong>. Not volumetric god rays / bloom. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_overbrights" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-overbrights">
+<td><code>gl_overbrights</code><button class="copy-cvar" type="button" data-copy="gl_overbrights" aria-label="Copy gl_overbrights">Copy name</button></td>
+<td><code>1</code></td>
+<td>2× lightmap combine (<code>GL_RGB_SCALE</code>). Makes world lighting pop; can wash HD texture packs. Default <strong>on</strong>. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="r_mp_visual_lean" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-r-mp-visual-lean">
+<td><code>r_mp_visual_lean</code><button class="copy-cvar" type="button" data-copy="r_mp_visual_lean" aria-label="Copy r_mp_visual_lean">Copy name</button></td>
+<td><code>1</code></td>
+<td><strong>BUILD 8062/8063.</strong> When on (default), and the client is in multiplayer (<code>CS_MAXCLIENTS</code> &gt; 1 → <code>r_water_alpha_ok</code> 2), the renderer treats expensive FX as <strong>effective-off</strong> without overwriting archived SP <code>seta</code> values: bloom, godrays, soft particles, world corona, light shafts, normal maps, dlight shader, dynamic lights, shadows, light corona, ambient lift, waterfog. <strong>8063:</strong> lean stays engaged across map changes (ClearState no longer clears <code>r_water_alpha_ok</code>); disconnect still restores full SP visuals. Singleplayer / disconnected / baseq2 local keep full visuals. Set <code>0</code> to disable the auto lean. Does <strong>not</strong> force <code>vid_restart</code> for MSAA — lower <code>gl_msaa</code> yourself if needed. <strong>Archived.</strong> Client-side only; fair-play.</td>
+</tr>
+<tr data-cvar="gl_bloom" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-bloom">
+<td><code>gl_bloom</code><button class="copy-cvar" type="button" data-copy="gl_bloom" aria-label="Copy gl_bloom">Copy name</button></td>
+<td><code>1</code></td>
+<td>On-screen bloom of <strong>already visible</strong> bright pixels (explosions, lamps). <strong>On/off only</strong> — intensity is hardcoded (~0.20 add, high extract threshold, one blur pass) so it cannot be cranked into a through-wall glow. HUD is not bloomed. Occluded lights cannot leak. Default <strong>on</strong>. Any value <code>&gt;0</code> turns it on at the cap. Needs FBO+GLSL. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_godrays" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-godrays">
+<td><code>gl_godrays</code><button class="copy-cvar" type="button" data-copy="gl_godrays" aria-label="Copy gl_godrays">Copy name</button></td>
+<td><code>0.35</code></td>
+<td>Radial light shafts toward a <strong>LOS-visible</strong> on-screen light, using the 3D color buffer only. <strong><code>0</code></strong> = off. Default <strong><code>0.35</code></strong>. Not a wallhack. Needs FBO+GLSL. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_softparticles" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-softparticles">
+<td><code>gl_softparticles</code><button class="copy-cvar" type="button" data-copy="gl_softparticles" aria-label="Copy gl_softparticles">Copy name</button></td>
+<td><code>1</code></td>
+<td>Fade particles as they approach walls using a copy of scene depth. Default <strong>on</strong>. Needs FBO+GLSL. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_dlight_shader" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-dlight-shader">
+<td><code>gl_dlight_shader</code><button class="copy-cvar" type="button" data-copy="gl_dlight_shader" aria-label="Copy gl_dlight_shader">Copy name</button></td>
+<td><code>1</code></td>
+<td>Per-pixel dynamic lights on world surfaces (GLSL). Replaces the CPU <code>s_blocklights</code> patch so explosions are round instead of lightmap squares. Surfaces whose centroid is occluded from the light are not marked (no stain through a thin wall). Default <strong>on</strong>. Needs GLSL. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_normalmaps" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-normalmaps">
+<td><code>gl_normalmaps</code><button class="copy-cvar" type="button" data-copy="gl_normalmaps" aria-label="Copy gl_normalmaps">Copy name</button></td>
+<td><code>1</code></td>
+<td>If <code>gl_dlight_shader</code> is on, look for <code>textures/&lt;name&gt;_norm</code> / <code>_n</code> / <code>_bump</code> next to the diffuse. No file = no extra pass. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_ambient_lift" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-ambient-lift">
+<td><code>gl_ambient_lift</code><button class="copy-cvar" type="button" data-copy="gl_ambient_lift" aria-label="Copy gl_ambient_lift">Copy name</button></td>
+<td><code>0.04</code></td>
+<td>Tiny fill added to lightmaps (and matching entity light samples) so pitch-black is less crushed. Hard-capped at <strong>0.1</strong> linear (~25/255). Default <strong><code>0.04</code></strong>. Not night-vision. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_wateralpha" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-wateralpha">
+<td><code>gl_wateralpha</code><button class="copy-cvar" type="button" data-copy="gl_wateralpha" aria-label="Copy gl_wateralpha">Copy name</button></td>
+<td><code>0</code></td>
+<td><strong>Single-player override only.</strong> Map-authored TRANS33/66 warp water renders at its exact 0.33 / 0.66 alpha in every mode. In SP, <code>&gt;0</code> overrides that alpha (clamped 0.15–1). The override is ignored when <code>maxclients &gt; 1</code>; plain untagged warp water always stays opaque. Not archived. Console only — not on the Video menu.</td>
+</tr>
+<tr data-cvar="gl_waterfog" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-waterfog">
+<td><code>gl_waterfog</code><button class="copy-cvar" type="button" data-copy="gl_waterfog" aria-label="Copy gl_waterfog">Copy name</button></td>
+<td><code>0.35</code></td>
+<td>Subtle distance fog while the camera is inside water/slime/lava. <strong><code>0</code></strong> disables it; range <strong><code>0</code>–<code>1</code></strong> controls strength. Uses the liquid view tint and does not change surface transparency. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_warp_amp" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-warp-amp">
+<td><code>gl_warp_amp</code><button class="copy-cvar" type="button" data-copy="gl_warp_amp" aria-label="Copy gl_warp_amp">Copy name</button></td>
+<td><code>1.5</code></td>
+<td>Water/slime warp amplitude scale (<code>1</code> = classic). Default <strong><code>1.5</code></strong>. Range about <code>0</code>-<code>2</code>. Does not change transparency / SURF_TRANS rules. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_warp_speed" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-warp-speed">
+<td><code>gl_warp_speed</code><button class="copy-cvar" type="button" data-copy="gl_warp_speed" aria-label="Copy gl_warp_speed">Copy name</button></td>
+<td><code>1.5</code></td>
+<td>Water/slime warp timing scale (<code>1</code> = classic). Default <strong><code>1.5</code></strong>. Range about <code>0</code>-<code>3</code>. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_subdivide" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-subdivide">
+<td><code>gl_subdivide</code><button class="copy-cvar" type="button" data-copy="gl_subdivide" aria-label="Copy gl_subdivide">Copy name</button></td>
+<td><code>32</code></td>
+<td>Warp surface tessellation size at map load (<code>64</code> = classic). Default <strong><code>32</code></strong> (finer water mesh). Needs a map reload / reconnect. Clamped ~16-128. <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong> (64/48/32).</td>
+</tr>
+<tr data-cvar="gl_coloredlightmaps" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-coloredlightmaps">
+<td><code>gl_coloredlightmaps</code><button class="copy-cvar" type="button" data-copy="gl_coloredlightmaps" aria-label="Copy gl_coloredlightmaps">Copy name</button></td>
+<td><code>1</code></td>
+<td>Colored lightmaps.</td>
+</tr>
+<tr data-cvar="gl_less_yellow" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-less-yellow">
+<td><code>gl_less_yellow</code><button class="copy-cvar" type="button" data-copy="gl_less_yellow" aria-label="Copy gl_less_yellow">Copy name</button></td>
+<td><code>1</code></td>
+<td>Less harsh yellow lighting. <strong><code>1</code></strong> (default) lifts sodium-yellow baked light toward warm white. Red, green, blue, and orange accent lights stay. <strong><code>0</code></strong> is the classic yellow cast. Takes effect on the next frame (lightmaps reupload in place). <strong>Archived.</strong> Video -&gt; <strong>Advanced Settings</strong>.</td>
+</tr>
+<tr data-cvar="gl_finish" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-finish">
+<td><code>gl_finish</code><button class="copy-cvar" type="button" data-copy="gl_finish" aria-label="Copy gl_finish">Copy name</button></td>
+<td><code>0</code></td>
+<td>Call <code>glFinish</code> each frame (can hurt FPS). Leave off.</td>
+</tr>
+<tr data-cvar="gl_flush" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-flush">
+<td><code>gl_flush</code><button class="copy-cvar" type="button" data-copy="gl_flush" aria-label="Copy gl_flush">Copy name</button></td>
+<td><code>0</code></td>
+<td>Call <code>glFlush</code> before each 3D view (can hurt FPS). Leave off.</td>
+</tr>
+<tr data-cvar="gl_defertext" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-defertext">
+<td><code>gl_defertext</code><button class="copy-cvar" type="button" data-copy="gl_defertext" aria-label="Copy gl_defertext">Copy name</button></td>
+<td><code>0</code></td>
+<td>Opt-in: draw all 2D text at EndFrame (changes layering vs pics). Console/HUD chars are already batched in order; you usually do not need this.</td>
+</tr>
+<tr data-cvar="gl_polyblend" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-polyblend">
+<td><code>gl_polyblend</code><button class="copy-cvar" type="button" data-copy="gl_polyblend" aria-label="Copy gl_polyblend">Copy name</button></td>
+<td><code>0</code></td>
+<td>Full-screen damage / powerup tint (default <strong>off</strong> in R1Q2v2).</td>
+</tr>
+<tr data-cvar="cl_blend" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-cl-blend">
+<td><code>cl_blend</code><button class="copy-cvar" type="button" data-copy="cl_blend" aria-label="Copy cl_blend">Copy name</button></td>
+<td><code>0</code></td>
+<td>Client blend effects (default <strong>off</strong>).</td>
+</tr>
+<tr data-cvar="gl_texture_formats" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-texture-formats">
+<td><code>gl_texture_formats</code><button class="copy-cvar" type="button" data-copy="gl_texture_formats" aria-label="Copy gl_texture_formats">Copy name</button></td>
+<td><code>png jpg tga</code></td>
+<td>High-res wall try order before <code>.wal</code>.</td>
+</tr>
+<tr data-cvar="gl_pic_formats" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-pic-formats">
+<td><code>gl_pic_formats</code><button class="copy-cvar" type="button" data-copy="gl_pic_formats" aria-label="Copy gl_pic_formats">Copy name</button></td>
+<td><code>png jpg tga</code></td>
+<td>High-res 2D pic try order.</td>
+</tr>
+<tr data-cvar="gl_pic_scale" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-pic-scale">
+<td><code>gl_pic_scale</code><button class="copy-cvar" type="button" data-copy="gl_pic_scale" aria-label="Copy gl_pic_scale">Copy name</button></td>
+<td><code>1</code></td>
+<td>Enables stock-PCX size hints when loading hi-res pic replacements.</td>
+</tr>
+<tr data-cvar="gl_jpg_quality" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-gl-jpg-quality">
+<td><code>gl_jpg_quality</code><button class="copy-cvar" type="button" data-copy="gl_jpg_quality" aria-label="Copy gl_jpg_quality">Copy name</button></td>
+<td><code>90</code></td>
+<td>Quality for <code>screenshot jpg</code>.</td>
+</tr>
+<tr data-cvar="r_lerpmodels" data-section="graphics-quality-r1gl" id="cvar-graphics-quality-r1gl-r-lerpmodels">
+<td><code>r_lerpmodels</code><button class="copy-cvar" type="button" data-copy="r_lerpmodels" aria-label="Copy r_lerpmodels">Copy name</button></td>
+<td><code>1</code></td>
+<td>Interpolate model frames.</td>
+</tr>
+</tbody></table></div>
+<p data-section="graphics-quality-r1gl">Build 8061/8062 Advanced Settings defaults (new installs; also <code>r1q2v2_visual.cfg</code>):</p>
+<pre><code>seta gl_lightmap_filter &quot;1&quot;
+seta gl_dlight_falloff &quot;1.4&quot;
+seta gl_warp_amp &quot;1.5&quot;
+seta gl_warp_speed &quot;1.5&quot;
+seta gl_subdivide &quot;32&quot;
+seta gl_light_corona &quot;0.35&quot;
+seta gl_world_corona &quot;0.35&quot;
+seta gl_light_shafts &quot;0.35&quot;
+seta gl_overbrights &quot;1&quot;
+seta gl_bloom &quot;1&quot;
+seta gl_godrays &quot;0.35&quot;
+seta gl_softparticles &quot;1&quot;
+seta gl_dlight_shader &quot;1&quot;
+seta gl_normalmaps &quot;1&quot;
+seta gl_ambient_lift &quot;0.04&quot;
+seta gl_less_yellow &quot;1&quot;
+seta gl_waterfog &quot;0.35&quot;</code></pre>
+<p data-section="graphics-quality-r1gl">(<code>gl_subdivide</code> needs map reload. Coronas/shafts are LOS-tested: occluded explosions and lamps stay hidden. <code>gl_dlight_shader 1</code> also skips occluded surfaces. No see-through or player glow.)</p>
+<p data-section="graphics-quality-r1gl">HD drop-ins: see <a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/blob/master/README.md">README.md</a> (<code>.pkz</code> packs, loose <code>textures/</code> / <code>env/</code> replacements).</p>
+<h2 id="hud-menus-console-crosshair" data-section="hud-menus-console-crosshair">HUD, menus, console, crosshair</h2>
+<div class="reference-table-wrap" data-section="hud-menus-console-crosshair"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="scr_menuscale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-menuscale">
+<td><code>scr_menuscale</code><button class="copy-cvar" type="button" data-copy="scr_menuscale" aria-label="Copy scr_menuscale">Copy name</button></td>
+<td><code>0</code></td>
+<td>Menu text scale. <code>0</code> = auto (~height/480, clamped 1–6). Try <code>2.5</code> at 1080p.</td>
+</tr>
+<tr data-cvar="scr_menupicscale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-menupicscale">
+<td><code>scr_menupicscale</code><button class="copy-cvar" type="button" data-copy="scr_menupicscale" aria-label="Copy scr_menupicscale">Copy name</button></td>
+<td><code>1.2</code></td>
+<td>Extra scale for menu PCX art (banners, plaques) on top of menu scale (clamped 1–2).</td>
+</tr>
+<tr data-cvar="con_scale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-con-scale">
+<td><code>con_scale</code><button class="copy-cvar" type="button" data-copy="con_scale" aria-label="Copy con_scale">Copy name</button></td>
+<td><code>0</code></td>
+<td>Console / notify text scale. <code>0</code> = auto (~height/540, clamped 1-6; ~2.0 at 1080p — softer than menu auto). Explicit values work; try <code>1.75</code>-<code>2.0</code> at 1080p if auto still feels large. Shipped <code>r1q2v2_visual.cfg</code> sets <code>2.0</code>.</td>
+</tr>
+<tr data-cvar="scr_hudscale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-hudscale">
+<td><code>scr_hudscale</code><button class="copy-cvar" type="button" data-copy="scr_hudscale" aria-label="Copy scr_hudscale">Copy name</button></td>
+<td><code>1</code></td>
+<td><strong>Stock status bar only</strong> (~0.5-2.5). Menus, crosshair, and custom server/mod statusbars keep their authored layout. Presets must use this, not <code>gl_hudscale</code>.</td>
+</tr>
+<tr data-cvar="scr_layoutscale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-layoutscale">
+<td><code>scr_layoutscale</code><button class="copy-cvar" type="button" data-copy="scr_layoutscale" aria-label="Copy scr_layoutscale">Copy name</button></td>
+<td><code>0</code></td>
+<td><strong>In-game layout menus</strong> (<code>STAT_LAYOUTS</code> / <code>cl.layout</code>, and <code>CS_STATUSBAR</code> strings that are menus — <code>picn</code>/<code>cstring</code> without <code>hnum</code>, e.g. TastySpleen/RA MOTD). <code>0</code> = auto (~height/480, clamped 1-6). <code>1</code> = classic tiny 8px. Maps <code>xv</code>/<code>xl</code>/<code>xr</code> onto a centered 320-wide canvas and <code>yt</code>/<code>yv</code>/<code>yb</code> onto a centered 240-tall canvas, including when scale is 1. Numeric status bar (<code>hnum</code>/<code>anum</code>) still uses <code>scr_hud_top</code> / <code>scr_hudwide</code> / <code>scr_hudscale</code>.</td>
+</tr>
+<tr data-cvar="scr_hud_top" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-hud-top">
+<td><code>scr_hud_top</code><button class="copy-cvar" type="button" data-copy="scr_hud_top" aria-label="Copy scr_hud_top">Copy name</button></td>
+<td><code>0</code></td>
+<td><strong>Stock status bar only.</strong> <code>1</code> draws the status bar at the top. Does not affect custom server/mod statusbars, Arena/RA team menus, help, inventory, or other <code>STAT_LAYOUTS</code> UIs.</td>
+</tr>
+<tr data-cvar="scr_hudwide" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-hudwide">
+<td><code>scr_hudwide</code><button class="copy-cvar" type="button" data-copy="scr_hudwide" aria-label="Copy scr_hudwide">Copy name</button></td>
+<td><code>1</code></td>
+<td><strong>Stock status bar only.</strong> On screens wider than 4:3, pin health/ammo left and armor/weapon right. Off = the original 320-wide centered strip. Saved. Custom server/mod statusbars keep their original coordinates.</td>
+</tr>
+<tr data-cvar="gl_hudscale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-gl-hudscale">
+<td><code>gl_hudscale</code><button class="copy-cvar" type="button" data-copy="gl_hudscale" aria-label="Copy gl_hudscale">Copy name</button></td>
+<td><code>1</code></td>
+<td>Legacy whole-2D scale. Any later <code>seta</code> is redirected into <code>scr_hudscale</code> (if still <code>1</code>) and forced back to <code>1</code>.</td>
+</tr>
+<tr data-cvar="crosshair" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-crosshair">
+<td><code>crosshair</code><button class="copy-cvar" type="button" data-copy="crosshair" aria-label="Copy crosshair">Copy name</button></td>
+<td><code>0</code></td>
+<td><code>crosshair N</code> loads <code>pics/chN</code> (TGA/PNG/PCX OK). <code>0</code> = off (does <strong>not</strong> draw <code>ch0</code>). <code>1</code>+ uses stock <code>ch1</code>…<code>ch3</code>, or higher if the pic exists.</td>
+</tr>
+<tr data-cvar="ch1" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch1">
+<td><code>ch1</code> / <code>ch2</code> / <code>ch3</code><button class="copy-cvar" type="button" data-copy="ch1" aria-label="Copy ch1">Copy name</button></td>
+<td>empty</td>
+<td>Free-name overlay slots (Q2PRO-style). Pic name only, e.g. <code>ch2</code> or <code>ch3</code>. Drawn on top of <code>crosshair</code> when non-empty and not cleared. <strong>Clear with <code>chN 0</code></strong> (client treats <code>string[0]==&#x27;0&#x27;</code> as cleared in <code>cl_scrn.c</code>). Do <strong>not</strong> use <code>ch1 &quot;&quot;</code> — Quake tokenizes away empty quotes so the set never sticks (footgun). Drawn at native size × <code>ch_scale</code> × <code>chN_scale</code> (large vignettes need a high scale or a full-res asset).</td>
+</tr>
+<tr data-cvar="ch_scale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-scale">
+<td><code>ch_scale</code><button class="copy-cvar" type="button" data-copy="ch_scale" aria-label="Copy ch_scale">Copy name</button></td>
+<td><code>1</code></td>
+<td>Scale for the stock crosshair and all <code>ch1</code>–<code>ch3</code> layers. Options slider (0.1–4). Saved.</td>
+</tr>
+<tr data-cvar="ch_red" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-red">
+<td><code>ch_red</code> / <code>ch_green</code> / <code>ch_blue</code><button class="copy-cvar" type="button" data-copy="ch_red" aria-label="Copy ch_red">Copy name</button></td>
+<td><code>1</code></td>
+<td>Crosshair tint 0–1. Options → Crosshair setup. Saved.</td>
+</tr>
+<tr data-cvar="ch_alpha" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-alpha">
+<td><code>ch_alpha</code><button class="copy-cvar" type="button" data-copy="ch_alpha" aria-label="Copy ch_alpha">Copy name</button></td>
+<td><code>1</code></td>
+<td>Crosshair opacity 0.1–1. Saved.</td>
+</tr>
+<tr data-cvar="ch_health" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-health">
+<td><code>ch_health</code><button class="copy-cvar" type="button" data-copy="ch_health" aria-label="Copy ch_health">Copy name</button></td>
+<td><code>0</code></td>
+<td><code>1</code> = green→yellow→red from current HP (overrides RGB). Saved.</td>
+</tr>
+<tr data-cvar="ch1_scale" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch1-scale">
+<td><code>ch1_scale</code> / <code>ch2_scale</code> / <code>ch3_scale</code><button class="copy-cvar" type="button" data-copy="ch1_scale" aria-label="Copy ch1_scale">Copy name</button></td>
+<td><code>1</code></td>
+<td>Per-layer scale on top of <code>ch_scale</code> (0.1–4). Final size = native × <code>ch_scale</code> × <code>chN_scale</code>. Saved.</td>
+</tr>
+<tr data-cvar="ch_x" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-x">
+<td><code>ch_x</code> / <code>ch_y</code><button class="copy-cvar" type="button" data-copy="ch_x" aria-label="Copy ch_x">Copy name</button></td>
+<td><code>0</code> / <code>0</code></td>
+<td>Live crosshair pixel offset for the <strong>current</strong> <code>hand</code>. Options → Crosshair setup sliders write these and the matching per-hand slot. Saved.</td>
+</tr>
+<tr data-cvar="ch_x_right" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-x-right">
+<td><code>ch_x_right</code> / <code>ch_y_right</code><button class="copy-cvar" type="button" data-copy="ch_x_right" aria-label="Copy ch_x_right">Copy name</button></td>
+<td><code>0</code> / <code>0</code></td>
+<td>Offset used when <code>hand</code> is right (0). Auto-applied when you switch handedness. Saved.</td>
+</tr>
+<tr data-cvar="ch_x_left" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-x-left">
+<td><code>ch_x_left</code> / <code>ch_y_left</code><button class="copy-cvar" type="button" data-copy="ch_x_left" aria-label="Copy ch_x_left">Copy name</button></td>
+<td><code>0</code> / <code>0</code></td>
+<td>Offset used when <code>hand</code> is left (1). Saved.</td>
+</tr>
+<tr data-cvar="ch_x_center" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-ch-x-center">
+<td><code>ch_x_center</code> / <code>ch_y_center</code><button class="copy-cvar" type="button" data-copy="ch_x_center" aria-label="Copy ch_x_center">Copy name</button></td>
+<td><code>0</code> / <code>0</code></td>
+<td>Offset used when <code>hand</code> is center (2). Saved.</td>
+</tr>
+<tr data-cvar="scr_crosshair_x" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-crosshair-x">
+<td><code>scr_crosshair_x</code> / <code>scr_crosshair_y</code><button class="copy-cvar" type="button" data-copy="scr_crosshair_x" aria-label="Copy scr_crosshair_x">Copy name</button></td>
+<td><code>0</code> / <code>0</code></td>
+<td>Extra pixel offset added on top of the per-hand slot (session; not archived).</td>
+</tr>
+<tr data-cvar="scr_alpha" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-alpha">
+<td><code>scr_alpha</code><button class="copy-cvar" type="button" data-copy="scr_alpha" aria-label="Copy scr_alpha">Copy name</button></td>
+<td><code>1</code></td>
+<td>Status-bar opacity (Options → R1Q2). Saved.</td>
+</tr>
+<tr data-cvar="loc_enable" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-loc-enable">
+<td><code>loc_enable</code><button class="copy-cvar" type="button" data-copy="loc_enable" aria-label="Copy loc_enable">Copy name</button></td>
+<td><code>1</code></td>
+<td>Draw nearest <code>.loc</code> name on the HUD. Saved.</td>
+</tr>
+<tr data-cvar="cl_adjustfov" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-adjustfov">
+<td><code>cl_adjustfov</code><button class="copy-cvar" type="button" data-copy="cl_adjustfov" aria-label="Copy cl_adjustfov">Copy name</button></td>
+<td><code>1</code></td>
+<td>Hor+ FOV: keep 4:3 vertical FOV, widen on widescreen. Saved.</td>
+</tr>
+<tr data-cvar="cl_forcecolors" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-forcecolors">
+<td><code>cl_forcecolors</code><button class="copy-cvar" type="button" data-copy="cl_forcecolors" aria-label="Copy cl_forcecolors">Copy name</button></td>
+<td><code>0</code></td>
+<td><strong>Client-side only.</strong> Tint other players’ skins with the enemy/team color (skin stays visible). Does not change your first-person view weapon. Multiplayer → Multiplayer settings. Saved. Does not change what the server or other clients see.</td>
+</tr>
+<tr data-cvar="cl_enemycolor" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-enemycolor">
+<td><code>cl_enemycolor</code><button class="copy-cvar" type="button" data-copy="cl_enemycolor" aria-label="Copy cl_enemycolor">Copy name</button></td>
+<td><code>1</code></td>
+<td>Forced enemy tint: <code>0</code> default (no tint), <code>1</code> red … <code>14</code> lilac (see Multiplayer settings). FFA: all other players. Team: opposite Arena <code>r2red</code>/<code>r2blue</code> or CTF <code>ctf_r</code>/<code>ctf_b</code> skin. Saved.</td>
+</tr>
+<tr data-cvar="cl_teamcolor" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-teamcolor">
+<td><code>cl_teamcolor</code><button class="copy-cvar" type="button" data-copy="cl_teamcolor" aria-label="Copy cl_teamcolor">Copy name</button></td>
+<td><code>6</code></td>
+<td>Forced teammate tint (same indices as <code>cl_enemycolor</code>). Matching Arena <code>r2red</code>/<code>r2blue</code> or CTF <code>ctf_r</code>/<code>ctf_b</code> skins. Saved.</td>
+</tr>
+<tr data-cvar="cl_forcecolor_alpha" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-forcecolor-alpha">
+<td><code>cl_forcecolor_alpha</code><button class="copy-cvar" type="button" data-copy="cl_forcecolor_alpha" aria-label="Copy cl_forcecolor_alpha">Copy name</button></td>
+<td><code>0.5</code></td>
+<td>Force-color opacity. <code>0</code> = original skin, <code>0.5</code> = mix (slider middle), <code>1</code> = solid chosen color (replaces skin). Saved. Only applies when <code>cl_forcecolors</code> is on.</td>
+</tr>
+<tr data-cvar="cl_enemyfullbright" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-enemyfullbright">
+<td><code>cl_enemyfullbright</code><button class="copy-cvar" type="button" data-copy="cl_enemyfullbright" aria-label="Copy cl_enemyfullbright">Copy name</button></td>
+<td><code>0</code></td>
+<td><strong>Client-side only.</strong> Blend enemy-player lighting toward fullbright: <code>0</code> off, <code>33.3</code>, <code>66.6</code>, <code>88</code>, or <code>100</code>. Only multiplayer player bodies and their attached weapons receive it; map surfaces, monsters, items, teammates, yourself, unknown-team players (countdown), and the first-person view weapon are unchanged. Legacy <code>1</code> is 66.6%; old <code>50</code> is 33.3%. Works with or without <code>cl_forcecolors</code>. Saved.</td>
+</tr>
+<tr data-cvar="scr_conspeed" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-conspeed">
+<td><code>scr_conspeed</code><button class="copy-cvar" type="button" data-copy="scr_conspeed" aria-label="Copy scr_conspeed">Copy name</button></td>
+<td><code>3</code></td>
+<td>Console drop / raise speed.</td>
+</tr>
+<tr data-cvar="scr_conheight" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-conheight">
+<td><code>scr_conheight</code><button class="copy-cvar" type="button" data-copy="scr_conheight" aria-label="Copy scr_conheight">Copy name</button></td>
+<td><code>0.5</code></td>
+<td>Open console height as a fraction of the screen.</td>
+</tr>
+<tr data-cvar="con_notifytime" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-con-notifytime">
+<td><code>con_notifytime</code><button class="copy-cvar" type="button" data-copy="con_notifytime" aria-label="Copy con_notifytime">Copy name</button></td>
+<td><code>3</code></td>
+<td>Seconds notify lines stay on screen.</td>
+</tr>
+<tr data-cvar="scr_showpause" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-showpause">
+<td><code>scr_showpause</code><button class="copy-cvar" type="button" data-copy="scr_showpause" aria-label="Copy scr_showpause">Copy name</button></td>
+<td><code>1</code></td>
+<td>Draw “Paused”; set <code>0</code> for cleaner screenshots.</td>
+</tr>
+<tr data-cvar="scr_chathud" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-chathud">
+<td><code>scr_chathud</code><button class="copy-cvar" type="button" data-copy="scr_chathud" aria-label="Copy scr_chathud">Copy name</button></td>
+<td><code>0</code></td>
+<td>Persistent chat HUD overlay.</td>
+</tr>
+<tr data-cvar="scr_chathud_lines" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-scr-chathud-lines">
+<td><code>scr_chathud_lines</code><button class="copy-cvar" type="button" data-copy="scr_chathud_lines" aria-label="Copy scr_chathud_lines">Copy name</button></td>
+<td><code>4</code></td>
+<td>Chat HUD line count.</td>
+</tr>
+<tr data-cvar="cl_drawfps" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-drawfps">
+<td><code>cl_drawfps</code><button class="copy-cvar" type="button" data-copy="cl_drawfps" aria-label="Copy cl_drawfps">Copy name</button></td>
+<td><code>0</code></td>
+<td>On-screen FPS.</td>
+</tr>
+<tr data-cvar="cl_drawmaptime" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-cl-drawmaptime">
+<td><code>cl_drawmaptime</code><button class="copy-cvar" type="button" data-copy="cl_drawmaptime" aria-label="Copy cl_drawmaptime">Copy name</button></td>
+<td><code>0</code></td>
+<td>On-screen map timer.</td>
+</tr>
+<tr data-cvar="netgraph" data-section="hud-menus-console-crosshair" id="cvar-hud-menus-console-crosshair-netgraph">
+<td><code>netgraph</code><button class="copy-cvar" type="button" data-copy="netgraph" aria-label="Copy netgraph">Copy name</button></td>
+<td><code>0</code></td>
+<td>Network latency graph.</td>
+</tr>
+</tbody></table></div>
+<p data-section="hud-menus-console-crosshair"><strong>Example hold-to-zoom (crosshair overlays)</strong></p>
+<p data-section="hud-menus-console-crosshair"><code>crosshair N</code> loads <code>pics/chN</code>. Overlay cvars <code>ch1</code>/<code>ch2</code>/<code>ch3</code> take any pic name under <code>pics/</code> (no path/extension). Clear overlays with <code>ch1 0; ch2 0; ch3 0</code> in your restore alias or they stick after zoom (empty <code>ch1 &quot;&quot;</code> does <strong>not</strong> clear — Quake drops empty quotes). Needs matching pics in a pak/pkz (e.g. MaxPak <code>ch0</code>–<code>ch9</code>, <code>sniper</code>).</p>
+<p data-section="hud-menus-console-crosshair">Hold Mouse3 zoom pattern (from a live R1Q2v2 autoexec — tweak FOV/sensitivity to taste):</p>
+<pre><code>alias def_view &quot;fov 110; sensitivity 4.15; crosshair 2; ch1 0; ch2 0; ch3 0; ch_scale 1; ch1_scale 1; ch2_scale 1; ch3_scale 1&quot;
+alias +railzoom &quot;fov 60; sensitivity 2.6975; crosshair 9; ch1 ch0; ch2 sniper; ch_scale 1; ch1_scale 1; ch2_scale 1&quot;
+alias -railzoom &quot;def_view&quot;
+bind MOUSE3 +railzoom</code></pre>
+<p data-section="hud-menus-console-crosshair">Notes: <code>crosshair 0</code> is off (does not draw <code>ch0</code> — use an overlay slot for <code>ch0</code>). If <code>sniper</code> is a small asset, raise <code>ch2_scale</code> (or ship a full-res <code>pics/sniper</code>). Options menu spinner still clamps base <code>crosshair</code> to 0–3; aliases may use higher indices. Optional: <code>m_autosens 1</code> instead of hard-coded sensitivity on zoom.</p>
+<h2 id="sound" data-section="sound">Sound</h2>
+<p data-section="sound">OpenAL (when compiled in): player-local and <code>ATTN_NONE</code> sources are <code>AL_SOURCE_RELATIVE</code> at the listener so they do not drift; world sources use the Q2→AL axis remap and inverse-distance with rolloff 1.</p>
+<div class="reference-table-wrap" data-section="sound"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="s_volume" data-section="sound" id="cvar-sound-s-volume">
+<td><code>s_volume</code><button class="copy-cvar" type="button" data-copy="s_volume" aria-label="Copy s_volume">Copy name</button></td>
+<td><code>0.5</code></td>
+<td>Master SFX volume.</td>
+</tr>
+<tr data-cvar="s_khz" data-section="sound" id="cvar-sound-s-khz">
+<td><code>s_khz</code><button class="copy-cvar" type="button" data-copy="s_khz" aria-label="Copy s_khz">Copy name</button></td>
+<td><code>22</code></td>
+<td>Mix rate (<code>11</code> / <code>22</code> / <code>44</code> from Options).</td>
+</tr>
+<tr data-cvar="s_loadas8bit" data-section="sound" id="cvar-sound-s-loadas8bit">
+<td><code>s_loadas8bit</code><button class="copy-cvar" type="button" data-copy="s_loadas8bit" aria-label="Copy s_loadas8bit">Copy name</button></td>
+<td><code>0</code></td>
+<td>Load samples as 8-bit.</td>
+</tr>
+<tr data-cvar="s_mixahead" data-section="sound" id="cvar-sound-s-mixahead">
+<td><code>s_mixahead</code><button class="copy-cvar" type="button" data-copy="s_mixahead" aria-label="Copy s_mixahead">Copy name</button></td>
+<td><code>0.2</code></td>
+<td>Mix-ahead buffer (seconds).</td>
+</tr>
+<tr data-cvar="s_ambient" data-section="sound" id="cvar-sound-s-ambient">
+<td><code>s_ambient</code><button class="copy-cvar" type="button" data-copy="s_ambient" aria-label="Copy s_ambient">Copy name</button></td>
+<td><code>1</code></td>
+<td>Ambient / looping world sounds.</td>
+</tr>
+<tr data-cvar="s_focusfree" data-section="sound" id="cvar-sound-s-focusfree">
+<td><code>s_focusfree</code><button class="copy-cvar" type="button" data-copy="s_focusfree" aria-label="Copy s_focusfree">Copy name</button></td>
+<td><code>0</code></td>
+<td>Keep playing sound when the window is unfocused.</td>
+</tr>
+<tr data-cvar="s_initsound" data-section="sound" id="cvar-sound-s-initsound">
+<td><code>s_initsound</code><button class="copy-cvar" type="button" data-copy="s_initsound" aria-label="Copy s_initsound">Copy name</button></td>
+<td><code>1</code></td>
+<td><code>0</code> silent; <code>1</code> DirectSound/DMA; <strong><code>2</code> OpenAL</strong> (needs <code>OpenAL32.dll</code> beside exe).</td>
+</tr>
+<tr data-cvar="cd_nocd" data-section="sound" id="cvar-sound-cd-nocd">
+<td><code>cd_nocd</code><button class="copy-cvar" type="button" data-copy="cd_nocd" aria-label="Copy cd_nocd">Copy name</button></td>
+<td><code>0</code></td>
+<td>Disable CD audio.</td>
+</tr>
+</tbody></table></div>
+<h2 id="input-mouse" data-section="input-mouse">Input / mouse</h2>
+<div class="reference-table-wrap" data-section="input-mouse"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="sensitivity" data-section="input-mouse" id="cvar-input-mouse-sensitivity">
+<td><code>sensitivity</code><button class="copy-cvar" type="button" data-copy="sensitivity" aria-label="Copy sensitivity">Copy name</button></td>
+<td><code>3</code></td>
+<td>Mouse look sensitivity.</td>
+</tr>
+<tr data-cvar="m_pitch" data-section="input-mouse" id="cvar-input-mouse-m-pitch">
+<td><code>m_pitch</code><button class="copy-cvar" type="button" data-copy="m_pitch" aria-label="Copy m_pitch">Copy name</button></td>
+<td><code>0.022</code></td>
+<td>Pitch scale; negate to invert Y.</td>
+</tr>
+<tr data-cvar="m_yaw" data-section="input-mouse" id="cvar-input-mouse-m-yaw">
+<td><code>m_yaw</code><button class="copy-cvar" type="button" data-copy="m_yaw" aria-label="Copy m_yaw">Copy name</button></td>
+<td><code>0.022</code></td>
+<td>Yaw scale.</td>
+</tr>
+<tr data-cvar="m_filter" data-section="input-mouse" id="cvar-input-mouse-m-filter">
+<td><code>m_filter</code><button class="copy-cvar" type="button" data-copy="m_filter" aria-label="Copy m_filter">Copy name</button></td>
+<td><code>0</code></td>
+<td>Average mouse deltas (smoother, less raw). Independent of DirectInput mode.</td>
+</tr>
+<tr data-cvar="m_autosens" data-section="input-mouse" id="cvar-input-mouse-m-autosens">
+<td><code>m_autosens</code><button class="copy-cvar" type="button" data-copy="m_autosens" aria-label="Copy m_autosens">Copy name</button></td>
+<td><code>0</code></td>
+<td>Scale mouse by FOV (Q2PRO zoom aliases). <code>1</code> uses 90 as the base.</td>
+</tr>
+<tr data-cvar="m_directinput" data-section="input-mouse" id="cvar-input-mouse-m-directinput">
+<td><code>m_directinput</code><button class="copy-cvar" type="button" data-copy="m_directinput" aria-label="Copy m_directinput">Copy name</button></td>
+<td><code>0</code></td>
+<td>Backend when <code>in_mouse</code> is 1: <code>0</code> = Win32 cursor recenter; <code>1</code> = buffered DirectInput; <code>2</code> = immediate DirectInput. Does <strong>not</strong> replace or bypass <code>in_mouse</code>.</td>
+</tr>
+<tr data-cvar="m_fixaccel" data-section="input-mouse" id="cvar-input-mouse-m-fixaccel">
+<td><code>m_fixaccel</code><button class="copy-cvar" type="button" data-copy="m_fixaccel" aria-label="Copy m_fixaccel">Copy name</button></td>
+<td>OS-dependent</td>
+<td>XP mouse-acceleration fix (Options → R1Q2).</td>
+</tr>
+<tr data-cvar="in_mouse" data-section="input-mouse" id="cvar-input-mouse-in-mouse">
+<td><code>in_mouse</code><button class="copy-cvar" type="button" data-copy="in_mouse" aria-label="Copy in_mouse">Copy name</button></td>
+<td><code>1</code></td>
+<td><strong>Master mouse enable.</strong> <code>0</code> disables mouselook entirely (startup/activate early-out). It is <strong>not</strong> “use Win32 instead of DirectInput.”</td>
+</tr>
+<tr data-cvar="freelook" data-section="input-mouse" id="cvar-input-mouse-freelook">
+<td><code>freelook</code><button class="copy-cvar" type="button" data-copy="freelook" aria-label="Copy freelook">Copy name</button></td>
+<td><code>1</code></td>
+<td>Always mouselook without <code>+mlook</code>.</td>
+</tr>
+<tr data-cvar="lookspring" data-section="input-mouse" id="cvar-input-mouse-lookspring">
+<td><code>lookspring</code><button class="copy-cvar" type="button" data-copy="lookspring" aria-label="Copy lookspring">Copy name</button></td>
+<td><code>0</code></td>
+<td>Center view when mouselook ends.</td>
+</tr>
+<tr data-cvar="lookstrafe" data-section="input-mouse" id="cvar-input-mouse-lookstrafe">
+<td><code>lookstrafe</code><button class="copy-cvar" type="button" data-copy="lookstrafe" aria-label="Copy lookstrafe">Copy name</button></td>
+<td><code>0</code></td>
+<td>Strafe with mouse while looking.</td>
+</tr>
+</tbody></table></div>
+<p data-section="input-mouse"><code>in_mouse</code> is the master switch for mouse look; <code>m_directinput</code> only picks the backend while mouse is enabled. DirectInput does <strong>not</strong> replace or bypass <code>in_mouse</code>. Recommended crisp combo: <code>in_mouse 1</code>, <code>m_directinput 2</code>, <code>m_filter 0</code>. <code>m_filter 1</code> averages deltas for a smoother feel and is independent of DI mode.</p>
+<p data-section="input-mouse"><strong>Alt-tab / multi-monitor:</strong> the client keeps sending usercmds while unfocused, using elapsed command time within the normal hitch limits. Desktop mouse movement does not control the game or set button activity. Commands preserve the current view even when the input clock has not advanced. Build 8064 removes the earlier background mouse/timing workaround: legacy Arena&#x27;s warning checks repeated aim-angle reversals, not the assumed q2admin timing signature. Prefer <code>vid_borderless 1</code> over exclusive fullscreen on more than one display. Default <code>m_directinput 0</code> (Win32 mouse) is the more reliable focus-restore path; DirectInput exclusive (<code>m_directinput 1</code>) can fail to reacquire until the window is truly foreground. No extra cvar is required.</p>
+<p data-section="input-mouse"><strong><code>config.cfg</code> at startup:</strong> <code>exec default.cfg</code> then the loose <code>config.cfg</code> (gamedir, then <code>baseq2</code>, then next to the exe). A <code>.pak</code>/<code>.pkz</code> cannot shadow it. If there is no disk <code>config.cfg</code>, <code>Q2config.cfg</code> is used (Q2PRO/Yamagi). Console prints <code>execing config.cfg</code> so a miss is visible. <code>autoexec.cfg</code> is still run from <code>CL_Init</code> (and on gamedir change). Hidden <code>autoexec.cfg</code> is no longer skipped.</p>
+<h2 id="movement-prediction-view" data-section="movement-prediction-view">Movement, prediction, view</h2>
+<div class="reference-table-wrap" data-section="movement-prediction-view"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="cl_async" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-async">
+<td><code>cl_async</code><button class="copy-cvar" type="button" data-copy="cl_async" aria-label="Copy cl_async">Copy name</button></td>
+<td><code>1</code></td>
+<td><strong><code>1</code> = stock R1Q2 async</strong> (net/render split, default feel). <strong><code>0</code> = sync physics</strong> — render FPS locked to <code>cl_maxfps</code> so jump timing matches classic Quake II. This is <em>not</em> Q2PRO pmove. Saved.</td>
+</tr>
+<tr data-cvar="cl_predict" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-predict">
+<td><code>cl_predict</code><button class="copy-cvar" type="button" data-copy="cl_predict" aria-label="Copy cl_predict">Copy name</button></td>
+<td><code>1</code></td>
+<td>Local movement prediction.</td>
+</tr>
+<tr data-cvar="cl_smoothsteps" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-smoothsteps">
+<td><code>cl_smoothsteps</code><button class="copy-cvar" type="button" data-copy="cl_smoothsteps" aria-label="Copy cl_smoothsteps">Copy name</button></td>
+<td><code>3</code></td>
+<td>Stair-step smoothing in prediction (modes 1–3).</td>
+</tr>
+<tr data-cvar="cl_run" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-run">
+<td><code>cl_run</code><button class="copy-cvar" type="button" data-copy="cl_run" aria-label="Copy cl_run">Copy name</button></td>
+<td><code>1</code></td>
+<td>Always-run.</td>
+</tr>
+<tr data-cvar="cl_forwardspeed" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-forwardspeed">
+<td><code>cl_forwardspeed</code> / <code>cl_sidespeed</code> / <code>cl_upspeed</code><button class="copy-cvar" type="button" data-copy="cl_forwardspeed" aria-label="Copy cl_forwardspeed">Copy name</button></td>
+<td><code>200</code></td>
+<td>Base move speeds when not running.</td>
+</tr>
+<tr data-cvar="fov" data-section="movement-prediction-view" id="cvar-movement-prediction-view-fov">
+<td><code>fov</code><button class="copy-cvar" type="button" data-copy="fov" aria-label="Copy fov">Copy name</button></td>
+<td><code>90</code></td>
+<td>Field of view (userinfo).</td>
+</tr>
+<tr data-cvar="cl_gun" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-gun">
+<td><code>cl_gun</code><button class="copy-cvar" type="button" data-copy="cl_gun" aria-label="Copy cl_gun">Copy name</button></td>
+<td><code>1</code></td>
+<td>Draw the view weapon.</td>
+</tr>
+<tr data-cvar="cl_vwep" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-vwep">
+<td><code>cl_vwep</code><button class="copy-cvar" type="button" data-copy="cl_vwep" aria-label="Copy cl_vwep">Copy name</button></td>
+<td><code>1</code></td>
+<td>Visible weapons on other players.</td>
+</tr>
+<tr data-cvar="cl_footsteps" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-footsteps">
+<td><code>cl_footsteps</code><button class="copy-cvar" type="button" data-copy="cl_footsteps" aria-label="Copy cl_footsteps">Copy name</button></td>
+<td><code>1</code></td>
+<td>Local footstep sounds.</td>
+</tr>
+<tr data-cvar="cl_nolerp" data-section="movement-prediction-view" id="cvar-movement-prediction-view-cl-nolerp">
+<td><code>cl_nolerp</code><button class="copy-cvar" type="button" data-copy="cl_nolerp" aria-label="Copy cl_nolerp">Copy name</button></td>
+<td><code>0</code></td>
+<td>Disable entity interpolation.</td>
+</tr>
+</tbody></table></div>
+<h2 id="network-fps" data-section="network-fps">Network / FPS</h2>
+<div class="reference-table-wrap" data-section="network-fps"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="rate" data-section="network-fps" id="cvar-network-fps-rate">
+<td><code>rate</code><button class="copy-cvar" type="button" data-copy="rate" aria-label="Copy rate">Copy name</button></td>
+<td><code>15000</code></td>
+<td>Client bandwidth cap (userinfo). Online often <code>25000</code>.</td>
+</tr>
+<tr data-cvar="cl_maxfps" data-section="network-fps" id="cvar-network-fps-cl-maxfps">
+<td><code>cl_maxfps</code><button class="copy-cvar" type="button" data-copy="cl_maxfps" aria-label="Copy cl_maxfps">Copy name</button></td>
+<td><code>60</code></td>
+<td>Network / command FPS; also render FPS when <code>cl_async 0</code>.</td>
+</tr>
+<tr data-cvar="r_maxfps" data-section="network-fps" id="cvar-network-fps-r-maxfps">
+<td><code>r_maxfps</code><button class="copy-cvar" type="button" data-copy="r_maxfps" aria-label="Copy r_maxfps">Copy name</button></td>
+<td><code>250</code></td>
+<td>Render FPS cap when <code>cl_async 1</code> (Video “Max FPS”).</td>
+</tr>
+<tr data-cvar="cl_updaterate" data-section="network-fps" id="cvar-network-fps-cl-updaterate">
+<td><code>cl_updaterate</code><button class="copy-cvar" type="button" data-copy="cl_updaterate" aria-label="Copy cl_updaterate">Copy name</button></td>
+<td><code>0</code></td>
+<td>Requested update rate on R1Q2 protocol (<code>0</code> = server default).</td>
+</tr>
+<tr data-cvar="cl_timeout" data-section="network-fps" id="cvar-network-fps-cl-timeout">
+<td><code>cl_timeout</code><button class="copy-cvar" type="button" data-copy="cl_timeout" aria-label="Copy cl_timeout">Copy name</button></td>
+<td><code>120</code></td>
+<td>Seconds with no packets before disconnect.</td>
+</tr>
+<tr data-cvar="cl_instantpacket" data-section="network-fps" id="cvar-network-fps-cl-instantpacket">
+<td><code>cl_instantpacket</code><button class="copy-cvar" type="button" data-copy="cl_instantpacket" aria-label="Copy cl_instantpacket">Copy name</button></td>
+<td><code>1</code></td>
+<td>Send packets immediately on attack/use (and, with <code>cl_maxpackets</code>, jump edges).</td>
+</tr>
+<tr data-cvar="cl_maxpackets" data-section="network-fps" id="cvar-network-fps-cl-maxpackets">
+<td><code>cl_maxpackets</code><button class="copy-cvar" type="button" data-copy="cl_maxpackets" aria-label="Copy cl_maxpackets">Copy name</button></td>
+<td><code>0</code></td>
+<td><strong>0</strong> sends every physics frame (classic/default). A value such as <code>60</code> opts into the protocol 34/35 outgoing packet limiter. The limiter uses the two-command backup already in each datagram, never skips more than two sends in a row, and sends attack/use/jump edges immediately.</td>
+</tr>
+<tr data-cvar="net_ignore_icmp" data-section="network-fps" id="cvar-network-fps-net-ignore-icmp">
+<td><code>net_ignore_icmp</code><button class="copy-cvar" type="button" data-copy="net_ignore_icmp" aria-label="Copy net_ignore_icmp">Copy name</button></td>
+<td><code>1</code></td>
+<td>Ignore ICMP port-unreachable on the UDP socket. Windows otherwise surfaces those as <code>WSAECONNRESET</code> with a <strong>stale</strong> recv buffer. <strong>Build 8050</strong> also disables <code>SIO_UDP_CONNRESET</code> / <code>SIO_UDP_NETRESET</code> and skips <code>i &lt; 0</code> in <code>CL_ReadPackets</code>.</td>
+</tr>
+<tr data-cvar="cl_http_downloads" data-section="network-fps" id="cvar-network-fps-cl-http-downloads">
+<td><code>cl_http_downloads</code><button class="copy-cvar" type="button" data-copy="cl_http_downloads" aria-label="Copy cl_http_downloads">Copy name</button></td>
+<td><code>1</code></td>
+<td>Allow HTTP downloads when the server offers them (<code>dlserver=</code>). Needs a <strong>USE_CURL</strong> build and <code>libcurl.dll</code> beside the exe.</td>
+</tr>
+<tr data-cvar="allow_download" data-section="network-fps" id="cvar-network-fps-allow-download">
+<td><code>allow_download</code><button class="copy-cvar" type="button" data-copy="allow_download" aria-label="Copy allow_download">Copy name</button></td>
+<td><code>1</code></td>
+<td>Master UDP download switch (maps / models / sounds / players have siblings).</td>
+</tr>
+</tbody></table></div>
+<p data-section="network-fps">There is no <code>cl_snaps</code> in this tree.</p>
+<h2 id="multiplayer-identity" data-section="multiplayer-identity">Multiplayer / identity</h2>
+<div class="reference-table-wrap" data-section="multiplayer-identity"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="name" data-section="multiplayer-identity" id="cvar-multiplayer-identity-name">
+<td><code>name</code><button class="copy-cvar" type="button" data-copy="name" aria-label="Copy name">Copy name</button></td>
+<td><code>unnamed</code></td>
+<td>Player name (userinfo).</td>
+</tr>
+<tr data-cvar="skin" data-section="multiplayer-identity" id="cvar-multiplayer-identity-skin">
+<td><code>skin</code><button class="copy-cvar" type="button" data-copy="skin" aria-label="Copy skin">Copy name</button></td>
+<td><code>male/grunt</code></td>
+<td>Player skin (userinfo).</td>
+</tr>
+<tr data-cvar="password" data-section="multiplayer-identity" id="cvar-multiplayer-identity-password">
+<td><code>password</code><button class="copy-cvar" type="button" data-copy="password" aria-label="Copy password">Copy name</button></td>
+<td><code>&quot;&quot;</code></td>
+<td>Server password (userinfo).</td>
+</tr>
+<tr data-cvar="spectator" data-section="multiplayer-identity" id="cvar-multiplayer-identity-spectator">
+<td><code>spectator</code><button class="copy-cvar" type="button" data-copy="spectator" aria-label="Copy spectator">Copy name</button></td>
+<td><code>0</code></td>
+<td>Join as spectator.</td>
+</tr>
+<tr data-cvar="adr0" data-section="multiplayer-identity" id="cvar-multiplayer-identity-adr0">
+<td><code>adr0</code> - <code>adr15</code><button class="copy-cvar" type="button" data-copy="adr0" aria-label="Copy adr0">Copy name</button></td>
+<td><code>&quot;&quot;</code></td>
+<td>Address Book favorites (Join Server bookmarks).</td>
+</tr>
+<tr data-cvar="rcon_password" data-section="multiplayer-identity" id="cvar-multiplayer-identity-rcon-password">
+<td><code>rcon_password</code> / <code>rcon_address</code><button class="copy-cvar" type="button" data-copy="rcon_password" aria-label="Copy rcon_password">Copy name</button></td>
+<td><code>&quot;&quot;</code></td>
+<td>Remote console.</td>
+</tr>
+<tr data-cvar="cl_filterchat" data-section="multiplayer-identity" id="cvar-multiplayer-identity-cl-filterchat">
+<td><code>cl_filterchat</code><button class="copy-cvar" type="button" data-copy="cl_filterchat" aria-label="Copy cl_filterchat">Copy name</button></td>
+<td><code>0</code></td>
+<td>Filter chat messages.</td>
+</tr>
+<tr data-cvar="cl_demospeed" data-section="multiplayer-identity" id="cvar-multiplayer-identity-cl-demospeed">
+<td><code>cl_demospeed</code><button class="copy-cvar" type="button" data-copy="cl_demospeed" aria-label="Copy cl_demospeed">Copy name</button></td>
+<td><code>1</code></td>
+<td>Demo playback speed 0.1–8 (<code>demospeed</code>). Saved.</td>
+</tr>
+<tr data-cvar="cl_cheatcheck" data-section="multiplayer-identity" id="cvar-multiplayer-identity-cl-cheatcheck">
+<td><code>cl_cheatcheck</code><button class="copy-cvar" type="button" data-copy="cl_cheatcheck" aria-label="Copy cl_cheatcheck">Copy name</button></td>
+<td><code>1</code></td>
+<td>Refuse <strong>remote</strong> multiplayer if this process finds known cheat files (e.g. <code>frkq2.exe</code>, <code>wh.dll</code>), loaded cheat modules, a banned <code>gl_driver</code>, or a local <code>opengl32.dll</code> wrapper (<code>vid_localgl</code>). Localhost / single-player are not blocked. Console: <code>cheatcheck</code>.</td>
+</tr>
+</tbody></table></div>
+<p data-section="multiplayer-identity">Dedicated / listen-server (not written to client <code>config.cfg</code>):</p>
+<div class="reference-table-wrap" data-section="multiplayer-identity"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="sv_default_cheatbans" data-section="multiplayer-identity" id="cvar-multiplayer-identity-sv-default-cheatbans">
+<td><code>sv_default_cheatbans</code><button class="copy-cvar" type="button" data-copy="sv_default_cheatbans" aria-label="Copy sv_default_cheatbans">Copy name</button></td>
+<td><code>1</code></td>
+<td>At map start, install cvar/command bans that kick FreakQuake, OpenGL wallhack wrappers, and engine cheat cvars (<code>timescale</code>, <code>r_fullbright</code>, <code>gl_lockpvs</code>, …). Set <code>0</code> in <code>server.cfg</code> <strong>before</strong> the first map to skip. <code>addcvarban</code> / <code>delcvarban</code> still work.</td>
+</tr>
+<tr data-cvar="sv_nc_visibilitycheck" data-section="multiplayer-identity" id="cvar-multiplayer-identity-sv-nc-visibilitycheck">
+<td><code>sv_nc_visibilitycheck</code><button class="copy-cvar" type="button" data-copy="sv_nc_visibilitycheck" aria-label="Copy sv_nc_visibilitycheck">Copy name</button></td>
+<td><code>0</code></td>
+<td>Optional CPU-heavy server-side visibility test against wallhacks. <strong>Leave at 0</strong> unless the host can spare the cost. <code>1</code> = hide models of players you cannot see (footsteps still send). <code>2</code> = fully suppress unseen players (no footsteps). Toggle per hardware; do not enable on low-end dedicated boxes.</td>
+</tr>
+<tr data-cvar="sv_nc_clientsonly" data-section="multiplayer-identity" id="cvar-multiplayer-identity-sv-nc-clientsonly">
+<td><code>sv_nc_clientsonly</code><button class="copy-cvar" type="button" data-copy="sv_nc_clientsonly" aria-label="Copy sv_nc_clientsonly">Copy name</button></td>
+<td><code>1</code></td>
+<td>If visibility check is on, only test other players. Unused while <code>sv_nc_visibilitycheck</code> is <code>0</code>.</td>
+</tr>
+<tr data-cvar="sv_cheaternet" data-section="multiplayer-identity" id="cvar-multiplayer-identity-sv-cheaternet">
+<td><code>sv_cheaternet</code><button class="copy-cvar" type="button" data-copy="sv_cheaternet" aria-label="Copy sv_cheaternet">Copy name</button></td>
+<td><code>60</code></td>
+<td>Query r1ch CheaterNet for recent infractions (minutes). <code>0</code> disables.</td>
+</tr>
+<tr data-cvar="sv_cheaternet_action" data-section="multiplayer-identity" id="cvar-multiplayer-identity-sv-cheaternet-action">
+<td><code>sv_cheaternet_action</code><button class="copy-cvar" type="button" data-copy="sv_cheaternet_action" aria-label="Copy sv_cheaternet_action">Copy name</button></td>
+<td><code>1</code></td>
+<td><code>0</code> console log, <code>1</code> tell players, <code>2</code> refuse the connection.</td>
+</tr>
+</tbody></table></div>
+<h2 id="r1q2-extras-options-r1q2" data-section="r1q2-extras-options-r1q2">R1Q2 extras (Options → R1Q2)</h2>
+<p data-section="r1q2-extras-options-r1q2">These are often <strong>not</strong> written to <code>config.cfg</code> — keep them in <code>autoexec.cfg</code> if you want them permanent.</p>
+<div class="reference-table-wrap" data-section="r1q2-extras-options-r1q2"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="m_directinput" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-m-directinput">
+<td><code>m_directinput</code><button class="copy-cvar" type="button" data-copy="m_directinput" aria-label="Copy m_directinput">Copy name</button></td>
+<td><code>0</code></td>
+<td>Mouse backend when <code>in_mouse</code> is on (see Input).</td>
+</tr>
+<tr data-cvar="m_fixaccel" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-m-fixaccel">
+<td><code>m_fixaccel</code><button class="copy-cvar" type="button" data-copy="m_fixaccel" aria-label="Copy m_fixaccel">Copy name</button></td>
+<td>OS-dependent</td>
+<td>OS mouse accel fix.</td>
+</tr>
+<tr data-cvar="cl_defermodels" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-cl-defermodels">
+<td><code>cl_defermodels</code><button class="copy-cvar" type="button" data-copy="cl_defermodels" aria-label="Copy cl_defermodels">Copy name</button></td>
+<td><code>1</code></td>
+<td>Map-prep: defer non-world model loads onto the <strong>render</strong> frame (~1 model / 16 ms) so connect/load hitches less. Mid-game <code>CS_MODELS</code> / <code>CS_SOUNDS</code> / <code>CS_IMAGES</code> / <code>CS_PLAYERSKINS</code> updates are <strong>always</strong> queued the same way (net parse only stores the string; Register* / stepped <code>CL_LoadClientinfoStep</code> run on the render budget). Map-prep drip <strong>overlaps</strong> the mid-game queue (1 map model and/or 1 queued unit per tick). <code>DA_PLAYERSKIN</code> is split (tris/skin/icon/one-vwep per tick) with <code>baseclientinfo</code> placeholders until ready. Overflow never sync-loads from parse — queue is 512 and force-drains on render only. Custom player models also drip-prefetch sexed pain/death/fall/jump. Does not touch packet send, prediction, or pmove. Timedemo still loads sync.</td>
+</tr>
+<tr data-cvar="cl_deferstats" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-cl-deferstats">
+<td><code>cl_deferstats</code><button class="copy-cvar" type="button" data-copy="cl_deferstats" aria-label="Copy cl_deferstats">Copy name</button></td>
+<td><code>0</code></td>
+<td>Developer/debug: every ~2s prints deferred-asset queue depth, overflow drop count, ms of last <code>CL_ProcessDeferredAsset</code>, force-drain flag, pending sexed-prefetch models, and map-prep index (<code>-1</code> = done). No gameplay/feel change.</td>
+</tr>
+<tr data-cvar="cl_async" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-cl-async">
+<td><code>cl_async</code><button class="copy-cvar" type="button" data-copy="cl_async" aria-label="Copy cl_async">Copy name</button></td>
+<td><code>1</code></td>
+<td>Sync physics when <code>0</code>. Saved. Not Q2PRO pmove.</td>
+</tr>
+<tr data-cvar="cl_autorecord" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-cl-autorecord">
+<td><code>cl_autorecord</code><button class="copy-cvar" type="button" data-copy="cl_autorecord" aria-label="Copy cl_autorecord">Copy name</button></td>
+<td><code>0</code></td>
+<td>Auto-record demos on map start.</td>
+</tr>
+<tr data-cvar="cl_railtrail" data-section="r1q2-extras-options-r1q2" id="cvar-r1q2-extras-options-r1q2-cl-railtrail">
+<td><code>cl_railtrail</code><button class="copy-cvar" type="button" data-copy="cl_railtrail" aria-label="Copy cl_railtrail">Copy name</button></td>
+<td><code>0</code></td>
+<td>Xania-style rail colors <code>1</code>.<code>5</code>; <code>0</code> off.</td>
+</tr>
+</tbody></table></div>
+<h2 id="misc" data-section="misc">Misc</h2>
+<div class="reference-table-wrap" data-section="misc"><table class="cvar-table"><thead><tr>
+<th scope="col">Cvar</th>
+<th scope="col">Default</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr data-cvar="game" data-section="misc" id="cvar-misc-game">
+<td><code>game</code><button class="copy-cvar" type="button" data-copy="game" aria-label="Copy game">Copy name</button></td>
+<td><code>&quot;&quot;</code></td>
+<td>Mod gamedir (latched; needs restart / <code>game</code> command).</td>
+</tr>
+<tr data-cvar="logfile" data-section="misc" id="cvar-misc-logfile">
+<td><code>logfile</code><button class="copy-cvar" type="button" data-copy="logfile" aria-label="Copy logfile">Copy name</button></td>
+<td><code>0</code></td>
+<td><code>1</code>+ writes console output to a log.</td>
+</tr>
+<tr data-cvar="logfile_name" data-section="misc" id="cvar-misc-logfile-name">
+<td><code>logfile_name</code><button class="copy-cvar" type="button" data-copy="logfile_name" aria-label="Copy logfile_name">Copy name</button></td>
+<td><code>qconsole.log</code></td>
+<td>Log file name under the gamedir.</td>
+</tr>
+<tr data-cvar="cl_quietstartup" data-section="misc" id="cvar-misc-cl-quietstartup">
+<td><code>cl_quietstartup</code><button class="copy-cvar" type="button" data-copy="cl_quietstartup" aria-label="Copy cl_quietstartup">Copy name</button></td>
+<td><code>1</code></td>
+<td>Quieter engine startup.</td>
+</tr>
+<tr data-cvar="gl_fontscale" data-section="misc" id="cvar-misc-gl-fontscale">
+<td><code>gl_fontscale</code><button class="copy-cvar" type="button" data-copy="gl_fontscale" aria-label="Copy gl_fontscale">Copy name</button></td>
+<td><code>1</code></td>
+<td>Renderer-side font scale helper.</td>
+</tr>
+</tbody></table></div>
+<p data-section="misc"><strong>Commands (not cvars):</strong> <code>screenshot</code> (PNG on Win32; bind is <strong>F12</strong>, not Print Screen), <code>screenshot jpg</code>, <code>vid_restart</code>, <code>menu_video</code>, <code>connect</code>, <code>disconnect</code>, <code>ignore</code> / <code>unignore</code> / <code>mute</code> / <code>unmute</code> / <code>ignorelist</code> (persisted in <code>ignore.txt</code>), <code>demopause</code>, <code>demospeed</code>, <code>addloc</code>, <code>saveloc</code>, <code>writeconfig</code> / <code>writecfg</code>.</p>
+<h3>Config commands</h3>
+<div class="reference-table-wrap" data-section="misc"><table class="data-table"><thead><tr>
+<th scope="col">Command</th>
+<th scope="col">Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><code>writeconfig</code></td>
+<td>Flush key bindings and archived cvars (<code>seta</code> / <code>CVAR_ARCHIVE</code>) to <code>&lt;gamedir&gt;/config.cfg</code> <strong>now</strong>, same write path used on quit. Prints <code>Wrote &lt;gamedir&gt;/config.cfg</code> on success. <strong>No filename argument in v1</strong> (always <code>config.cfg</code>).</td>
+</tr>
+<tr>
+<td><code>writecfg</code></td>
+<td>Alias for <code>writeconfig</code>.</td>
+</tr>
+</tbody></table></div>
+<h2 id="quick-presets" data-section="quick-presets">Quick presets</h2>
+<p data-section="quick-presets">1920×1080 video (stable <code>gl_mode 11</code>; force dims as backup):</p>
+<pre><code>seta vid_ref &quot;r1gl&quot;
+seta vid_fullscreen &quot;1&quot;
+seta gl_mode &quot;11&quot;
+seta sw_mode &quot;11&quot;
+seta vid_forcewidth &quot;1920&quot;
+seta vid_forceheight &quot;1080&quot;</code></pre>
+<p data-section="quick-presets">3440×1440 ultrawide (stable <code>gl_mode 20</code>; force dims optional backup):</p>
+<pre><code>seta vid_ref &quot;r1gl&quot;
+seta vid_fullscreen &quot;1&quot;
+seta vid_borderless &quot;1&quot;
+seta gl_mode &quot;20&quot;
+seta sw_mode &quot;20&quot;
+seta vid_forcewidth &quot;3440&quot;
+seta vid_forceheight &quot;1440&quot;</code></pre>
+<p data-section="quick-presets">Clear or override force dims after <code>exec r1q2v2_visual.cfg</code> (that preset still defaults to 1920×1080).</p>
+<p data-section="quick-presets">Readable menus + HUD at 1080p:</p>
+<pre><code>seta scr_menuscale &quot;2.5&quot;
+seta scr_menupicscale &quot;1.2&quot;
+seta con_scale &quot;2.0&quot;
+seta scr_hudscale &quot;2.5&quot;
+seta scr_layoutscale &quot;0&quot;
+seta gl_hudscale &quot;1&quot;</code></pre>
+<p data-section="quick-presets">Shipped preset: copy <a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/blob/master/baseq2/r1q2v2_visual.cfg"><code>baseq2/r1q2v2_visual.cfg</code></a> (and optionally <a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/blob/master/baseq2/pretty_r1q2v2.cfg"><code>baseq2/pretty_r1q2v2.cfg</code></a>) into the Quake II install <code>baseq2</code> folder. Exec from your own <code>autoexec.cfg</code> or launch line; it must keep <code>gl_hudscale 1</code>.</p>
+<p data-section="quick-presets">Smooth high FPS, no vsync, classic sync movement:</p>
+<pre><code>seta gl_swapinterval &quot;0&quot;
+seta r_maxfps &quot;250&quot;
+seta cl_async &quot;0&quot;
+seta cl_maxfps &quot;125&quot;</code></pre>
+<p data-section="quick-presets">Sharper HD walls:</p>
+<pre><code>seta gl_ext_max_anisotropy &quot;16&quot;
+seta gl_texture_lodbias &quot;-1&quot;
+seta gl_linear_mipmaps &quot;1&quot;
+seta gl_texturemode &quot;GL_LINEAR_MIPMAP_LINEAR&quot;</code></pre><p class="empty-search" id="empty-search" hidden>No matching settings. Try a shorter name or choose another category.</p></article></div>
+<section class="section support-section" id="support" aria-labelledby="support-title"><div><p class="eyebrow">KEEP THE PROJECT GOING</p><h2 id="support-title">Enjoy the client?<br><span>Support the work.</span></h2><p>R1Q2v2 is free. If you enjoy it, a donation is appreciated. Completely optional.</p></div><div class="support-actions"><a class="button button-outline" href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=shawnjwshackelford%40gmail.com&amp;currency_code=USD" rel="noopener">Donate with PayPal <span aria-hidden="true">↗</span></a><a class="button button-outline" href="https://cash.app/$renegadeandroid" rel="noopener">Cash App <span class="cash-handle">$renegadeandroid</span> <span aria-hidden="true">↗</span></a></div></section></main><footer class="site-footer"><div><a class="brand" href="./">R1Q2<span class="brand-version">v2</span></a><p>Original R1Q2 by <a href="https://www.r1ch.net/stuff/r1q2/">r1ch</a>. Updated by h0s3r.</p><p>Quake II is an id Software game. This is an independent community project.</p></div><nav aria-label="Footer"><a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2">Source on GitHub ↗</a><a href="cvars.html">CVAR guide ↗</a><a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/releases">All releases ↗</a><a href="https://github.com/RENEGADE-ANDROiD/R1Q2v2/issues">Report an issue ↗</a></nav><span class="footer-signoff">GOOD LUCK. HAVE FUN.</span></footer></body></html>

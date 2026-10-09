@@ -3,6 +3,11 @@ name: windows-x86
 on:
   push:
     branches: [update/modernize, master]
+    paths-ignore:
+      - 'docs/**'
+      - 'website/**'
+      - '*.md'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 jobs:

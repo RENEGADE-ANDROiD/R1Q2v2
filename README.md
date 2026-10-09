@@ -1,5 +1,7 @@
 # R1Q2v2
 
+**[Visit the R1Q2v2 website](https://renegade-android.github.io/R1Q2v2/)** — screenshots, feature GIFs, downloads, and a [searchable CVAR guide](https://renegade-android.github.io/R1Q2v2/cvars.html).
+
 A modern Windows build of r1ch's R1Q2 Quake II client. Updated by **h0s3r**.
 
 It still looks and plays like R1Q2. The menus, console, and movement stay classic. A few Q2PRO ideas are in (public server list, MD3 view weapons, `.pkz` packs, layered crosshairs) without turning this into a cheat client or a heavy effects pack.
