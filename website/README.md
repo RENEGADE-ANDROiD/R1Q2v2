@@ -58,3 +58,7 @@ The multiplayer server browser section uses the user-supplied
 `20261008200530_1.jpg`, copied unchanged at 1920×1080. Its compact preview
 opens the original image through Enlarge. Server listings are a captured
 snapshot, rather than a live feed on the website.
+
+The Multiplayer settings panel uses two unchanged user-supplied 1920×1080
+JPEGs: `20261008200713_1.jpg` for the menu and `20261008200732_1.jpg` for
+team/enemy colors during gameplay. Both offer full-resolution enlargement.
