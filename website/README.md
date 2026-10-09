@@ -26,9 +26,9 @@ The gameplay PNGs and GIF frames are genuine 1920×1080 captures of the publishe
 Build 8065 executable and renderer. The Advanced Settings and Crosshair Setup
 PNGs are native 1514×848 window captures taken with Computer Use. GIFs encode
 actual moving gameplay at its original resolution, using a generated palette
-and dithering. The HUD clip uses Installation / Super Shotgun, and the
-crosshair clip uses Main Gate / Railgun. Each clip is 1.36 seconds, showing
-only the barrel shot and explosion, and loops automatically without controls.
+and dithering. The HUD clip uses Installation / Super Shotgun. It is
+1.36 seconds, showing only the barrel shot and explosion, and loops
+automatically without controls.
 The Lighting section uses the two user-supplied 1920×1080 JPEGs, copied
 unchanged from `20261005215014_1.jpg` and `20261005214947_1.jpg`. These
 show sunlight/shadows and colored lighting, rather than a before/after pair.
@@ -44,8 +44,7 @@ user's normal game installation was not edited or renamed.
 Menu screenshots: Advanced Settings, Crosshair Setup, Video and HUD, Options,
 R1Q2 Settings, Multiplayer Settings. Preview images preserve their aspect ratio
 and are capped at 720 CSS pixels wide; original files open in the lightbox.
-Feature GIFs show the stock HUD and crosshair during barrel shots and
-explosions. Lighting screenshots have full-resolution Enlarge links. The captures are from a local single-player session;
+The feature GIF shows the stock HUD during a barrel shot and explosion. Lighting screenshots have full-resolution Enlarge links. The captures are from a local single-player session;
 they do not establish multiplayer behavior or performance.
 Mouse input is disabled and keyboard bindings are cleared in the temporary
 capture copy. Camera movement and feature changes are scripted, so desktop
@@ -62,3 +61,11 @@ snapshot, rather than a live feed on the website.
 The Multiplayer settings panel uses two unchanged user-supplied 1920×1080
 JPEGs: `20261008200713_1.jpg` for the menu and `20261008200732_1.jpg` for
 team/enemy colors during gameplay. Both offer full-resolution enlargement.
+
+The Crosshair settings feature uses three pairs of unchanged user-supplied
+1920×1080 JPEGs, with a settings screenshot beside its in-game result:
+- Right alignment: `20260918002036_1.jpg` and `20260918002043_1.jpg`.
+- Left alignment: `20260918002207_1.jpg` and `20260918002230_1.jpg`.
+- Centered alignment: `20260918002351_1.jpg` and `20260918003754_1.jpg`.
+All six screenshots have full-resolution Enlarge links. The crosshair GIF
+is no longer displayed. These user-supplied screenshots include custom assets.

@@ -12,7 +12,7 @@
   <meta property="og:image" content="https://renegade-android.github.io/R1Q2v2/assets/hero.png">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
-  <link rel="stylesheet" href="assets/site.css?v=multiplayer-images">
+  <link rel="stylesheet" href="assets/site.css?v=crosshair-pairs">
   <script src="assets/site.js?v=barrel-loop" defer></script>
 </head>
 <body>
@@ -36,7 +36,7 @@
     </section>
     <div class="spec-strip" aria-label="Client highlights"><span><b>R1GL</b> renderer</span><span><b>Hor+</b> widescreen FOV</span><span><b>OpenAL</b> audio support</span><span><b>PAK + PKZ</b> asset support</span></div>
     <section class="section features" id="features" aria-labelledby="features-title">
-      <div class="section-heading"><p class="eyebrow">02 / FEATURES</p><h2 id="features-title">Client features</h2><p>Display, HUD, crosshair, audio, server browsing, and demo options. The GIFs use the original Quake II textures and weapons.</p></div>
+      <div class="section-heading"><p class="eyebrow">02 / FEATURES</p><h2 id="features-title">Client features</h2><p>Display, HUD, crosshair, audio, server browsing, and demo options. The HUD GIF uses the original Quake II textures and weapons.</p></div>
       <article class="feature-row">
         <div class="feature-copy"><span class="feature-number">01</span><h3>HUD layout</h3><p>Move the stock status bar to the top, spread it across a widescreen display, or keep the classic layout. Adjust its scale without resizing the menus.</p><div class="tags"><a href="cvars.html?q=scr_hud_top">scr_hud_top</a><a href="cvars.html?q=scr_hudwide">scr_hudwide</a><a href="cvars.html?q=scr_hudscale">scr_hudscale</a></div><small>Stock status bar only. Server and mod HUDs keep their own layouts.</small></div>
         <figure class="demo" data-demo><img src="assets/hud.gif?v=barrel-loop" alt="Stock HUD visible while shooting barrels and their explosions" width="1920" height="1080" loading="lazy"><figcaption><span>HUD / BARREL SHOT</span></figcaption></figure>
@@ -48,9 +48,13 @@
           <figure class="demo"><a href="assets/lighting-colored.jpg" data-lightbox><img src="assets/lighting-colored.jpg" alt="Quake II corridor with red colored lighting and a sunlit opening" width="1920" height="1080" loading="lazy"></a><figcaption><span>Colored lighting</span><a href="assets/lighting-colored.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure>
         </div>
       </article>
-      <article class="feature-row">
-        <div class="feature-copy"><span class="feature-number">03</span><h3>Crosshair settings</h3><p>Set your crosshair style, size, color and opacity. Per-hand offsets and optional layers let you adjust crosshair placement and size.</p><div class="tags"><a href="cvars.html?q=crosshair">crosshair</a><a href="cvars.html?q=ch_scale">ch_scale</a><a href="cvars.html?q=ch_red">ch_red</a></div><small>Shown here with stock crosshairs. Extra overlay art can come from your own packs.</small></div>
-        <figure class="demo" data-demo><img src="assets/crosshair.gif?v=barrel-loop" alt="Stock crosshair while a railgun shot destroys an explosive barrel" width="1920" height="1080" loading="lazy"><figcaption><span>CROSSHAIR / BARREL SHOT</span></figcaption></figure>
+      <article class="feature-row crosshair-feature" id="crosshair-settings">
+        <div class="feature-copy"><span class="feature-number">03</span><h3>Crosshair settings</h3><p>Set your crosshair style, size, color and opacity. Adjust X and Y offsets separately for right, left, and centered alignment. Optional layers provide additional scaling controls.</p><div class="tags"><a href="cvars.html?q=crosshair">crosshair</a><a href="cvars.html?q=ch_scale">ch_scale</a><a href="cvars.html?q=ch_red">ch_red</a></div></div>
+        <div class="crosshair-pairs">
+          <div class="crosshair-pair"><h4>Right alignment</h4><div class="crosshair-pair-images"><figure class="demo"><a href="assets/crosshair-right-settings.jpg" data-lightbox><img src="assets/crosshair-right-settings.jpg" alt="Crosshair right alignment settings showing X and Y position offsets" width="1920" height="1080" loading="lazy"></a><figcaption><span>Settings</span><a href="assets/crosshair-right-settings.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure><figure class="demo"><a href="assets/crosshair-right-gameplay.jpg" data-lightbox><img src="assets/crosshair-right-gameplay.jpg" alt="Crosshair right alignment in game while firing" width="1920" height="1080" loading="lazy"></a><figcaption><span>In game</span><a href="assets/crosshair-right-gameplay.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure></div></div>
+          <div class="crosshair-pair"><h4>Left alignment</h4><div class="crosshair-pair-images"><figure class="demo"><a href="assets/crosshair-left-settings.jpg" data-lightbox><img src="assets/crosshair-left-settings.jpg" alt="Crosshair left alignment settings showing X and Y position offsets" width="1920" height="1080" loading="lazy"></a><figcaption><span>Settings</span><a href="assets/crosshair-left-settings.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure><figure class="demo"><a href="assets/crosshair-left-gameplay.jpg" data-lightbox><img src="assets/crosshair-left-gameplay.jpg" alt="Crosshair left alignment in game while firing" width="1920" height="1080" loading="lazy"></a><figcaption><span>In game</span><a href="assets/crosshair-left-gameplay.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure></div></div>
+          <div class="crosshair-pair"><h4>Centered alignment</h4><div class="crosshair-pair-images"><figure class="demo"><a href="assets/crosshair-center-settings.jpg" data-lightbox><img src="assets/crosshair-center-settings.jpg" alt="Crosshair center alignment settings showing X and Y position offsets" width="1920" height="1080" loading="lazy"></a><figcaption><span>Settings</span><a href="assets/crosshair-center-settings.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure><figure class="demo"><a href="assets/crosshair-center-gameplay.jpg" data-lightbox><img src="assets/crosshair-center-gameplay.jpg" alt="Crosshair center alignment in game while firing" width="1920" height="1080" loading="lazy"></a><figcaption><span>In game</span><a href="assets/crosshair-center-gameplay.jpg" data-lightbox>Enlarge ↗</a></figcaption></figure></div></div>
+        </div>
       </article>
       <article class="feature-row reverse" id="server-browser">
         <div class="feature-copy"><span class="feature-number">04</span><h3>Multiplayer server browser</h3><p>Browse servers with hostnames, maps, player counts, and ping. Refresh the list or bookmark selected servers in the Address Book.</p></div>
