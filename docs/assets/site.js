@@ -1,5 +1,4 @@
 /* Buildless, GitHub Pages-compatible interactions. */
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const lightbox = document.querySelector('.lightbox');
 if (lightbox && typeof lightbox.showModal === 'function') {
   document.querySelectorAll('[data-lightbox]').forEach(link => {
@@ -38,32 +37,6 @@ tabs.forEach((tab, index) => {
     if (next !== undefined) { event.preventDefault(); selectTab(tabs[next]); tabs[next].focus(); }
   });
 });
-const demos = [...document.querySelectorAll('[data-demo]')];
-function setAnimation(demo, playing) {
-  demo.dataset.playing = String(playing);
-  demo.querySelector('img').src = playing ? demo.dataset.animation : demo.dataset.poster;
-  const button = demo.querySelector('button');
-  if (!button.dataset.label) button.dataset.label = button.getAttribute('aria-label').replace(/^Play /, '');
-  button.textContent = playing ? 'Pause GIF  Ⅱ' : 'Play GIF  ▶';
-  button.setAttribute('aria-pressed', String(playing));
-  button.setAttribute('aria-label', `${playing ? 'Pause' : 'Play'} ${button.dataset.label}`);
-}
-demos.forEach(demo => {
-  setAnimation(demo, false);
-  demo.querySelector('button').addEventListener('click', () => {
-    demo.dataset.manual = 'true';
-    setAnimation(demo, demo.dataset.playing !== 'true');
-  });
-});
-if ('IntersectionObserver' in window) {
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(({target, isIntersecting}) => {
-      if (target.dataset.manual !== 'true') setAnimation(target, isIntersecting && !prefersReducedMotion.matches);
-    });
-  }, {threshold: 0.35});
-  demos.forEach(demo => observer.observe(demo));
-}
-prefersReducedMotion.addEventListener?.('change', () => { if (prefersReducedMotion.matches) demos.forEach(demo => setAnimation(demo, false)); });
 // Upgrade the verified release fallback when a newer release is available.
 if (document.querySelector('[data-release-download]')) {
   fetch('https://api.github.com/repos/RENEGADE-ANDROiD/R1Q2v2/releases/latest', {headers: {'Accept': 'application/vnd.github+json'}})
