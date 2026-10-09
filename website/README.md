@@ -69,3 +69,8 @@ The Crosshair settings feature uses three pairs of unchanged user-supplied
 - Centered alignment: `20260918002351_1.jpg` and `20260918003754_1.jpg`.
 All six screenshots have full-resolution Enlarge links. The crosshair GIF
 is no longer displayed. These user-supplied screenshots include custom assets.
+
+The Underwater fog feature uses the unchanged user-supplied 1920×1080 PNGs
+`2320_20260913210020_1.png` and `2320_20260919193156_1.png`. They show two
+underwater scenes, with compact previews and full-resolution Enlarge links.
+The feature links to the documented `gl_waterfog` setting.
