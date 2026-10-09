@@ -53,3 +53,8 @@ mouse movement cannot change the recorded view.
 
 Support links match the public Shufflebox website: PayPal and
 `https://cash.app/$renegadeandroid`.
+
+The multiplayer server browser section uses the user-supplied
+`20261008200530_1.jpg`, copied unchanged at 1920×1080. Its compact preview
+opens the original image through Enlarge. Server listings are a captured
+snapshot, rather than a live feed on the website.
