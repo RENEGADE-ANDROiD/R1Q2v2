@@ -44,6 +44,9 @@ Feature GIFs: stock HUD placement/layout, less-harsh-yellow lighting, and stock
 crosshair color/style, with movement and weapon firing in the HUD and crosshair
 examples. The captures are from a local single-player session;
 they do not establish multiplayer behavior or performance.
+Mouse input is disabled and keyboard bindings are cleared in the temporary
+capture copy. Camera movement and feature changes are scripted, so desktop
+mouse movement cannot change the recorded view.
 
 Support links match the public Shufflebox website: PayPal and
 `https://cash.app/$renegadeandroid`.
